@@ -1,0 +1,591 @@
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+    Blocking waiting for file lock on package cache
+   0.281538958s  INFO prepare_target{force=false package_id=shade-contract-template v0.1.0 (/Users/owen/projects/proximity/shade-contract-template) target="shade_contract_template"}: cargo::core::compiler::fingerprint: fingerprint dirty for shade-contract-template v0.1.0 (/Users/owen/projects/proximity/shade-contract-template)/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("shade_contract_template", ["cdylib", "rlib"], "/Users/owen/projects/proximity/shade-contract-template/src/lib.rs", Edition2021) }
+   0.281553958s  INFO prepare_target{force=false package_id=shade-contract-template v0.1.0 (/Users/owen/projects/proximity/shade-contract-template) target="shade_contract_template"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.281974791s  INFO prepare_target{force=false package_id=base64 v0.22.1 target="base64"}: cargo::core::compiler::fingerprint: fingerprint dirty for base64 v0.22.1/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("base64", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/base64-0.22.1/src/lib.rs", Edition2018) }
+   0.281980375s  INFO prepare_target{force=false package_id=base64 v0.22.1 target="base64"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.282112833s  INFO prepare_target{force=false package_id=dcap-qvl v0.2.2 (https://github.com/mattlockyer/dcap-qvl#3caedd8f) target="dcap_qvl"}: cargo::core::compiler::fingerprint: fingerprint dirty for dcap-qvl v0.2.2 (https://github.com/mattlockyer/dcap-qvl#3caedd8f)/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("dcap_qvl", ["cdylib", "rlib"], "/Users/owen/.cargo/git/checkouts/dcap-qvl-29475686120c6bc3/3caedd8/src/lib.rs", Edition2021) }
+   0.282117625s  INFO prepare_target{force=false package_id=dcap-qvl v0.2.2 (https://github.com/mattlockyer/dcap-qvl#3caedd8f) target="dcap_qvl"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.282519166s  INFO prepare_target{force=false package_id=anyhow v1.0.100 target="anyhow"}: cargo::core::compiler::fingerprint: fingerprint dirty for anyhow v1.0.100/Check { test: false }/TargetInner { ..: lib_target("anyhow", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/anyhow-1.0.100/src/lib.rs", Edition2018) }
+   0.282523666s  INFO prepare_target{force=false package_id=anyhow v1.0.100 target="anyhow"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.282751291s  INFO prepare_target{force=false package_id=asn1_der v0.7.6 target="asn1_der"}: cargo::core::compiler::fingerprint: fingerprint dirty for asn1_der v0.7.6/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("asn1_der", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/asn1_der-0.7.6/src/lib.rs", Edition2021) }
+   0.282755583s  INFO prepare_target{force=false package_id=asn1_der v0.7.6 target="asn1_der"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.282858666s  INFO prepare_target{force=false package_id=byteorder v1.5.0 target="byteorder"}: cargo::core::compiler::fingerprint: fingerprint dirty for byteorder v1.5.0/Check { test: false }/TargetInner { benched: false, ..: lib_target("byteorder", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/byteorder-1.5.0/src/lib.rs", Edition2021) }
+   0.282862750s  INFO prepare_target{force=false package_id=byteorder v1.5.0 target="byteorder"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.282959041s  INFO prepare_target{force=false package_id=chrono v0.4.42 target="chrono"}: cargo::core::compiler::fingerprint: fingerprint dirty for chrono v0.4.42/Check { test: false }/TargetInner { ..: lib_target("chrono", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/chrono-0.4.42/src/lib.rs", Edition2021) }
+   0.282963458s  INFO prepare_target{force=false package_id=chrono v0.4.42 target="chrono"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.283177125s  INFO prepare_target{force=false package_id=iana-time-zone v0.1.64 target="iana_time_zone"}: cargo::core::compiler::fingerprint: fingerprint dirty for iana-time-zone v0.1.64/Check { test: false }/TargetInner { ..: lib_target("iana_time_zone", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/iana-time-zone-0.1.64/src/lib.rs", Edition2021) }
+   0.283184833s  INFO prepare_target{force=false package_id=iana-time-zone v0.1.64 target="iana_time_zone"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.283370250s  INFO prepare_target{force=false package_id=core-foundation-sys v0.8.7 target="core_foundation_sys"}: cargo::core::compiler::fingerprint: fingerprint dirty for core-foundation-sys v0.8.7/Check { test: false }/TargetInner { ..: lib_target("core_foundation_sys", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/core-foundation-sys-0.8.7/src/lib.rs", Edition2018) }
+   0.283374500s  INFO prepare_target{force=false package_id=core-foundation-sys v0.8.7 target="core_foundation_sys"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.283488291s  INFO prepare_target{force=false package_id=num-traits v0.2.19 target="num_traits"}: cargo::core::compiler::fingerprint: fingerprint dirty for num-traits v0.2.19/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("num_traits", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/num-traits-0.2.19/src/lib.rs", Edition2021) }
+   0.283492458s  INFO prepare_target{force=false package_id=num-traits v0.2.19 target="num_traits"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.283727083s  INFO prepare_target{force=false package_id=serde v1.0.228 target="serde"}: cargo::core::compiler::fingerprint: fingerprint dirty for serde v1.0.228/Check { test: false }/TargetInner { ..: lib_target("serde", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs", Edition2021) }
+   0.283730500s  INFO prepare_target{force=false package_id=serde v1.0.228 target="serde"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.283962916s  INFO prepare_target{force=false package_id=serde_core v1.0.228 target="serde_core"}: cargo::core::compiler::fingerprint: fingerprint dirty for serde_core v1.0.228/Check { test: false }/TargetInner { ..: lib_target("serde_core", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_core-1.0.228/src/lib.rs", Edition2021) }
+   0.283966666s  INFO prepare_target{force=false package_id=serde_core v1.0.228 target="serde_core"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.284481791s  INFO prepare_target{force=false package_id=const-oid v0.9.6 target="const_oid"}: cargo::core::compiler::fingerprint: fingerprint dirty for const-oid v0.9.6/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("const_oid", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/const-oid-0.9.6/src/lib.rs", Edition2021) }
+   0.284485125s  INFO prepare_target{force=false package_id=const-oid v0.9.6 target="const_oid"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.284654875s  INFO prepare_target{force=false package_id=der v0.7.10 target="der"}: cargo::core::compiler::fingerprint: fingerprint dirty for der v0.7.10/Check { test: false }/TargetInner { ..: lib_target("der", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/der-0.7.10/src/lib.rs", Edition2021) }
+   0.284658666s  INFO prepare_target{force=false package_id=der v0.7.10 target="der"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.284824291s  INFO prepare_target{force=false package_id=flagset v0.4.7 target="flagset"}: cargo::core::compiler::fingerprint: fingerprint dirty for flagset v0.4.7/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("flagset", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/flagset-0.4.7/src/lib.rs", Edition2021) }
+   0.284827625s  INFO prepare_target{force=false package_id=flagset v0.4.7 target="flagset"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.284996583s  INFO prepare_target{force=false package_id=hex v0.4.3 target="hex"}: cargo::core::compiler::fingerprint: fingerprint dirty for hex v0.4.3/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("hex", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/hex-0.4.3/src/lib.rs", Edition2018) }
+   0.285000125s  INFO prepare_target{force=false package_id=hex v0.4.3 target="hex"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.285128291s  INFO prepare_target{force=false package_id=log v0.4.28 target="log"}: cargo::core::compiler::fingerprint: fingerprint dirty for log v0.4.28/Check { test: false }/TargetInner { ..: lib_target("log", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/log-0.4.28/src/lib.rs", Edition2021) }
+   0.285131000s  INFO prepare_target{force=false package_id=log v0.4.28 target="log"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.285247833s  INFO prepare_target{force=false package_id=parity-scale-codec v3.7.5 target="parity_scale_codec"}: cargo::core::compiler::fingerprint: fingerprint dirty for parity-scale-codec v3.7.5/Check { test: false }/TargetInner { name_inferred: true, benched: false, ..: lib_target("parity_scale_codec", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/parity-scale-codec-3.7.5/src/lib.rs", Edition2021) }
+   0.285251083s  INFO prepare_target{force=false package_id=parity-scale-codec v3.7.5 target="parity_scale_codec"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.285470541s  INFO prepare_target{force=false package_id=arrayvec v0.7.6 target="arrayvec"}: cargo::core::compiler::fingerprint: fingerprint dirty for arrayvec v0.7.6/Check { test: false }/TargetInner { ..: lib_target("arrayvec", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arrayvec-0.7.6/src/lib.rs", Edition2018) }
+   0.285473916s  INFO prepare_target{force=false package_id=arrayvec v0.7.6 target="arrayvec"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.285568458s  INFO prepare_target{force=false package_id=byte-slice-cast v1.2.3 target="byte_slice_cast"}: cargo::core::compiler::fingerprint: fingerprint dirty for byte-slice-cast v1.2.3/Check { test: false }/TargetInner { ..: lib_target("byte_slice_cast", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/byte-slice-cast-1.2.3/src/lib.rs", Edition2018) }
+   0.285572708s  INFO prepare_target{force=false package_id=byte-slice-cast v1.2.3 target="byte_slice_cast"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.285648125s  INFO prepare_target{force=false package_id=const_format v0.2.35 target="const_format"}: cargo::core::compiler::fingerprint: fingerprint dirty for const_format v0.2.35/Check { test: false }/TargetInner { ..: lib_target("const_format", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/const_format-0.2.35/src/lib.rs", Edition2021) }
+   0.285651708s  INFO prepare_target{force=false package_id=const_format v0.2.35 target="const_format"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.286268125s  INFO prepare_target{force=false package_id=pem v3.0.6 target="pem"}: cargo::core::compiler::fingerprint: fingerprint dirty for pem v3.0.6/Check { test: false }/TargetInner { ..: lib_target("pem", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pem-3.0.6/src/lib.rs", Edition2021) }
+   0.286272250s  INFO prepare_target{force=false package_id=pem v3.0.6 target="pem"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.286397125s  INFO prepare_target{force=false package_id=ring v0.17.9 (https://github.com/mattlockyer/ring#ec827590) target="ring"}: cargo::core::compiler::fingerprint: fingerprint dirty for ring v0.17.9 (https://github.com/mattlockyer/ring#ec827590)/Check { test: false }/TargetInner { ..: lib_target("ring", ["lib"], "/Users/owen/.cargo/git/checkouts/ring-747a68159c2d751b/ec82759/src/lib.rs", Edition2021) }
+   0.286403125s  INFO prepare_target{force=false package_id=ring v0.17.9 (https://github.com/mattlockyer/ring#ec827590) target="ring"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.286557833s  INFO prepare_target{force=false package_id=cfg-if v1.0.4 target="cfg_if"}: cargo::core::compiler::fingerprint: fingerprint dirty for cfg-if v1.0.4/Check { test: false }/TargetInner { ..: lib_target("cfg_if", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cfg-if-1.0.4/src/lib.rs", Edition2018) }
+   0.286562500s  INFO prepare_target{force=false package_id=cfg-if v1.0.4 target="cfg_if"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.286666333s  INFO prepare_target{force=false package_id=libc v0.2.177 target="libc"}: cargo::core::compiler::fingerprint: fingerprint dirty for libc v0.2.177/Check { test: false }/TargetInner { ..: lib_target("libc", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/libc-0.2.177/src/lib.rs", Edition2021) }
+   0.286669416s  INFO prepare_target{force=false package_id=libc v0.2.177 target="libc"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.287160291s  INFO prepare_target{force=false package_id=untrusted v0.9.0 target="untrusted"}: cargo::core::compiler::fingerprint: fingerprint dirty for untrusted v0.9.0/Check { test: false }/TargetInner { ..: lib_target("untrusted", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/untrusted-0.9.0/src/lib.rs", Edition2018) }
+   0.287163625s  INFO prepare_target{force=false package_id=untrusted v0.9.0 target="untrusted"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.287243416s  INFO prepare_target{force=false package_id=rustls-webpki v0.103.0 (https://github.com/mattlockyer/webpki#219c5df4) target="webpki"}: cargo::core::compiler::fingerprint: fingerprint dirty for rustls-webpki v0.103.0 (https://github.com/mattlockyer/webpki#219c5df4)/Check { test: false }/TargetInner { ..: lib_target("webpki", ["lib"], "/Users/owen/.cargo/git/checkouts/webpki-ef28ca3c1e0f98d9/219c5df/src/lib.rs", Edition2021) }
+   0.287246333s  INFO prepare_target{force=false package_id=rustls-webpki v0.103.0 (https://github.com/mattlockyer/webpki#219c5df4) target="webpki"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.287371791s  INFO prepare_target{force=false package_id=rustls-pki-types v1.11.0 (https://github.com/mattlockyer/pki-types#8da373e6) target="rustls_pki_types"}: cargo::core::compiler::fingerprint: fingerprint dirty for rustls-pki-types v1.11.0 (https://github.com/mattlockyer/pki-types#8da373e6)/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("rustls_pki_types", ["lib"], "/Users/owen/.cargo/git/checkouts/pki-types-9873fd6a5039d0f6/8da373e/src/lib.rs", Edition2021) }
+   0.287374958s  INFO prepare_target{force=false package_id=rustls-pki-types v1.11.0 (https://github.com/mattlockyer/pki-types#8da373e6) target="rustls_pki_types"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.287476166s  INFO prepare_target{force=false package_id=scale-info v2.11.6 target="scale_info"}: cargo::core::compiler::fingerprint: fingerprint dirty for scale-info v2.11.6/Check { test: false }/TargetInner { ..: lib_target("scale_info", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/scale-info-2.11.6/src/lib.rs", Edition2021) }
+   0.287479041s  INFO prepare_target{force=false package_id=scale-info v2.11.6 target="scale_info"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.287644250s  INFO prepare_target{force=false package_id=derive_more v1.0.0 target="derive_more"}: cargo::core::compiler::fingerprint: fingerprint dirty for derive_more v1.0.0/Check { test: false }/TargetInner { ..: lib_target("derive_more", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/derive_more-1.0.0/src/lib.rs", Edition2021) }
+   0.287647208s  INFO prepare_target{force=false package_id=derive_more v1.0.0 target="derive_more"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.287815125s  INFO prepare_target{force=false package_id=serde-human-bytes v0.1.1 target="serde_human_bytes"}: cargo::core::compiler::fingerprint: fingerprint dirty for serde-human-bytes v0.1.1/Check { test: false }/TargetInner { doc_scrape_examples: Disabled, ..: lib_target("serde_human_bytes", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-human-bytes-0.1.1/src/lib.rs", Edition2018) }
+   0.287818166s  INFO prepare_target{force=false package_id=serde-human-bytes v0.1.1 target="serde_human_bytes"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.287952416s  INFO prepare_target{force=false package_id=serde_json v1.0.145 target="serde_json"}: cargo::core::compiler::fingerprint: fingerprint dirty for serde_json v1.0.145/Check { test: false }/TargetInner { ..: lib_target("serde_json", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_json-1.0.145/src/lib.rs", Edition2021) }
+   0.287954958s  INFO prepare_target{force=false package_id=serde_json v1.0.145 target="serde_json"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.288131250s  INFO prepare_target{force=false package_id=indexmap v2.12.1 target="indexmap"}: cargo::core::compiler::fingerprint: fingerprint dirty for indexmap v2.12.1/Check { test: false }/TargetInner { benched: false, ..: lib_target("indexmap", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/indexmap-2.12.1/src/lib.rs", Edition2021) }
+   0.288135375s  INFO prepare_target{force=false package_id=indexmap v2.12.1 target="indexmap"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.288276208s  INFO prepare_target{force=false package_id=equivalent v1.0.2 target="equivalent"}: cargo::core::compiler::fingerprint: fingerprint dirty for equivalent v1.0.2/Check { test: false }/TargetInner { ..: lib_target("equivalent", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/equivalent-1.0.2/src/lib.rs", Edition2015) }
+   0.288280583s  INFO prepare_target{force=false package_id=equivalent v1.0.2 target="equivalent"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.288375375s  INFO prepare_target{force=false package_id=hashbrown v0.16.1 target="hashbrown"}: cargo::core::compiler::fingerprint: fingerprint dirty for hashbrown v0.16.1/Check { test: false }/TargetInner { ..: lib_target("hashbrown", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/hashbrown-0.16.1/src/lib.rs", Edition2021) }
+   0.288379083s  INFO prepare_target{force=false package_id=hashbrown v0.16.1 target="hashbrown"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.288471708s  INFO prepare_target{force=false package_id=itoa v1.0.15 target="itoa"}: cargo::core::compiler::fingerprint: fingerprint dirty for itoa v1.0.15/Check { test: false }/TargetInner { ..: lib_target("itoa", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/itoa-1.0.15/src/lib.rs", Edition2018) }
+   0.288474958s  INFO prepare_target{force=false package_id=itoa v1.0.15 target="itoa"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.288550750s  INFO prepare_target{force=false package_id=memchr v2.7.6 target="memchr"}: cargo::core::compiler::fingerprint: fingerprint dirty for memchr v2.7.6/Check { test: false }/TargetInner { benched: false, ..: lib_target("memchr", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/memchr-2.7.6/src/lib.rs", Edition2021) }
+   0.288554166s  INFO prepare_target{force=false package_id=memchr v2.7.6 target="memchr"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.288627333s  INFO prepare_target{force=false package_id=ryu v1.0.20 target="ryu"}: cargo::core::compiler::fingerprint: fingerprint dirty for ryu v1.0.20/Check { test: false }/TargetInner { ..: lib_target("ryu", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ryu-1.0.20/src/lib.rs", Edition2018) }
+   0.288630083s  INFO prepare_target{force=false package_id=ryu v1.0.20 target="ryu"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.288790041s  INFO prepare_target{force=false package_id=urlencoding v2.1.3 target="urlencoding"}: cargo::core::compiler::fingerprint: fingerprint dirty for urlencoding v2.1.3/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("urlencoding", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/urlencoding-2.1.3/src/lib.rs", Edition2021) }
+   0.288792625s  INFO prepare_target{force=false package_id=urlencoding v2.1.3 target="urlencoding"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.288873041s  INFO prepare_target{force=false package_id=wasm-bindgen-futures v0.4.55 target="wasm_bindgen_futures"}: cargo::core::compiler::fingerprint: fingerprint dirty for wasm-bindgen-futures v0.4.55/Check { test: false }/TargetInner { ..: lib_target("wasm_bindgen_futures", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-futures-0.4.55/src/lib.rs", Edition2021) }
+   0.288876166s  INFO prepare_target{force=false package_id=wasm-bindgen-futures v0.4.55 target="wasm_bindgen_futures"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.289065291s  INFO prepare_target{force=false package_id=js-sys v0.3.82 target="js_sys"}: cargo::core::compiler::fingerprint: fingerprint dirty for js-sys v0.3.82/Check { test: false }/TargetInner { tested: false, doctest: false, ..: lib_target("js_sys", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/js-sys-0.3.82/src/lib.rs", Edition2021) }
+   0.289071500s  INFO prepare_target{force=false package_id=js-sys v0.3.82 target="js_sys"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.289231833s  INFO prepare_target{force=false package_id=once_cell v1.21.3 target="once_cell"}: cargo::core::compiler::fingerprint: fingerprint dirty for once_cell v1.21.3/Check { test: false }/TargetInner { ..: lib_target("once_cell", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/once_cell-1.21.3/src/lib.rs", Edition2021) }
+   0.289237875s  INFO prepare_target{force=false package_id=once_cell v1.21.3 target="once_cell"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.289361041s  INFO prepare_target{force=false package_id=wasm-bindgen v0.2.105 target="wasm_bindgen"}: cargo::core::compiler::fingerprint: fingerprint dirty for wasm-bindgen v0.2.105/Check { test: false }/TargetInner { tested: false, ..: lib_target("wasm_bindgen", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-0.2.105/src/lib.rs", Edition2021) }
+   0.289365833s  INFO prepare_target{force=false package_id=wasm-bindgen v0.2.105 target="wasm_bindgen"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.289998333s  INFO prepare_target{force=false package_id=wasm-bindgen-shared v0.2.105 target="wasm_bindgen_shared"}: cargo::core::compiler::fingerprint: fingerprint dirty for wasm-bindgen-shared v0.2.105/Check { test: false }/TargetInner { ..: lib_target("wasm_bindgen_shared", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wasm-bindgen-shared-0.2.105/src/lib.rs", Edition2021) }
+   0.290005250s  INFO prepare_target{force=false package_id=wasm-bindgen-shared v0.2.105 target="wasm_bindgen_shared"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.290188250s  INFO prepare_target{force=false package_id=unicode-ident v1.0.22 target="unicode_ident"}: cargo::core::compiler::fingerprint: fingerprint dirty for unicode-ident v1.0.22/Check { test: false }/TargetInner { ..: lib_target("unicode_ident", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unicode-ident-1.0.22/src/lib.rs", Edition2018) }
+   0.290193000s  INFO prepare_target{force=false package_id=unicode-ident v1.0.22 target="unicode_ident"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.290302208s  INFO prepare_target{force=false package_id=x509-cert v0.2.5 target="x509_cert"}: cargo::core::compiler::fingerprint: fingerprint dirty for x509-cert v0.2.5/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("x509_cert", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/x509-cert-0.2.5/src/lib.rs", Edition2021) }
+   0.290305208s  INFO prepare_target{force=false package_id=x509-cert v0.2.5 target="x509_cert"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.290439250s  INFO prepare_target{force=false package_id=spki v0.7.3 target="spki"}: cargo::core::compiler::fingerprint: fingerprint dirty for spki v0.7.3/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("spki", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/spki-0.7.3/src/lib.rs", Edition2021) }
+   0.290442416s  INFO prepare_target{force=false package_id=spki v0.7.3 target="spki"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.290563750s  INFO prepare_target{force=false package_id=near-sdk v5.17.2 target="near_sdk"}: cargo::core::compiler::fingerprint: fingerprint dirty for near-sdk v5.17.2/Check { test: false }/TargetInner { ..: lib_target("near_sdk", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/near-sdk-5.17.2/src/lib.rs", Edition2021) }
+   0.290566833s  INFO prepare_target{force=false package_id=near-sdk v5.17.2 target="near_sdk"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.290903208s  INFO prepare_target{force=false package_id=borsh v1.6.0 target="borsh"}: cargo::core::compiler::fingerprint: fingerprint dirty for borsh v1.6.0/Check { test: false }/TargetInner { ..: lib_target("borsh", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/borsh-1.6.0/src/lib.rs", Edition2018) }
+   0.290906000s  INFO prepare_target{force=false package_id=borsh v1.6.0 target="borsh"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.291280666s  INFO prepare_target{force=false package_id=bs58 v0.5.1 target="bs58"}: cargo::core::compiler::fingerprint: fingerprint dirty for bs58 v0.5.1/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("bs58", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bs58-0.5.1/src/lib.rs", Edition2021) }
+   0.291285250s  INFO prepare_target{force=false package_id=bs58 v0.5.1 target="bs58"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.291385666s  INFO prepare_target{force=false package_id=near-account-id v1.1.4 target="near_account_id"}: cargo::core::compiler::fingerprint: fingerprint dirty for near-account-id v1.1.4/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("near_account_id", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/near-account-id-1.1.4/src/lib.rs", Edition2021) }
+   0.291389083s  INFO prepare_target{force=false package_id=near-account-id v1.1.4 target="near_account_id"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.291533541s  INFO prepare_target{force=false package_id=near-crypto v0.31.1 target="near_crypto"}: cargo::core::compiler::fingerprint: fingerprint dirty for near-crypto v0.31.1/Check { test: false }/TargetInner { ..: lib_target("near_crypto", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/near-crypto-0.31.1/src/lib.rs", Edition2024) }
+   0.291537708s  INFO prepare_target{force=false package_id=near-crypto v0.31.1 target="near_crypto"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.291882041s  INFO prepare_target{force=false package_id=blake2 v0.10.6 target="blake2"}: cargo::core::compiler::fingerprint: fingerprint dirty for blake2 v0.10.6/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("blake2", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/blake2-0.10.6/src/lib.rs", Edition2018) }
+   0.291885833s  INFO prepare_target{force=false package_id=blake2 v0.10.6 target="blake2"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.292021041s  INFO prepare_target{force=false package_id=digest v0.10.7 target="digest"}: cargo::core::compiler::fingerprint: fingerprint dirty for digest v0.10.7/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("digest", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/digest-0.10.7/src/lib.rs", Edition2018) }
+   0.292024625s  INFO prepare_target{force=false package_id=digest v0.10.7 target="digest"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.292176166s  INFO prepare_target{force=false package_id=block-buffer v0.10.4 target="block_buffer"}: cargo::core::compiler::fingerprint: fingerprint dirty for block-buffer v0.10.4/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("block_buffer", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/block-buffer-0.10.4/src/lib.rs", Edition2018) }
+   0.292179541s  INFO prepare_target{force=false package_id=block-buffer v0.10.4 target="block_buffer"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.292337208s  INFO prepare_target{force=false package_id=generic-array v0.14.7 target="generic_array"}: cargo::core::compiler::fingerprint: fingerprint dirty for generic-array v0.14.7/Check { test: false }/TargetInner { ..: lib_target("generic_array", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/generic-array-0.14.7/src/lib.rs", Edition2015) }
+   0.292340125s  INFO prepare_target{force=false package_id=generic-array v0.14.7 target="generic_array"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.292588916s  INFO prepare_target{force=false package_id=typenum v1.19.0 target="typenum"}: cargo::core::compiler::fingerprint: fingerprint dirty for typenum v1.19.0/Check { test: false }/TargetInner { ..: lib_target("typenum", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/typenum-1.19.0/src/lib.rs", Edition2018) }
+   0.292592458s  INFO prepare_target{force=false package_id=typenum v1.19.0 target="typenum"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.292826958s  INFO prepare_target{force=false package_id=crypto-common v0.1.7 target="crypto_common"}: cargo::core::compiler::fingerprint: fingerprint dirty for crypto-common v0.1.7/Check { test: false }/TargetInner { ..: lib_target("crypto_common", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/crypto-common-0.1.7/src/lib.rs", Edition2018) }
+   0.292829791s  INFO prepare_target{force=false package_id=crypto-common v0.1.7 target="crypto_common"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.292965208s  INFO prepare_target{force=false package_id=subtle v2.6.1 target="subtle"}: cargo::core::compiler::fingerprint: fingerprint dirty for subtle v2.6.1/Check { test: false }/TargetInner { ..: lib_target("subtle", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/subtle-2.6.1/src/lib.rs", Edition2018) }
+   0.292968708s  INFO prepare_target{force=false package_id=subtle v2.6.1 target="subtle"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.293101291s  INFO prepare_target{force=false package_id=bs58 v0.4.0 target="bs58"}: cargo::core::compiler::fingerprint: fingerprint dirty for bs58 v0.4.0/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("bs58", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bs58-0.4.0/src/lib.rs", Edition2018) }
+   0.293105083s  INFO prepare_target{force=false package_id=bs58 v0.4.0 target="bs58"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.293302833s  INFO prepare_target{force=false package_id=curve25519-dalek v4.1.3 target="curve25519_dalek"}: cargo::core::compiler::fingerprint: fingerprint dirty for curve25519-dalek v4.1.3/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("curve25519_dalek", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/curve25519-dalek-4.1.3/src/lib.rs", Edition2021) }
+   0.293308250s  INFO prepare_target{force=false package_id=curve25519-dalek v4.1.3 target="curve25519_dalek"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.293615750s  INFO prepare_target{force=false package_id=derive_more v2.0.1 target="derive_more"}: cargo::core::compiler::fingerprint: fingerprint dirty for derive_more v2.0.1/Check { test: false }/TargetInner { ..: lib_target("derive_more", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/derive_more-2.0.1/src/lib.rs", Edition2021) }
+   0.293618666s  INFO prepare_target{force=false package_id=derive_more v2.0.1 target="derive_more"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.293781208s  INFO prepare_target{force=false package_id=ed25519-dalek v2.2.0 target="ed25519_dalek"}: cargo::core::compiler::fingerprint: fingerprint dirty for ed25519-dalek v2.2.0/Check { test: false }/TargetInner { ..: lib_target("ed25519_dalek", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ed25519-dalek-2.2.0/src/lib.rs", Edition2021) }
+   0.293783958s  INFO prepare_target{force=false package_id=ed25519-dalek v2.2.0 target="ed25519_dalek"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.293938208s  INFO prepare_target{force=false package_id=ed25519 v2.2.3 target="ed25519"}: cargo::core::compiler::fingerprint: fingerprint dirty for ed25519 v2.2.3/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("ed25519", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ed25519-2.2.3/src/lib.rs", Edition2021) }
+   0.293941166s  INFO prepare_target{force=false package_id=ed25519 v2.2.3 target="ed25519"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.294039875s  INFO prepare_target{force=false package_id=signature v2.2.0 target="signature"}: cargo::core::compiler::fingerprint: fingerprint dirty for signature v2.2.0/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("signature", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/signature-2.2.0/src/lib.rs", Edition2021) }
+   0.294042875s  INFO prepare_target{force=false package_id=signature v2.2.0 target="signature"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.294160416s  INFO prepare_target{force=false package_id=sha2 v0.10.9 target="sha2"}: cargo::core::compiler::fingerprint: fingerprint dirty for sha2 v0.10.9/Check { test: false }/TargetInner { ..: lib_target("sha2", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha2-0.10.9/src/lib.rs", Edition2018) }
+   0.294164166s  INFO prepare_target{force=false package_id=sha2 v0.10.9 target="sha2"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.294312208s  INFO prepare_target{force=false package_id=cpufeatures v0.2.17 target="cpufeatures"}: cargo::core::compiler::fingerprint: fingerprint dirty for cpufeatures v0.2.17/Check { test: false }/TargetInner { ..: lib_target("cpufeatures", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/cpufeatures-0.2.17/src/lib.rs", Edition2018) }
+   0.294315083s  INFO prepare_target{force=false package_id=cpufeatures v0.2.17 target="cpufeatures"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.294437208s  INFO prepare_target{force=false package_id=near-config-utils v0.31.1 target="near_config_utils"}: cargo::core::compiler::fingerprint: fingerprint dirty for near-config-utils v0.31.1/Check { test: false }/TargetInner { ..: lib_target("near_config_utils", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/near-config-utils-0.31.1/src/lib.rs", Edition2024) }
+   0.294440541s  INFO prepare_target{force=false package_id=near-config-utils v0.31.1 target="near_config_utils"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.294617708s  INFO prepare_target{force=false package_id=json_comments v0.2.2 target="json_comments"}: cargo::core::compiler::fingerprint: fingerprint dirty for json_comments v0.2.2/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("json_comments", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/json_comments-0.2.2/src/lib.rs", Edition2018) }
+   0.294620666s  INFO prepare_target{force=false package_id=json_comments v0.2.2 target="json_comments"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.294695000s  INFO prepare_target{force=false package_id=thiserror v2.0.17 target="thiserror"}: cargo::core::compiler::fingerprint: fingerprint dirty for thiserror v2.0.17/Check { test: false }/TargetInner { ..: lib_target("thiserror", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.17/src/lib.rs", Edition2021) }
+   0.294697875s  INFO prepare_target{force=false package_id=thiserror v2.0.17 target="thiserror"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.294942208s  INFO prepare_target{force=false package_id=tracing v0.1.41 target="tracing"}: cargo::core::compiler::fingerprint: fingerprint dirty for tracing v0.1.41/Check { test: false }/TargetInner { ..: lib_target("tracing", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tracing-0.1.41/src/lib.rs", Edition2018) }
+   0.294946250s  INFO prepare_target{force=false package_id=tracing v0.1.41 target="tracing"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.295120583s  INFO prepare_target{force=false package_id=pin-project-lite v0.2.16 target="pin_project_lite"}: cargo::core::compiler::fingerprint: fingerprint dirty for pin-project-lite v0.2.16/Check { test: false }/TargetInner { doc_scrape_examples: Disabled, ..: lib_target("pin_project_lite", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/pin-project-lite-0.2.16/src/lib.rs", Edition2018) }
+   0.295123500s  INFO prepare_target{force=false package_id=pin-project-lite v0.2.16 target="pin_project_lite"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.295236125s  INFO prepare_target{force=false package_id=tracing-core v0.1.35 target="tracing_core"}: cargo::core::compiler::fingerprint: fingerprint dirty for tracing-core v0.1.35/Check { test: false }/TargetInner { ..: lib_target("tracing_core", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tracing-core-0.1.35/src/lib.rs", Edition2018) }
+   0.295239208s  INFO prepare_target{force=false package_id=tracing-core v0.1.35 target="tracing_core"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.295370333s  INFO prepare_target{force=false package_id=near-schema-checker-lib v0.31.1 target="near_schema_checker_lib"}: cargo::core::compiler::fingerprint: fingerprint dirty for near-schema-checker-lib v0.31.1/Check { test: false }/TargetInner { ..: lib_target("near_schema_checker_lib", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/near-schema-checker-lib-0.31.1/src/lib.rs", Edition2024) }
+   0.295373333s  INFO prepare_target{force=false package_id=near-schema-checker-lib v0.31.1 target="near_schema_checker_lib"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.295504916s  INFO prepare_target{force=false package_id=near-schema-checker-core v0.31.1 target="near_schema_checker_core"}: cargo::core::compiler::fingerprint: fingerprint dirty for near-schema-checker-core v0.31.1/Check { test: false }/TargetInner { ..: lib_target("near_schema_checker_core", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/near-schema-checker-core-0.31.1/src/lib.rs", Edition2024) }
+   0.295507666s  INFO prepare_target{force=false package_id=near-schema-checker-core v0.31.1 target="near_schema_checker_core"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.295596625s  INFO prepare_target{force=false package_id=near-stdx v0.31.1 target="near_stdx"}: cargo::core::compiler::fingerprint: fingerprint dirty for near-stdx v0.31.1/Check { test: false }/TargetInner { ..: lib_target("near_stdx", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/near-stdx-0.31.1/src/lib.rs", Edition2024) }
+   0.295599083s  INFO prepare_target{force=false package_id=near-stdx v0.31.1 target="near_stdx"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.295688083s  INFO prepare_target{force=false package_id=primitive-types v0.10.1 target="primitive_types"}: cargo::core::compiler::fingerprint: fingerprint dirty for primitive-types v0.10.1/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("primitive_types", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/primitive-types-0.10.1/src/lib.rs", Edition2018) }
+   0.295690833s  INFO prepare_target{force=false package_id=primitive-types v0.10.1 target="primitive_types"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.295801875s  INFO prepare_target{force=false package_id=fixed-hash v0.7.0 target="fixed_hash"}: cargo::core::compiler::fingerprint: fingerprint dirty for fixed-hash v0.7.0/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("fixed_hash", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fixed-hash-0.7.0/src/lib.rs", Edition2018) }
+   0.295804916s  INFO prepare_target{force=false package_id=fixed-hash v0.7.0 target="fixed_hash"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.295923333s  INFO prepare_target{force=false package_id=static_assertions v1.1.0 target="static_assertions"}: cargo::core::compiler::fingerprint: fingerprint dirty for static_assertions v1.1.0/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("static_assertions", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/static_assertions-1.1.0/src/lib.rs", Edition2015) }
+   0.295926333s  INFO prepare_target{force=false package_id=static_assertions v1.1.0 target="static_assertions"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.296035958s  INFO prepare_target{force=false package_id=uint v0.9.5 target="uint"}: cargo::core::compiler::fingerprint: fingerprint dirty for uint v0.9.5/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("uint", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/uint-0.9.5/src/lib.rs", Edition2021) }
+   0.296039166s  INFO prepare_target{force=false package_id=uint v0.9.5 target="uint"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.296199666s  INFO prepare_target{force=false package_id=crunchy v0.2.4 target="crunchy"}: cargo::core::compiler::fingerprint: fingerprint dirty for crunchy v0.2.4/Check { test: false }/TargetInner { ..: lib_target("crunchy", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/crunchy-0.2.4/src/lib.rs", Edition2021) }
+   0.296203541s  INFO prepare_target{force=false package_id=crunchy v0.2.4 target="crunchy"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.296523708s  INFO prepare_target{force=false package_id=secp256k1 v0.27.0 target="secp256k1"}: cargo::core::compiler::fingerprint: fingerprint dirty for secp256k1 v0.27.0/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("secp256k1", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-0.27.0/src/lib.rs", Edition2018) }
+   0.296526666s  INFO prepare_target{force=false package_id=secp256k1 v0.27.0 target="secp256k1"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.296667875s  INFO prepare_target{force=false package_id=secp256k1-sys v0.8.2 target="secp256k1_sys"}: cargo::core::compiler::fingerprint: fingerprint dirty for secp256k1-sys v0.8.2/Check { test: false }/TargetInner { ..: lib_target("secp256k1_sys", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/secp256k1-sys-0.8.2/src/lib.rs", Edition2018) }
+   0.296670875s  INFO prepare_target{force=false package_id=secp256k1-sys v0.8.2 target="secp256k1_sys"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.296882916s  INFO prepare_target{force=false package_id=near-gas v0.3.2 target="near_gas"}: cargo::core::compiler::fingerprint: fingerprint dirty for near-gas v0.3.2/Check { test: false }/TargetInner { ..: lib_target("near_gas", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/near-gas-0.3.2/src/lib.rs", Edition2021) }
+   0.296886333s  INFO prepare_target{force=false package_id=near-gas v0.3.2 target="near_gas"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.296998583s  INFO prepare_target{force=false package_id=near-parameters v0.31.1 target="near_parameters"}: cargo::core::compiler::fingerprint: fingerprint dirty for near-parameters v0.31.1/Check { test: false }/TargetInner { ..: lib_target("near_parameters", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/near-parameters-0.31.1/src/lib.rs", Edition2024) }
+   0.297003375s  INFO prepare_target{force=false package_id=near-parameters v0.31.1 target="near_parameters"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.297258875s  INFO prepare_target{force=false package_id=enum-map v2.7.3 target="enum_map"}: cargo::core::compiler::fingerprint: fingerprint dirty for enum-map v2.7.3/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("enum_map", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/enum-map-2.7.3/src/lib.rs", Edition2021) }
+   0.297262750s  INFO prepare_target{force=false package_id=enum-map v2.7.3 target="enum_map"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.297437958s  INFO prepare_target{force=false package_id=near-primitives-core v0.31.1 target="near_primitives_core"}: cargo::core::compiler::fingerprint: fingerprint dirty for near-primitives-core v0.31.1/Check { test: false }/TargetInner { ..: lib_target("near_primitives_core", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/near-primitives-core-0.31.1/src/lib.rs", Edition2024) }
+   0.297441833s  INFO prepare_target{force=false package_id=near-primitives-core v0.31.1 target="near_primitives_core"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.297833750s  INFO prepare_target{force=false package_id=arbitrary v1.4.2 target="arbitrary"}: cargo::core::compiler::fingerprint: fingerprint dirty for arbitrary v1.4.2/Check { test: false }/TargetInner { ..: lib_target("arbitrary", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/arbitrary-1.4.2/src/lib.rs", Edition2021) }
+   0.297837958s  INFO prepare_target{force=false package_id=arbitrary v1.4.2 target="arbitrary"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.297987083s  INFO prepare_target{force=false package_id=base64 v0.21.7 target="base64"}: cargo::core::compiler::fingerprint: fingerprint dirty for base64 v0.21.7/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("base64", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/base64-0.21.7/src/lib.rs", Edition2018) }
+   0.297990583s  INFO prepare_target{force=false package_id=base64 v0.21.7 target="base64"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.298102916s  INFO prepare_target{force=false package_id=num-rational v0.3.2 target="num_rational"}: cargo::core::compiler::fingerprint: fingerprint dirty for num-rational v0.3.2/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("num_rational", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/num-rational-0.3.2/src/lib.rs", Edition2018) }
+   0.298106291s  INFO prepare_target{force=false package_id=num-rational v0.3.2 target="num_rational"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.298289416s  INFO prepare_target{force=false package_id=num-bigint v0.3.3 target="num_bigint"}: cargo::core::compiler::fingerprint: fingerprint dirty for num-bigint v0.3.3/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("num_bigint", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/num-bigint-0.3.3/src/lib.rs", Edition2018) }
+   0.298292541s  INFO prepare_target{force=false package_id=num-bigint v0.3.3 target="num_bigint"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.298601416s  INFO prepare_target{force=false package_id=num-integer v0.1.46 target="num_integer"}: cargo::core::compiler::fingerprint: fingerprint dirty for num-integer v0.1.46/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("num_integer", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/num-integer-0.1.46/src/lib.rs", Edition2018) }
+   0.298605291s  INFO prepare_target{force=false package_id=num-integer v0.1.46 target="num_integer"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.298875458s  INFO prepare_target{force=false package_id=serde_yaml v0.9.34+deprecated target="serde_yaml"}: cargo::core::compiler::fingerprint: fingerprint dirty for serde_yaml v0.9.34+deprecated/Check { test: false }/TargetInner { name_inferred: true, doc_scrape_examples: Disabled, ..: lib_target("serde_yaml", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_yaml-0.9.34+deprecated/src/lib.rs", Edition2021) }
+   0.298881041s  INFO prepare_target{force=false package_id=serde_yaml v0.9.34+deprecated target="serde_yaml"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.299077916s  INFO prepare_target{force=false package_id=unsafe-libyaml v0.2.11 target="unsafe_libyaml"}: cargo::core::compiler::fingerprint: fingerprint dirty for unsafe-libyaml v0.2.11/Check { test: false }/TargetInner { name_inferred: true, doc_scrape_examples: Disabled, ..: lib_target("unsafe_libyaml", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/unsafe-libyaml-0.2.11/src/lib.rs", Edition2021) }
+   0.299082000s  INFO prepare_target{force=false package_id=unsafe-libyaml v0.2.11 target="unsafe_libyaml"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.299167333s  INFO prepare_target{force=false package_id=strum v0.24.1 target="strum"}: cargo::core::compiler::fingerprint: fingerprint dirty for strum v0.24.1/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("strum", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/strum-0.24.1/src/lib.rs", Edition2018) }
+   0.299171375s  INFO prepare_target{force=false package_id=strum v0.24.1 target="strum"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.299462416s  INFO prepare_target{force=false package_id=near-primitives v0.31.1 target="near_primitives"}: cargo::core::compiler::fingerprint: fingerprint dirty for near-primitives v0.31.1/Check { test: false }/TargetInner { ..: lib_target("near_primitives", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/near-primitives-0.31.1/src/lib.rs", Edition2024) }
+   0.299466416s  INFO prepare_target{force=false package_id=near-primitives v0.31.1 target="near_primitives"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.300020125s  INFO prepare_target{force=false package_id=bitvec v1.0.1 target="bitvec"}: cargo::core::compiler::fingerprint: fingerprint dirty for bitvec v1.0.1/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("bitvec", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bitvec-1.0.1/src/lib.rs", Edition2021) }
+   0.300024000s  INFO prepare_target{force=false package_id=bitvec v1.0.1 target="bitvec"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.300173041s  INFO prepare_target{force=false package_id=funty v2.0.0 target="funty"}: cargo::core::compiler::fingerprint: fingerprint dirty for funty v2.0.0/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("funty", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/funty-2.0.0/src/lib.rs", Edition2018) }
+   0.300176958s  INFO prepare_target{force=false package_id=funty v2.0.0 target="funty"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.300252875s  INFO prepare_target{force=false package_id=radium v0.7.0 target="radium"}: cargo::core::compiler::fingerprint: fingerprint dirty for radium v0.7.0/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("radium", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/radium-0.7.0/src/lib.rs", Edition2018) }
+   0.300256333s  INFO prepare_target{force=false package_id=radium v0.7.0 target="radium"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.300411875s  INFO prepare_target{force=false package_id=tap v1.0.1 target="tap"}: cargo::core::compiler::fingerprint: fingerprint dirty for tap v1.0.1/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("tap", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tap-1.0.1/src/lib.rs", Edition2015) }
+   0.300416083s  INFO prepare_target{force=false package_id=tap v1.0.1 target="tap"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.300484500s  INFO prepare_target{force=false package_id=wyz v0.5.1 target="wyz"}: cargo::core::compiler::fingerprint: fingerprint dirty for wyz v0.5.1/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("wyz", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/wyz-0.5.1/src/lib.rs", Edition2018) }
+   0.300487250s  INFO prepare_target{force=false package_id=wyz v0.5.1 target="wyz"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.300577541s  INFO prepare_target{force=false package_id=bytes v1.11.0 target="bytes"}: cargo::core::compiler::fingerprint: fingerprint dirty for bytes v1.11.0/Check { test: false }/TargetInner { ..: lib_target("bytes", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bytes-1.11.0/src/lib.rs", Edition2021) }
+   0.300580166s  INFO prepare_target{force=false package_id=bytes v1.11.0 target="bytes"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.300662291s  INFO prepare_target{force=false package_id=bytesize v1.3.3 target="bytesize"}: cargo::core::compiler::fingerprint: fingerprint dirty for bytesize v1.3.3/Check { test: false }/TargetInner { ..: lib_target("bytesize", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bytesize-1.3.3/src/lib.rs", Edition2015) }
+   0.300664791s  INFO prepare_target{force=false package_id=bytesize v1.3.3 target="bytesize"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.300803916s  INFO prepare_target{force=false package_id=itertools v0.12.1 target="itertools"}: cargo::core::compiler::fingerprint: fingerprint dirty for itertools v0.12.1/Check { test: false }/TargetInner { name_inferred: true, tested: false, benched: false, ..: lib_target("itertools", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/itertools-0.12.1/src/lib.rs", Edition2018) }
+   0.300807041s  INFO prepare_target{force=false package_id=itertools v0.12.1 target="itertools"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.300896708s  INFO prepare_target{force=false package_id=either v1.15.0 target="either"}: cargo::core::compiler::fingerprint: fingerprint dirty for either v1.15.0/Check { test: false }/TargetInner { ..: lib_target("either", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/either-1.15.0/src/lib.rs", Edition2021) }
+   0.300899333s  INFO prepare_target{force=false package_id=either v1.15.0 target="either"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.300968875s  INFO prepare_target{force=false package_id=near-fmt v0.31.1 target="near_fmt"}: cargo::core::compiler::fingerprint: fingerprint dirty for near-fmt v0.31.1/Check { test: false }/TargetInner { ..: lib_target("near_fmt", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/near-fmt-0.31.1/src/lib.rs", Edition2024) }
+   0.300972083s  INFO prepare_target{force=false package_id=near-fmt v0.31.1 target="near_fmt"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.301065583s  INFO prepare_target{force=false package_id=near-time v0.31.1 target="near_time"}: cargo::core::compiler::fingerprint: fingerprint dirty for near-time v0.31.1/Check { test: false }/TargetInner { ..: lib_target("near_time", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/near-time-0.31.1/src/lib.rs", Edition2024) }
+   0.301069166s  INFO prepare_target{force=false package_id=near-time v0.31.1 target="near_time"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.301189625s  INFO prepare_target{force=false package_id=parking_lot v0.12.5 target="parking_lot"}: cargo::core::compiler::fingerprint: fingerprint dirty for parking_lot v0.12.5/Check { test: false }/TargetInner { ..: lib_target("parking_lot", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/parking_lot-0.12.5/src/lib.rs", Edition2021) }
+   0.301193625s  INFO prepare_target{force=false package_id=parking_lot v0.12.5 target="parking_lot"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.301299291s  INFO prepare_target{force=false package_id=lock_api v0.4.14 target="lock_api"}: cargo::core::compiler::fingerprint: fingerprint dirty for lock_api v0.4.14/Check { test: false }/TargetInner { ..: lib_target("lock_api", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/lock_api-0.4.14/src/lib.rs", Edition2021) }
+   0.301303000s  INFO prepare_target{force=false package_id=lock_api v0.4.14 target="lock_api"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.301390416s  INFO prepare_target{force=false package_id=scopeguard v1.2.0 target="scopeguard"}: cargo::core::compiler::fingerprint: fingerprint dirty for scopeguard v1.2.0/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("scopeguard", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/scopeguard-1.2.0/src/lib.rs", Edition2015) }
+   0.301393125s  INFO prepare_target{force=false package_id=scopeguard v1.2.0 target="scopeguard"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.301467500s  INFO prepare_target{force=false package_id=parking_lot_core v0.9.12 target="parking_lot_core"}: cargo::core::compiler::fingerprint: fingerprint dirty for parking_lot_core v0.9.12/Check { test: false }/TargetInner { ..: lib_target("parking_lot_core", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/parking_lot_core-0.9.12/src/lib.rs", Edition2021) }
+   0.301470666s  INFO prepare_target{force=false package_id=parking_lot_core v0.9.12 target="parking_lot_core"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.301674166s  INFO prepare_target{force=false package_id=smallvec v1.15.1 target="smallvec"}: cargo::core::compiler::fingerprint: fingerprint dirty for smallvec v1.15.1/Check { test: false }/TargetInner { ..: lib_target("smallvec", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/smallvec-1.15.1/src/lib.rs", Edition2018) }
+   0.301677041s  INFO prepare_target{force=false package_id=smallvec v1.15.1 target="smallvec"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.301758541s  INFO prepare_target{force=false package_id=time v0.3.44 target="time"}: cargo::core::compiler::fingerprint: fingerprint dirty for time v0.3.44/Check { test: false }/TargetInner { benched: false, ..: lib_target("time", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-0.3.44/src/lib.rs", Edition2021) }
+   0.301761166s  INFO prepare_target{force=false package_id=time v0.3.44 target="time"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.301956000s  INFO prepare_target{force=false package_id=deranged v0.5.5 target="deranged"}: cargo::core::compiler::fingerprint: fingerprint dirty for deranged v0.5.5/Check { test: false }/TargetInner { ..: lib_target("deranged", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/deranged-0.5.5/src/lib.rs", Edition2021) }
+   0.301959666s  INFO prepare_target{force=false package_id=deranged v0.5.5 target="deranged"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.302070166s  INFO prepare_target{force=false package_id=powerfmt v0.2.0 target="powerfmt"}: cargo::core::compiler::fingerprint: fingerprint dirty for powerfmt v0.2.0/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("powerfmt", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/powerfmt-0.2.0/src/lib.rs", Edition2021) }
+   0.302073083s  INFO prepare_target{force=false package_id=powerfmt v0.2.0 target="powerfmt"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.302167250s  INFO prepare_target{force=false package_id=num-conv v0.1.0 target="num_conv"}: cargo::core::compiler::fingerprint: fingerprint dirty for num-conv v0.1.0/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("num_conv", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/num-conv-0.1.0/src/lib.rs", Edition2021) }
+   0.302169750s  INFO prepare_target{force=false package_id=num-conv v0.1.0 target="num_conv"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.302266833s  INFO prepare_target{force=false package_id=time-core v0.1.6 target="time_core"}: cargo::core::compiler::fingerprint: fingerprint dirty for time-core v0.1.6/Check { test: false }/TargetInner { ..: lib_target("time_core", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/time-core-0.1.6/src/lib.rs", Edition2021) }
+   0.302269666s  INFO prepare_target{force=false package_id=time-core v0.1.6 target="time_core"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.302342625s  INFO prepare_target{force=false package_id=ordered-float v4.6.0 target="ordered_float"}: cargo::core::compiler::fingerprint: fingerprint dirty for ordered-float v4.6.0/Check { test: false }/TargetInner { ..: lib_target("ordered_float", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ordered-float-4.6.0/src/lib.rs", Edition2021) }
+   0.302345750s  INFO prepare_target{force=false package_id=ordered-float v4.6.0 target="ordered_float"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.302475583s  INFO prepare_target{force=false package_id=serde_with v3.16.0 target="serde_with"}: cargo::core::compiler::fingerprint: fingerprint dirty for serde_with v3.16.0/Check { test: false }/TargetInner { ..: lib_target("serde_with", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde_with-3.16.0/src/lib.rs", Edition2021) }
+   0.302478250s  INFO prepare_target{force=false package_id=serde_with v3.16.0 target="serde_with"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.302786708s  INFO prepare_target{force=false package_id=sha3 v0.10.8 target="sha3"}: cargo::core::compiler::fingerprint: fingerprint dirty for sha3 v0.10.8/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("sha3", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/sha3-0.10.8/src/lib.rs", Edition2018) }
+   0.302789750s  INFO prepare_target{force=false package_id=sha3 v0.10.8 target="sha3"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.302930041s  INFO prepare_target{force=false package_id=keccak v0.1.5 target="keccak"}: cargo::core::compiler::fingerprint: fingerprint dirty for keccak v0.1.5/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("keccak", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/keccak-0.1.5/src/lib.rs", Edition2018) }
+   0.302934125s  INFO prepare_target{force=false package_id=keccak v0.1.5 target="keccak"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.303068958s  INFO prepare_target{force=false package_id=zstd v0.13.3 target="zstd"}: cargo::core::compiler::fingerprint: fingerprint dirty for zstd v0.13.3/Check { test: false }/TargetInner { ..: lib_target("zstd", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zstd-0.13.3/src/lib.rs", Edition2018) }
+   0.303073791s  INFO prepare_target{force=false package_id=zstd v0.13.3 target="zstd"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.303184416s  INFO prepare_target{force=false package_id=zstd-safe v7.2.4 target="zstd_safe"}: cargo::core::compiler::fingerprint: fingerprint dirty for zstd-safe v7.2.4/Check { test: false }/TargetInner { ..: lib_target("zstd_safe", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zstd-safe-7.2.4/src/lib.rs", Edition2018) }
+   0.303188333s  INFO prepare_target{force=false package_id=zstd-safe v7.2.4 target="zstd_safe"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.303537750s  INFO prepare_target{force=false package_id=zstd-sys v2.0.16+zstd.1.5.7 target="zstd_sys"}: cargo::core::compiler::fingerprint: fingerprint dirty for zstd-sys v2.0.16+zstd.1.5.7/Check { test: false }/TargetInner { doctest: false, ..: lib_target("zstd_sys", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zstd-sys-2.0.16+zstd.1.5.7/src/lib.rs", Edition2018) }
+   0.303542333s  INFO prepare_target{force=false package_id=zstd-sys v2.0.16+zstd.1.5.7 target="zstd_sys"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.304449833s  INFO prepare_target{force=false package_id=near-sys v0.2.5 target="near_sys"}: cargo::core::compiler::fingerprint: fingerprint dirty for near-sys v0.2.5/Check { test: false }/TargetInner { ..: lib_target("near_sys", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/near-sys-0.2.5/src/lib.rs", Edition2021) }
+   0.304453333s  INFO prepare_target{force=false package_id=near-sys v0.2.5 target="near_sys"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.304533875s  INFO prepare_target{force=false package_id=near-token v0.3.3 target="near_token"}: cargo::core::compiler::fingerprint: fingerprint dirty for near-token v0.3.3/Check { test: false }/TargetInner { ..: lib_target("near_token", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/near-token-0.3.3/src/lib.rs", Edition2021) }
+   0.304537875s  INFO prepare_target{force=false package_id=near-token v0.3.3 target="near_token"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.304663000s  INFO prepare_target{force=false package_id=near-vm-runner v0.31.1 target="near_vm_runner"}: cargo::core::compiler::fingerprint: fingerprint dirty for near-vm-runner v0.31.1/Check { test: false }/TargetInner { ..: lib_target("near_vm_runner", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/near-vm-runner-0.31.1/src/lib.rs", Edition2024) }
+   0.304666916s  INFO prepare_target{force=false package_id=near-vm-runner v0.31.1 target="near_vm_runner"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.305121958s  INFO prepare_target{force=false package_id=blst v0.3.16 target="blst"}: cargo::core::compiler::fingerprint: fingerprint dirty for blst v0.3.16/Check { test: false }/TargetInner { ..: lib_target("blst", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/blst-0.3.16/src/lib.rs", Edition2018) }
+   0.305125166s  INFO prepare_target{force=false package_id=blst v0.3.16 target="blst"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.305372000s  INFO prepare_target{force=false package_id=threadpool v1.8.1 target="threadpool"}: cargo::core::compiler::fingerprint: fingerprint dirty for threadpool v1.8.1/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("threadpool", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/threadpool-1.8.1/src/lib.rs", Edition2015) }
+   0.305375541s  INFO prepare_target{force=false package_id=threadpool v1.8.1 target="threadpool"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.305468666s  INFO prepare_target{force=false package_id=num_cpus v1.17.0 target="num_cpus"}: cargo::core::compiler::fingerprint: fingerprint dirty for num_cpus v1.17.0/Check { test: false }/TargetInner { ..: lib_target("num_cpus", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/num_cpus-1.17.0/src/lib.rs", Edition2015) }
+   0.305472333s  INFO prepare_target{force=false package_id=num_cpus v1.17.0 target="num_cpus"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.305562958s  INFO prepare_target{force=false package_id=zeroize v1.8.2 target="zeroize"}: cargo::core::compiler::fingerprint: fingerprint dirty for zeroize v1.8.2/Check { test: false }/TargetInner { ..: lib_target("zeroize", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zeroize-1.8.2/src/lib.rs", Edition2021) }
+   0.305566750s  INFO prepare_target{force=false package_id=zeroize v1.8.2 target="zeroize"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.305683958s  INFO prepare_target{force=false package_id=lru v0.12.5 target="lru"}: cargo::core::compiler::fingerprint: fingerprint dirty for lru v0.12.5/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("lru", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/lru-0.12.5/src/lib.rs", Edition2015) }
+   0.305686916s  INFO prepare_target{force=false package_id=lru v0.12.5 target="lru"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.305779833s  INFO prepare_target{force=false package_id=hashbrown v0.15.5 target="hashbrown"}: cargo::core::compiler::fingerprint: fingerprint dirty for hashbrown v0.15.5/Check { test: false }/TargetInner { ..: lib_target("hashbrown", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/hashbrown-0.15.5/src/lib.rs", Edition2021) }
+   0.305782833s  INFO prepare_target{force=false package_id=hashbrown v0.15.5 target="hashbrown"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.305984291s  INFO prepare_target{force=false package_id=allocator-api2 v0.2.21 target="allocator_api2"}: cargo::core::compiler::fingerprint: fingerprint dirty for allocator-api2 v0.2.21/Check { test: false }/TargetInner { ..: lib_target("allocator_api2", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/allocator-api2-0.2.21/src/lib.rs", Edition2018) }
+   0.305989875s  INFO prepare_target{force=false package_id=allocator-api2 v0.2.21 target="allocator_api2"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.306170208s  INFO prepare_target{force=false package_id=foldhash v0.1.5 target="foldhash"}: cargo::core::compiler::fingerprint: fingerprint dirty for foldhash v0.1.5/Check { test: false }/TargetInner { benched: false, ..: lib_target("foldhash", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/foldhash-0.1.5/src/lib.rs", Edition2021) }
+   0.306174291s  INFO prepare_target{force=false package_id=foldhash v0.1.5 target="foldhash"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.306367458s  INFO prepare_target{force=false package_id=rand v0.8.5 target="rand"}: cargo::core::compiler::fingerprint: fingerprint dirty for rand v0.8.5/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("rand", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rand-0.8.5/src/lib.rs", Edition2018) }
+   0.306371375s  INFO prepare_target{force=false package_id=rand v0.8.5 target="rand"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.306551208s  INFO prepare_target{force=false package_id=rand_chacha v0.3.1 target="rand_chacha"}: cargo::core::compiler::fingerprint: fingerprint dirty for rand_chacha v0.3.1/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("rand_chacha", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rand_chacha-0.3.1/src/lib.rs", Edition2018) }
+   0.306555250s  INFO prepare_target{force=false package_id=rand_chacha v0.3.1 target="rand_chacha"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.306756541s  INFO prepare_target{force=false package_id=ppv-lite86 v0.2.21 target="ppv_lite86"}: cargo::core::compiler::fingerprint: fingerprint dirty for ppv-lite86 v0.2.21/Check { test: false }/TargetInner { ..: lib_target("ppv_lite86", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ppv-lite86-0.2.21/src/lib.rs", Edition2021) }
+   0.306760458s  INFO prepare_target{force=false package_id=ppv-lite86 v0.2.21 target="ppv_lite86"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.306904333s  INFO prepare_target{force=false package_id=zerocopy v0.8.30 target="zerocopy"}: cargo::core::compiler::fingerprint: fingerprint dirty for zerocopy v0.8.30/Check { test: false }/TargetInner { ..: lib_target("zerocopy", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zerocopy-0.8.30/src/lib.rs", Edition2021) }
+   0.306909000s  INFO prepare_target{force=false package_id=zerocopy v0.8.30 target="zerocopy"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.307226250s  INFO prepare_target{force=false package_id=rand_core v0.6.4 target="rand_core"}: cargo::core::compiler::fingerprint: fingerprint dirty for rand_core v0.6.4/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("rand_core", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rand_core-0.6.4/src/lib.rs", Edition2018) }
+   0.307230166s  INFO prepare_target{force=false package_id=rand_core v0.6.4 target="rand_core"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.307377375s  INFO prepare_target{force=false package_id=getrandom v0.2.16 target="getrandom"}: cargo::core::compiler::fingerprint: fingerprint dirty for getrandom v0.2.16/Check { test: false }/TargetInner { ..: lib_target("getrandom", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/getrandom-0.2.16/src/lib.rs", Edition2018) }
+   0.307381083s  INFO prepare_target{force=false package_id=getrandom v0.2.16 target="getrandom"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.307565416s  INFO prepare_target{force=false package_id=rayon v1.11.0 target="rayon"}: cargo::core::compiler::fingerprint: fingerprint dirty for rayon v1.11.0/Check { test: false }/TargetInner { ..: lib_target("rayon", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rayon-1.11.0/src/lib.rs", Edition2021) }
+   0.307569166s  INFO prepare_target{force=false package_id=rayon v1.11.0 target="rayon"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.307716125s  INFO prepare_target{force=false package_id=rayon-core v1.13.0 target="rayon_core"}: cargo::core::compiler::fingerprint: fingerprint dirty for rayon-core v1.13.0/Check { test: false }/TargetInner { ..: lib_target("rayon_core", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rayon-core-1.13.0/src/lib.rs", Edition2021) }
+   0.307720041s  INFO prepare_target{force=false package_id=rayon-core v1.13.0 target="rayon_core"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.307883291s  INFO prepare_target{force=false package_id=crossbeam-deque v0.8.6 target="crossbeam_deque"}: cargo::core::compiler::fingerprint: fingerprint dirty for crossbeam-deque v0.8.6/Check { test: false }/TargetInner { ..: lib_target("crossbeam_deque", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/crossbeam-deque-0.8.6/src/lib.rs", Edition2021) }
+   0.307887250s  INFO prepare_target{force=false package_id=crossbeam-deque v0.8.6 target="crossbeam_deque"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.308066416s  INFO prepare_target{force=false package_id=crossbeam-epoch v0.9.18 target="crossbeam_epoch"}: cargo::core::compiler::fingerprint: fingerprint dirty for crossbeam-epoch v0.9.18/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("crossbeam_epoch", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/crossbeam-epoch-0.9.18/src/lib.rs", Edition2021) }
+   0.308070500s  INFO prepare_target{force=false package_id=crossbeam-epoch v0.9.18 target="crossbeam_epoch"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.308236625s  INFO prepare_target{force=false package_id=crossbeam-utils v0.8.21 target="crossbeam_utils"}: cargo::core::compiler::fingerprint: fingerprint dirty for crossbeam-utils v0.8.21/Check { test: false }/TargetInner { ..: lib_target("crossbeam_utils", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/crossbeam-utils-0.8.21/src/lib.rs", Edition2021) }
+   0.308240666s  INFO prepare_target{force=false package_id=crossbeam-utils v0.8.21 target="crossbeam_utils"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.308595708s  INFO prepare_target{force=false package_id=ripemd v0.1.3 target="ripemd"}: cargo::core::compiler::fingerprint: fingerprint dirty for ripemd v0.1.3/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("ripemd", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/ripemd-0.1.3/src/lib.rs", Edition2018) }
+   0.308599041s  INFO prepare_target{force=false package_id=ripemd v0.1.3 target="ripemd"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.308735000s  INFO prepare_target{force=false package_id=rustix v1.1.2 target="rustix"}: cargo::core::compiler::fingerprint: fingerprint dirty for rustix v1.1.2/Check { test: false }/TargetInner { ..: lib_target("rustix", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rustix-1.1.2/src/lib.rs", Edition2021) }
+   0.308737333s  INFO prepare_target{force=false package_id=rustix v1.1.2 target="rustix"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.308896666s  INFO prepare_target{force=false package_id=bitflags v2.10.0 target="bitflags"}: cargo::core::compiler::fingerprint: fingerprint dirty for bitflags v2.10.0/Check { test: false }/TargetInner { ..: lib_target("bitflags", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/bitflags-2.10.0/src/lib.rs", Edition2021) }
+   0.308900625s  INFO prepare_target{force=false package_id=bitflags v2.10.0 target="bitflags"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.308989250s  INFO prepare_target{force=false package_id=errno v0.3.14 target="errno"}: cargo::core::compiler::fingerprint: fingerprint dirty for errno v0.3.14/Check { test: false }/TargetInner { ..: lib_target("errno", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/errno-0.3.14/src/lib.rs", Edition2018) }
+   0.308992083s  INFO prepare_target{force=false package_id=errno v0.3.14 target="errno"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.309219208s  INFO prepare_target{force=false package_id=tempfile v3.23.0 target="tempfile"}: cargo::core::compiler::fingerprint: fingerprint dirty for tempfile v3.23.0/Check { test: false }/TargetInner { ..: lib_target("tempfile", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/tempfile-3.23.0/src/lib.rs", Edition2021) }
+   0.309222583s  INFO prepare_target{force=false package_id=tempfile v3.23.0 target="tempfile"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.309380750s  INFO prepare_target{force=false package_id=fastrand v2.3.0 target="fastrand"}: cargo::core::compiler::fingerprint: fingerprint dirty for fastrand v2.3.0/Check { test: false }/TargetInner { ..: lib_target("fastrand", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/fastrand-2.3.0/src/lib.rs", Edition2018) }
+   0.309383416s  INFO prepare_target{force=false package_id=fastrand v2.3.0 target="fastrand"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.309468833s  INFO prepare_target{force=false package_id=getrandom v0.3.4 target="getrandom"}: cargo::core::compiler::fingerprint: fingerprint dirty for getrandom v0.3.4/Check { test: false }/TargetInner { ..: lib_target("getrandom", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/getrandom-0.3.4/src/lib.rs", Edition2021) }
+   0.309472291s  INFO prepare_target{force=false package_id=getrandom v0.3.4 target="getrandom"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.309761583s  INFO prepare_target{force=false package_id=zeropool-bn v0.5.11 target="zeropool_bn"}: cargo::core::compiler::fingerprint: fingerprint dirty for zeropool-bn v0.5.11/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("zeropool_bn", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/zeropool-bn-0.5.11/src/lib.rs", Edition2018) }
+   0.309764833s  INFO prepare_target{force=false package_id=zeropool-bn v0.5.11 target="zeropool_bn"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.309945000s  INFO prepare_target{force=false package_id=lazy_static v1.5.0 target="lazy_static"}: cargo::core::compiler::fingerprint: fingerprint dirty for lazy_static v1.5.0/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("lazy_static", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/lazy_static-1.5.0/src/lib.rs", Edition2015) }
+   0.309947750s  INFO prepare_target{force=false package_id=lazy_static v1.5.0 target="lazy_static"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.310055958s  INFO prepare_target{force=false package_id=spin v0.9.8 target="spin"}: cargo::core::compiler::fingerprint: fingerprint dirty for spin v0.9.8/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("spin", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/spin-0.9.8/src/lib.rs", Edition2015) }
+   0.310058458s  INFO prepare_target{force=false package_id=spin v0.9.8 target="spin"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.310157000s  INFO prepare_target{force=false package_id=rustc-hex v2.1.0 target="rustc_hex"}: cargo::core::compiler::fingerprint: fingerprint dirty for rustc-hex v2.1.0/Check { test: false }/TargetInner { name_inferred: true, ..: lib_target("rustc_hex", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/rustc-hex-2.1.0/src/lib.rs", Edition2018) }
+   0.310159625s  INFO prepare_target{force=false package_id=rustc-hex v2.1.0 target="rustc_hex"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.310257000s  INFO prepare_target{force=false package_id=schemars v0.8.22 target="schemars"}: cargo::core::compiler::fingerprint: fingerprint dirty for schemars v0.8.22/Check { test: false }/TargetInner { ..: lib_target("schemars", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/schemars-0.8.22/src/lib.rs", Edition2021) }
+   0.310259583s  INFO prepare_target{force=false package_id=schemars v0.8.22 target="schemars"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.310413083s  INFO prepare_target{force=false package_id=dyn-clone v1.0.20 target="dyn_clone"}: cargo::core::compiler::fingerprint: fingerprint dirty for dyn-clone v1.0.20/Check { test: false }/TargetInner { ..: lib_target("dyn_clone", ["lib"], "/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/dyn-clone-1.0.20/src/lib.rs", Edition2018) }
+   0.310415666s  INFO prepare_target{force=false package_id=dyn-clone v1.0.20 target="dyn_clone"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+   0.310703541s  INFO prepare_target{force=false package_id=shade-contract-template v0.1.0 (/Users/owen/projects/proximity/shade-contract-template) target="shade_contract_template"}: cargo::core::compiler::fingerprint: fingerprint dirty for shade-contract-template v0.1.0 (/Users/owen/projects/proximity/shade-contract-template)/Check { test: true }/TargetInner { name_inferred: true, ..: lib_target("shade_contract_template", ["cdylib", "rlib"], "/Users/owen/projects/proximity/shade-contract-template/src/lib.rs", Edition2021) }
+   0.310707166s  INFO prepare_target{force=false package_id=shade-contract-template v0.1.0 (/Users/owen/projects/proximity/shade-contract-template) target="shade_contract_template"}: cargo::core::compiler::fingerprint:     dirty: FsStatusOutdated(Stale)
+    Checking cfg-if v1.0.4
+    Checking libc v0.2.177
+    Checking serde_core v1.0.228
+    Checking subtle v2.6.1
+    Checking typenum v1.19.0
+    Checking num-traits v0.2.19
+    Checking equivalent v1.0.2
+    Checking once_cell v1.21.3
+    Checking itoa v1.0.15
+    Checking borsh v1.6.0
+    Checking hashbrown v0.16.1
+    Checking ryu v1.0.20
+    Checking thiserror v2.0.17
+    Checking near-schema-checker-core v0.31.1
+    Checking byteorder v1.5.0
+    Checking derive_more v2.0.1
+    Checking crunchy v0.2.4
+    Checking bs58 v0.4.0
+    Checking near-schema-checker-lib v0.31.1
+    Checking static_assertions v1.1.0
+    Checking memchr v2.7.6
+    Checking arbitrary v1.4.2
+    Checking enum-map v2.7.3
+    Checking tracing-core v0.1.35
+    Checking crossbeam-utils v0.8.21
+error: could not compile `enum-map` (lib) due to 1 previous error
+warning: build failed, waiting for other jobs to finish...
+    Checking anyhow v1.0.100
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/anyhow-81eb3afc0d4d9d05/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking zerocopy v0.8.30
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/zerocopy-4d23d23bd317ee18/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking scopeguard v1.2.0
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/scopeguard-9d39bda69931b078/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking signature v2.2.0
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/signature-b9a91f1e275c141f/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking pin-project-lite v0.2.16
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/pin-project-lite-505f5eca45d15757/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking base64 v0.21.7
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/base64-767059d1f2435db2/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking smallvec v1.15.1
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/smallvec-3d1cf604c0a215aa/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking secp256k1-sys v0.8.2
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/secp256k1-sys-5bde7d80142f53c5/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking fixed-hash v0.7.0
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/fixed-hash-f75a4c3eeba30f7c/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking unicode-ident v1.0.22
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/unicode-ident-76321eaf99a3c8ba/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking base64 v0.22.1
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/base64-14c22a662fbd8c06/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking powerfmt v0.2.0
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/powerfmt-0df60865a1bdc016/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking core-foundation-sys v0.8.7
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/core-foundation-sys-25ddb71f16bb18f5/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking json_comments v0.2.2
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/json_comments-6271b7c8b13bd90a/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking either v1.15.0
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/either-465ae859807e0950/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking unsafe-libyaml v0.2.11
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/unsafe-libyaml-dcc8848d29f3c95d/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking strum v0.24.1
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/strum-a6121a180ba7bb55/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking zstd-sys v2.0.16+zstd.1.5.7
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/zstd-sys-eee6fe484037ae2e/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking allocator-api2 v0.2.21
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/allocator-api2-5e2ec2acb3148297/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking tap v1.0.1
+error: could not compile `memchr` (lib) due to 1 previous error
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/tap-4129539195e72ff9/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking bitflags v2.10.0
+    Checking const-oid v0.9.6
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/bitflags-168c71a39033779e/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/const-oid-b15d1b1e8118ab6f/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking time-core v0.1.6
+    Checking spin v0.9.8
+error: could not compile `tracing-core` (lib) due to 1 previous error
+    Checking near-stdx v0.31.1
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/time-core-41118b3eb38836dd/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/spin-dffc689499ef5fab/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking flagset v0.4.7
+    Checking foldhash v0.1.5
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/near-stdx-231d10792759b567/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking num-conv v0.1.0
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/flagset-eb12b207d17c6099/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/foldhash-a59add89a004a53d/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/num-conv-68018283a4c74c73/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking zeroize v1.8.2
+    Checking const_format v0.2.35
+    Checking radium v0.7.0
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/zeroize-26b38362599bebf2/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/radium-911e53e1d867773d/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/const_format-c2910afe44954daa/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking arrayvec v0.7.6
+    Checking rustc-hex v2.1.0
+    Checking untrusted v0.9.0
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/arrayvec-3028b610675d8d99/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking funty v2.0.0
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/rustc-hex-9570f181ac7e618b/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking byte-slice-cast v1.2.3
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/untrusted-7438d7c95d5688b1/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking fastrand v2.3.0
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/byte-slice-cast-8da560c96cf000a4/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/funty-2e0bf0f23be6379c/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/fastrand-e6d8265f2a19c930/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking derive_more v1.0.0
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/derive_more-71e96301b581757a/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking dyn-clone v1.0.20
+    Checking bytes v1.11.0
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/dyn-clone-faf67192f39592b2/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking rustls-pki-types v1.11.0 (https://github.com/mattlockyer/pki-types#8da373e6)
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/bytes-9dd723486cef03b7/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking asn1_der v0.7.6
+    Checking log v0.4.28
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/rustls-pki-types-443ab1042941f45a/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking urlencoding v2.1.3
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/asn1_der-cddc5b2a4c5aeafa/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking bs58 v0.5.1
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/log-dff545fb3edda79a/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+    Checking near-sys v0.2.5
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/bs58-eee87e01131111a1/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/urlencoding-9a8d2b402a3f3fe4/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+error: failed to write `/Users/owen/projects/proximity/shade-contract-template/target/debug/.fingerprint/near-sys-31caf5c988d1b8a9/invoked.timestamp`
+
+Caused by:
+  No such file or directory (os error 2)
+error: could not compile `byteorder` (lib) due to 1 previous error
+error: could not compile `crossbeam-utils` (lib) due to 1 previous error
+error: could not compile `libc` (lib) due to 1 previous error
+error: could not compile `borsh` (lib) due to 1 previous error
+error: could not compile `typenum` (lib) due to 1 previous error
+error: could not compile `num-traits` (lib) due to 1 previous error
+error: could not compile `hashbrown` (lib) due to 1 previous error
+error: could not compile `arbitrary` (lib) due to 1 previous error
+error: could not compile `serde_core` (lib) due to 1 previous error

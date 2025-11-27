@@ -1,0 +1,14 @@
+/Users/owen/projects/proximity/shade-contract-template/target/debug/deps/libserde-05469eec80d7f697.rmeta: /Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/owen/projects/proximity/shade-contract-template/target/debug/build/serde-08eb9c91ad87f6dd/out/private.rs
+
+/Users/owen/projects/proximity/shade-contract-template/target/debug/deps/libserde-05469eec80d7f697.rlib: /Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/owen/projects/proximity/shade-contract-template/target/debug/build/serde-08eb9c91ad87f6dd/out/private.rs
+
+/Users/owen/projects/proximity/shade-contract-template/target/debug/deps/serde-05469eec80d7f697.d: /Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs /Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs /Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs /Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs /Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs /Users/owen/projects/proximity/shade-contract-template/target/debug/build/serde-08eb9c91ad87f6dd/out/private.rs
+
+/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/lib.rs:
+/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/integer128.rs:
+/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/mod.rs:
+/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/de.rs:
+/Users/owen/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.228/src/private/ser.rs:
+/Users/owen/projects/proximity/shade-contract-template/target/debug/build/serde-08eb9c91ad87f6dd/out/private.rs:
+
+# env-dep:OUT_DIR=/Users/owen/projects/proximity/shade-contract-template/target/debug/build/serde-08eb9c91ad87f6dd/out
