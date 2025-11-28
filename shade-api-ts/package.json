@@ -1,0 +1,63 @@
+{
+    "type": "module",
+    "name": "@neardefi/shade-agent-js",
+    "version": "1.0.4",
+    "main": "index.cjs",
+    "types": "index.d.ts",
+    "author": "Matt Lockyer <github.com/mattlockyer>",
+    "license": "MIT",
+    "scripts": {
+        "build:proxy": "cd ./contracts/proxy && cargo near build non-reproducible-wasm",
+        "build:sandbox": "cd ./contracts/sandbox && RUSTFLAGS='-C link-arg=--enable-bulk-memory' cargo near build non-reproducible-wasm",
+        "build": "tsup src/index.ts --format cjs --dts && cp package.json dist/package.json",
+        "build:test": "yarn run build && rm -rf docker-api/dist && mkdir docker-api/dist && cp dist/* docker-api/dist",
+        "deploy": "npm publish --access public",
+        "docker-api:build": "cd docker-api && docker build --platform linux/amd64 -t pivortex/api-image:latest . && docker push pivortex/api-image:latest",
+        "docker-api:run": "cd tests && docker run -p 3140:3140 --env-file .env.development.local pivortex/api-image:latest",
+        "test": "vitest tests/local/example.test.ts",
+        "kill:test": "lsof -ti:3032 | xargs kill -9"
+    },
+    "devDependencies": {
+        "@near-js/accounts": "^2.2.2",
+        "@near-js/crypto": "^2.2.2",
+        "@near-js/signers": "^2.2.2",
+        "@near-js/tokens": "^2.2.2",
+        "@near-js/utils": "^2.2.2",
+        "@types/dockerode": "^3.3.44",
+        "@types/elliptic": "^6",
+        "@types/node": "^22.15.21",
+        "@vitest/coverage-v8": "^1.0.0",
+        "@vitest/ui": "^1.0.0",
+        "bs58check": "^4.0.0",
+        "dotenv": "^16.4.7",
+        "elliptic": "^6.6.1",
+        "hash.js": "^1.1.7",
+        "js-sha3": "^0.9.3",
+        "keccak": "^3.0.4",
+        "near-sandbox": "^0.2.0",
+        "near-seed-phrase": "^0.2.1",
+        "tsup": "^8.5.0",
+        "typescript": "^5.8.3",
+        "vitest": "^1.0.0"
+    },
+    "description": "This library is intended to be used in conjunction with the [shade agent template](https://github.com/NearDeFi/shade-agent-template/).",
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/NearDeFi/shade-agent-js.git"
+    },
+    "keywords": [
+        "AI",
+        "agents",
+        "crypto",
+        "shade"
+    ],
+    "bugs": {
+        "url": "https://github.com/NearDeFi/shade-agent-js/issues"
+    },
+    "homepage": "https://github.com/NearDeFi/shade-agent-js#readme",
+    "packageManager": "yarn@4.9.1",
+    "dependencies": {
+        "@near-js/providers": "^2.2.2",
+        "dockerode": "^4.0.9"
+    }
+}
