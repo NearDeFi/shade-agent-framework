@@ -9,10 +9,10 @@ impl Contract {
 
     // Require the caller to have a verified agent
     pub(crate) fn require_verified_agent(&mut self) {
+        let agent = self
+            .get_agent(env::predecessor_account_id())
+            .expect("Agent not whitelisted");
         if self.requires_tee {
-            let agent = self
-                .get_agent(env::predecessor_account_id())
-                .expect("Agent not whitelisted");
             let codehash = agent.codehash.unwrap_or_else(|| {
                 panic!("Agent not registered");
             });

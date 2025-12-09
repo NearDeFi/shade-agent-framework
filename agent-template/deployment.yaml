@@ -10,7 +10,7 @@ network: testnet
 agent_contract: 
   # NEAR Account Id of the contract
   # Fill this out
-  contract_id: 
+  contract_id: a-v-shade-contract.testnet
   
   # Optional, if not provided the contract will not be deployed 
   # and it will assume the agent contract is deployed to contract_id
@@ -22,9 +22,9 @@ agent_contract:
     # Choose ONE of the following (mutually exclusive):
     # Option 1: Build from contract source
     build_from_source: 
-      path_to_contract: ./contract
+      path_to_contract: ./shade-contract-template
     # Option 2: Use pre-built WASM file
-    # path_to_wasm: ./target/near/shade_contract_template.wasm
+    # path_to_wasm: ./shade-contract-template/target/near/shade_contract_template.wasm
 
     # Optional, if not provided the contract will not be initialized
     init: 

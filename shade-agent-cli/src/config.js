@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 import { parse as parseYaml } from 'yaml';
 import * as dotenv from 'dotenv';
 import { KeyPairSigner } from '@near-js/signers';
-import { JsonRpcProvider, FailoverRpcProvider } from "@near-js/providers";
+import { JsonRpcProvider } from "@near-js/providers";
 import { Account } from "@near-js/accounts";
 
 // Load in environment variables from .env file
@@ -91,12 +91,12 @@ function parseDeploymentConfig(deploymentPath) {
         }
     }
 
-    // docker validations
-    if (docker) {
-        requireField(!!docker.tag, 'docker.tag is required');
-        requireField(docker.cache !== undefined, 'docker.cache is required');
-        requireField(typeof docker.cache === 'boolean', 'docker.cache must be boolean');
-        requireField(!!docker.docker_compose_path, 'docker.docker_compose_path is required');
+    // docker validations - only required when environment is TEE
+    if (docker && environment === 'TEE') {
+        requireField(!!docker.tag, 'docker.tag is required when environment is TEE');
+        requireField(docker.cache !== undefined, 'docker.cache is required when environment is TEE');
+        requireField(typeof docker.cache === 'boolean', 'docker.cache must be boolean when environment is TEE');
+        requireField(!!docker.docker_compose_path, 'docker.docker_compose_path is required when environment is TEE');
     }
 
     // approve_codehash validations
@@ -170,8 +170,10 @@ function createDefaultProvider(network) {
     );
 }
 
-const pathToDeploymentYaml = path.resolve(__dirname, '../agent-template/deployment.yaml');
-const deploymentConfig = parseDeploymentConfig(pathToDeploymentYaml);
+// Prefer deployment.yaml in current working directory; fall back to agent-template
+const cwdDeployment = path.resolve(process.cwd(), 'deployment.yaml');
+const defaultDeployment = path.resolve(__dirname, '../agent-template/deployment.yaml');
+const deploymentConfig = parseDeploymentConfig(existsSync(cwdDeployment) ? cwdDeployment : defaultDeployment);
 
 if (!process.env.ACCOUNT_ID) {
     console.log('Make sure you have set the ACCOUNT_ID in .env.development.local');
@@ -199,12 +201,14 @@ const provider = createDefaultProvider(networkId);
 
 const signer = KeyPairSigner.fromSecretKey(privateKey);
 
-export const masterAccount = new Account(accountId, provider, signer);
-export const contractAccount = new Account(deploymentConfig?.contract_id, provider, signer);
+const masterAccount = new Account(accountId, provider, signer);
+const contractAccount = new Account(deploymentConfig?.contract_id, provider, signer);
 
 export const config = {
     accountId,
     privateKey,
     phalaKey,
+    masterAccount,
+    contractAccount,
     deployment: deploymentConfig,
 };
