@@ -4,13 +4,12 @@ use near_sdk::{
     env::{self, block_timestamp},
     near, require, log,
     store::{IterableMap, IterableSet},
-    AccountId, Gas, NearToken, PanicOnDefault, Promise, Timestamp,
-    json_types::U64,
+    AccountId, Gas, NearToken, PanicOnDefault, Promise, BorshStorageKey,
 };
 
 mod chainsig;
 mod collateral;
-mod helper;
+mod helpers;
 mod views;
 
 pub type Codehash = String;
@@ -20,10 +19,9 @@ pub type Codehash = String;
 pub struct Contract {
     pub owner_id: AccountId,
     pub approved_codehashes: IterableSet<Codehash>,
-    pub agents: IterableMap<AccountId, Agent>,
-    pub tee_config: TEEConfig,
+    pub agents: IterableMap<AccountId, Option<Codehash>>,
+    pub requires_tee: bool,
     pub mpc_contract_id: AccountId,
-    pub restrict_transactions: bool,
 }
 
 #[near(serializers = [json])]
@@ -34,77 +32,62 @@ pub struct Attestation {
     pub tcb_info: String,
 }
 
-#[near(serializers = [json, borsh])]
-pub struct Agent {
-    pub whitelisted: bool,
-    pub codehash: Option<Codehash>,
-    pub last_verified: Option<Timestamp>,
-}
-
 #[near(serializers = [json])]
 #[derive(Clone)]
-pub struct AgentView {
-    pub account_id: AccountId,
-    pub whitelisted: bool,
-    pub verified: bool,
-    pub codehash: Option<Codehash>,
-    pub last_verified: Option<U64>,
+pub struct Agent {
+    account_id: AccountId,
+    verified: bool,
+    whitelisted: bool,
+    codehash: Option<Codehash>,
 }
 
-#[near(serializers = [json, borsh])]
-#[derive(Clone)]
-pub enum TEEConfig {
-    OnTransactionVerification,
-    IntervalVerification(Timestamp),
-    OneTimeVerification,
-    NoVerification,
+#[derive(BorshStorageKey)]
+#[near]
+pub enum StorageKey {
+    ApprovedCodehashes,
+    Agents,
 }
 
 #[near]
 impl Contract {
     #[init]
     #[private]
-    pub fn init(owner_id: AccountId, mpc_contract_id: AccountId, tee_config: TEEConfig, restrict_transactions: bool) -> Self {
+    pub fn init(owner_id: AccountId, mpc_contract_id: AccountId, requires_tee: bool) -> Self {
         Self {
             owner_id,
             mpc_contract_id, // Set to v1.signer-prod.testnet for testnet, v1.signer for mainnet
-            tee_config,
-            approved_codehashes: IterableSet::new(b"a"),
-            agents: IterableMap::new(b"b"),
-            restrict_transactions,
+            requires_tee,
+            approved_codehashes: IterableSet::new(StorageKey::ApprovedCodehashes),
+            agents: IterableMap::new(StorageKey::Agents),
         }
     }
 
-    // Verify an agent, this need to be called by the agent itself
+    // Verify an agent, this needs to be called by the agent itself
     pub fn verify_agent(&mut self, attestation: Attestation) -> bool {
-        // Check that the agent is whitelisted
-        self.agents
+        // Check that the agent is whitelisted 
+        self
+            .agents
             .get(&env::predecessor_account_id())
             .expect("Agent needs to be whitelisted first");
 
-        let (codehash, last_verified) = match self.tee_config {
-            TEEConfig::OnTransactionVerification => {
-                panic!("Attestation on transaction does not require an agent to generally verify");
-            }
-            TEEConfig::IntervalVerification(_) => {
-                // Update the last verified timestamp
-                let codehash = self.check_attestation(attestation);
-                (codehash, Some(block_timestamp()))
-            }
-            TEEConfig::OneTimeVerification => {
-                let codehash = self.check_attestation(attestation);
-                (codehash, None)
-            }
-            TEEConfig::NoVerification => ("not-in-a-tee".to_string(), None),
-        };
+        if self.requires_tee {
+            // Verify the attestation and get the codehash from the agent
+            let codehash = collateral::verify_attestation(attestation);
 
-        self.agents.insert(env::predecessor_account_id(), Agent {
-            whitelisted: true,
-            codehash: Some(codehash),
-            last_verified: last_verified,
-        });
+            // Verify the codehash is approved
+            require!(self.approved_codehashes.contains(&codehash));
 
-        log!("Agent {} verified", env::predecessor_account_id());
+            // Register the agent with the codehash
+            self.agents
+                .insert(env::predecessor_account_id(), Some(codehash));
+        } else {
+            // Register the agent without TEE verification
+            self.agents.insert(
+                env::predecessor_account_id(),
+                Some("not-in-a-tee".to_string()),
+            );
+        }
+
         true
     }
 
@@ -114,9 +97,8 @@ impl Contract {
         path: String,
         payload: String,
         key_type: String,
-        attestation: Option<Attestation>,
     ) -> Promise {
-        self.require_verified_agent(attestation);
+        self.require_verified_agent();
 
         self.internal_request_signature(path, payload, key_type)
     }
@@ -139,11 +121,7 @@ impl Contract {
     // Note: This will override any existing entry, including verified agents (will unverify them)
     pub fn whitelist_agent(&mut self, account_id: AccountId) {
         self.require_owner();
-        self.agents.insert(account_id, Agent {
-            whitelisted: true,
-            codehash: None,
-            last_verified: None,
-        });
+        self.agents.insert(account_id, None);
     }
 
     // Remove an agent from the list of agents
@@ -162,10 +140,5 @@ impl Contract {
     pub fn update_mpc_contract_id(&mut self, mpc_contract_id: AccountId) {
         self.require_owner();
         self.mpc_contract_id = mpc_contract_id;
-    }
-
-    pub fn add_approved_transactions(&mut self, transactions: Vec<String>) {
-        self.require_owner();
-        // TODO
     }
 }

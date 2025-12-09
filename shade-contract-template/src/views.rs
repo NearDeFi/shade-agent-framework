@@ -3,8 +3,8 @@ use crate::*;
 #[near]
 impl Contract {
     // Get the TEE configuration
-    pub fn get_tee_config(&self) -> TEEConfig {
-        self.tee_config.clone()
+    pub fn get_requires_tee(&self) -> bool {
+        self.requires_tee.clone()
     }
 
     // Get the list of approved codehashes
@@ -25,18 +25,17 @@ impl Contract {
     }
 
     // Get the details of an agent
-    pub fn get_agent(&self, account_id: AccountId) -> Option<AgentView> {
-        self.agents.get(&account_id).map(|agent| AgentView {
+    pub fn get_agent(&self, account_id: AccountId) -> Option<Agent> {
+        self.agents.get(&account_id).map(|codehash_opt| Agent {
             account_id: account_id.clone(),
-            verified: self.is_verified_agent(account_id.clone()),
-            whitelisted: agent.whitelisted,
-            codehash: agent.codehash.clone(),
-            last_verified: agent.last_verified.map(|t| U64::from(t)),
+            verified: codehash_opt.is_some(),
+            whitelisted: true,
+            codehash: codehash_opt.clone(),
         })
     }
 
     // Get the list of agents and their details
-    pub fn get_agents(&self, from_index: &Option<u32>, limit: &Option<u32>) -> Vec<AgentView> {
+    pub fn get_agents(&self, from_index: &Option<u32>, limit: &Option<u32>) -> Vec<Agent> {
         let from = from_index.unwrap_or(0);
         let limit = limit.unwrap_or(self.agents.len() as u32);
 
@@ -44,12 +43,11 @@ impl Contract {
             .iter()
             .skip(from as usize)
             .take(limit as usize)
-            .map(|(account_id, agent)| AgentView {
+            .map(|(account_id, codehash_opt)| Agent {
                 account_id: account_id.clone(),
-                verified: self.is_verified_agent(account_id.clone()),
-                whitelisted: agent.whitelisted,
-                codehash: agent.codehash.clone(),
-                last_verified: agent.last_verified.map(|t| U64::from(t)),
+                verified: codehash_opt.is_some(),
+                whitelisted: true,
+                codehash: codehash_opt.clone(),
             })
             .collect()
     }

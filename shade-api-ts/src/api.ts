@@ -267,39 +267,39 @@ export class ShadeClient {
         });
     }
 
-    /**
-     * Requests a digital signature from the agent for a given payload and path
-     * @param params - The parameters for the signature request
-     * @param params.path - The path associated with the signature request
-     * @param params.payload - The payload to be signed
-     * @param params.keyType - The type of key to use for signing (default is 'Ecdsa')
-     * @returns A promise that resolves with the result of the signature request
-     */
-    async requestSignature(params: {
-        path: string;
-        payload: string;
-        keyType?: SignatureKeyType | string;
-        deposit?: bigint | string | number;
-        gas?: bigint | string | number;
-        waitUntil?: TxExecutionStatus;
-    }): Promise<SignatureResponse> {
-        // Normalize keyType to string value
-        const keyType: string = params.keyType 
-            ? (typeof params.keyType === 'string' ? params.keyType : params.keyType)
-            : SignatureKeyType.Ecdsa;
+    // /**
+    //  * Requests a digital signature from the agent for a given payload and path
+    //  * @param params - The parameters for the signature request
+    //  * @param params.path - The path associated with the signature request
+    //  * @param params.payload - The payload to be signed
+    //  * @param params.keyType - The type of key to use for signing (default is 'Ecdsa')
+    //  * @returns A promise that resolves with the result of the signature request
+    //  */
+    // async requestSignature(params: {
+    //     path: string;
+    //     payload: string;
+    //     keyType?: SignatureKeyType | string;
+    //     deposit?: bigint | string | number;
+    //     gas?: bigint | string | number;
+    //     waitUntil?: TxExecutionStatus;
+    // }): Promise<SignatureResponse> {
+    //     // Normalize keyType to string value
+    //     const keyType: string = params.keyType 
+    //         ? (typeof params.keyType === 'string' ? params.keyType : params.keyType)
+    //         : SignatureKeyType.Ecdsa;
 
-        return await this.call({
-            methodName: "request_signature",
-            args: {
-                path: params.path,
-                payload: params.payload,
-                key_type: keyType,
-            },
-            deposit: params.deposit,
-            gas: params.gas,
-            waitUntil: params.waitUntil,
-        });
-    }
+    //     return await this.call({
+    //         methodName: "request_signature",
+    //         args: {
+    //             path: params.path,
+    //             payload: params.payload,
+    //             key_type: keyType,
+    //         },
+    //         deposit: params.deposit,
+    //         gas: params.gas,
+    //         waitUntil: params.waitUntil,
+    //     });
+    // }
 
     async getAttestation(): Promise<Attestation> {
         return getAttestation(this.tappdClient, this.agentAccountId, this.keysDerivedWithTEE);

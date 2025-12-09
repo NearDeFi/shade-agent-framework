@@ -8,7 +8,7 @@ import {
 } from "../utils/ethereum";
 import { getEthereumPriceUSD } from "../utils/fetch-eth-price";
 import { Contract, JsonRpcProvider } from "ethers";
-import { utils } from "chainsig.js";
+import { utils, type MPCSignature } from "chainsig.js";
 const { toRSV, uint8ArrayToHex } = utils.cryptography;
 
 const app = new Hono();
@@ -36,17 +36,20 @@ app.get("/", async (c) => {
     // Use the agent instance
 
     // Call the agent contract to get a signature for the payload
-    const signRes = await agent.requestSignature({
-      path: "ethereum-1",
-      payload: uint8ArrayToHex(hashesToSign[0]),
-      keyType: "Ecdsa",
+    const signRes = await agent.call({
+      methodName: "request_signature",
+      args: {
+        path: "ethereum-1",
+        payload: uint8ArrayToHex(hashesToSign[0]),
+        key_type: "Ecdsa",
+      },
     });
     console.log("signRes", signRes);
 
     // Reconstruct the signed transaction
     const signedTransaction = Evm.finalizeTransactionSigning({
       transaction,
-      rsvSignatures: [toRSV(signRes)],
+      rsvSignatures: [toRSV(signRes as MPCSignature)],
     });
 
     // Broadcast the signed transaction
