@@ -11,62 +11,70 @@ function tgasToGas(tgas) {
     return BigInt(tgas) * BigInt(1000000000000);
 }
 
-export async function createAccount(contractId, masterAccount, contractAccount) {
+export async function createAccount() {
+    const contractId = config.deployment.agent_contract.contract_id;
+    const masterAccount = config.masterAccount;
+    const contractAccount = config.contractAccount;
     // Use only the first provider for existence check to avoid failover on AccountDoesNotExist
     // Check if the contract account exists and delete it if it does
     try {
         await contractAccount.getBalance();
-        console.log("Account already exists, deleting...");
+        console.log("Contract account already exists, deleting it");
         await contractAccount.deleteAccount(masterAccount.accountId);
-        console.log("Account deleted successfully");
         await sleep(1000);
     } catch (e) {
         if (e.type === 'AccountDoesNotExist') {
-            console.log("Account does not exist, creating new one...");
+            console.log("Contract account does not exist, creating it");
         } else {
-            console.log('Error checking account existence', e);
+            console.log('Error checking contract account existence', e);
             await contractAccount.deleteAccount(masterAccount.accountId);
-            console.log("Account deleted successfully");
             await sleep(1000);
         }
     }
 
     // Create the contract account
     try {
-        console.log('Creating account...');
+        console.log('Creating contract account');
         await masterAccount.createAccount(
             contractId,
             await masterAccount.getSigner().getPublicKey(),
-            NEAR.toUnits(config.deployment.deploy_custom.funding_amount),
+            NEAR.toUnits(config.deployment.agent_contract.deploy_custom.funding_amount),
         );
-        console.log('Contract account created:', contractId);
         await sleep(1000);
-        return true;
     } catch (e) {
-        console.log('Error creating account', e);
-        return false;
+        console.log('Error creating contract account', e);
+        process.exit(1);
     }
 }
 
-export async function deployCustomContractFromWasm(contractAccount, wasmPath) {
+
+export async function deployCustomContractFromWasm() {
+    const wasmPath = config.deployment.agent_contract.deploy_custom.path_to_wasm;
+    return await innerDeployCustomContractFromWasm(wasmPath);
+}
+
+async function innerDeployCustomContractFromWasm(wasmPath) {
+    const contractAccount = config.contractAccount;
     try {
         // Deploys the contract bytes (requires more funding)
         const file = fs.readFileSync(wasmPath);
-        await contractAccount.deployContract(file);
+        await contractAccount.deployContract(new Uint8Array(file));
         console.log('Custom contract deployed:', contractAccount.accountId);
         await sleep(1000);
-        return true;
     } catch (e) {
-        console.log('Error deploying custom contract', e);
-        return false;
+        console.log('Error deploying the custom contract from WASM', e);
+        process.exit(1);
     }
 }
 
-export async function deployCustomContractFromSource(contractAccount, sourcePath) {
+// TODO make this dynamic + check docker image
+
+export async function deployCustomContractFromSource() {
+    const sourcePath = config.deployment.agent_contract.deploy_custom.path_to_contract;
     try {
         // Resolve to absolute path for Docker volume mount
         const absoluteSourcePath = path.resolve(process.cwd(), sourcePath);
-        console.log(`Building contract from source at ${absoluteSourcePath}...`);
+        console.log(`Building the contract from source at ${absoluteSourcePath}`);
 
         if (config.deployment.os === 'mac') {
             // Use Docker-based builder on macOS
@@ -79,22 +87,21 @@ export async function deployCustomContractFromSource(contractAccount, sourcePath
             execSync('cargo near build non-reproducible-wasm', { cwd: absoluteSourcePath, stdio: 'inherit' });
         }
 
-        const wasmPath = path.join(absoluteSourcePath, 'target', 'near', 'shade_contract_template.wasm'); // TODO: Make this dynamic
-        return await deployCustomContractFromWasm(contractAccount, wasmPath);
+        const wasmPath = path.join(absoluteSourcePath, 'target', 'near', 'shade_contract_template.wasm');
+        await innerDeployCustomContractFromWasm(wasmPath);
     } catch (e) {
-        console.log('Error building/deploying custom contract from source', e);
-        return false;
+        console.log('Error building/deploying the custom contract from source', e);
+        process.exit(1);
     }
 }
 
-
-export async function initContract(contractAccount, contractId, masterAccount) {
+export async function initContract() {
+    const contractAccount = config.contractAccount;
+    const contractId = config.deployment.agent_contract.contract_id;
     // Initializes the contract based on deployment config
+    console.log('Initializing the contract');
     try {
-        const initCfg = config.deployment.deploy_custom?.init;
-        if (!initCfg) {
-            throw new Error('Missing init configuration in deployment');
-        }
+        const initCfg = config.deployment.agent_contract.deploy_custom.init;
 
         const methodName = initCfg.method_name;
 
@@ -125,22 +132,20 @@ export async function initContract(contractAccount, contractId, masterAccount) {
             args,
             gas: tgasToGas(initCfg.tgas),
         });
-        console.log('Contract initialized:', initRes.status.SuccessValue === '');
         await sleep(1000);
-        return true;
     } catch (e) {
-        console.log('Error initializing contract', e);
-        return false;
+        console.log('Error initializing the contract', e);
+        process.exit(1);
     }
 }
 
-export async function approveCodehash(masterAccount, contractId) {
+export async function approveCodehash() {
+    const masterAccount = config.masterAccount;
+    const contractId = config.deployment.agent_contract.contract_id;
     // Approves the specified codehash based on deployment config
+    console.log('Approving the codehash');
     try {
         const approveCfg = config.deployment.approve_codehash;
-        if (!approveCfg) {
-            throw new Error('Missing approve_codehash configuration in deployment');
-        }
 
         const args =
             typeof approveCfg.args === 'string'
@@ -176,11 +181,9 @@ export async function approveCodehash(masterAccount, contractId) {
             args,
             gas: tgasToGas(approveCfg.tgas),
         });
-        console.log('Codehash approved:', approveRes.status.SuccessValue === '');
         await sleep(1000);
-        return true;
     } catch (e) {
-        console.log('Error approving codehash', e);
-        return false;
+        console.log('Error approving the codehash', e);
+        process.exit(1);
     }
 }

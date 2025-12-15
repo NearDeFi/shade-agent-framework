@@ -16,27 +16,26 @@ const PHALA_COMMAND = `npx phala@${PHALA_VERSION}`;
 
 function loginToPhala(phalaKey) {
     // Logs in to Phala Cloud
-    console.log('logging in to Phala Cloud...');
+    console.log('Logging in to Phala Cloud');
     try {
         execSync(`${PHALA_COMMAND} auth login ${phalaKey}`);
         console.log('Successfully logged in to Phala Cloud');
-        return true;
     } catch (e) {
         console.log('Error authenticating with Phala Cloud', e);
-        return false;
+        process.exit(1);
     }
 }
 
 function deployToPhala(dockerTag) {
     // Deploys the app to Phala Cloud using phala CLI
-    console.log('deploying to Phala Cloud...');
+    console.log('Deploying to Phala Cloud');
     const appNameSplit = dockerTag.split('/');
     const appName = appNameSplit[appNameSplit.length - 1];
     
     // Validate app name length
     if (appName.length <= 3) {
         console.log('Error: Docker tag app name must be longer than 3 characters');
-        return null;
+        process.exit(1);
     }
     
     try {
@@ -51,12 +50,11 @@ function deployToPhala(dockerTag) {
             `${PHALA_COMMAND} cvms create --name ${appName} --vcpu 1 --compose ${composePath} --env-file ${envFilePath}`,
             { encoding: 'utf-8' }
         );
-        console.log('deployed to Phala Cloud');
 
         const deploymentUrlMatch = result.match(/App URL\s*│\s*(https:\/\/[^\s]+)/);
         if (deploymentUrlMatch) {
             const deploymentUrl = deploymentUrlMatch[1];
-            console.log(`\n You can find your deployment at: ${deploymentUrl}`);
+            console.log(`\n Phala Application Dashboard URL: ${deploymentUrl}`);
         }
         
         // Extract App ID from the output 
@@ -65,16 +63,19 @@ function deployToPhala(dockerTag) {
             return appId[1];
         } else {
             console.log('Could not extract App ID from output');
-            return null;
+            process.exit(1);
         }
     } catch (e) {
         console.log('Error deploying to Phala Cloud', e);
-        return null;
+        process.exit(1);
     }
 }
 
-export async function getAppUrl(appId, phalaKey) {
-    console.log('Getting app url...');
+// They might not use port 3000, this should be dynamic
+
+export async function getAppUrl(appId) {
+    const phalaKey = config.phalaKey;
+    console.log('Getting the app URL');
     const url = `https://cloud-api.phala.network/api/v1/cvms/${appId}`;
     const maxAttempts = 30;
     const delay = 1000;
@@ -91,7 +92,7 @@ export async function getAppUrl(appId, phalaKey) {
                 if (Array.isArray(data.public_urls)) {
                     const url3000 = data.public_urls.find(u => u.app && u.app.includes('-3000.'));
                     if (url3000 && url3000.app) {
-                        console.log(`\n🎉 Your app is live at: ${url3000.app}`);
+                        console.log(`\n Your app is live at: ${url3000.app}`);
                         return url3000.app;
                     }
                 }
@@ -103,22 +104,18 @@ export async function getAppUrl(appId, phalaKey) {
             await new Promise(res => setTimeout(res, delay));
         }
     }
-    console.error(`CVM Network Info did not become ready after ${maxAttempts} attempts.`);
+    console.error(`Failed to get app URL: CVM Network Info did not become ready after ${maxAttempts} attempts.`);
     return null;
 }
 
-export async function deployPhalaWorkflow(phalaKey, dockerTag) {
+export async function deployPhalaWorkflow() {
+    const phalaKey = config.phalaKey;
+    const dockerTag = config.deployment.docker.tag;
     // Logs in to Phala Cloud
-    if (!loginToPhala(phalaKey)) {
-        return false;
-    }
+    loginToPhala(phalaKey);
 
     // Deploys the app to Phala Cloud
     const appId = deployToPhala(dockerTag);
-
-    if (!appId) {
-        return false;
-    }
 
     return appId;
 }

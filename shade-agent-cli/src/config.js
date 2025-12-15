@@ -10,14 +10,12 @@ import { Account } from "@near-js/accounts";
 // Load in environment variables from .env file
 dotenv.config();
 
-// Get the directory name of the current file
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
 // Parse the deployment configuration from the deployment.yaml file
 function parseDeploymentConfig(deploymentPath) {
+    console.log('Parsing deployment configuration from deployment.yaml file');
     if (!existsSync(deploymentPath)) {
-        console.warn(`deployment.yaml not found at ${deploymentPath}`);
-        return null;
+        console.log(`deployment.yaml not found at ${deploymentPath}, you need to configure your deployment.yaml file`);
+        process.exit(1);
     }
 
     const raw = readFileSync(deploymentPath, 'utf8');
@@ -33,9 +31,6 @@ function parseDeploymentConfig(deploymentPath) {
         deploy_to_phala,
     } = doc;
 
-    const deployCustom = agent_contract?.deploy_custom;
-    const init = deployCustom?.init;
-
     // Validation helpers
     const requireField = (cond, message) => {
         if (!cond) {
@@ -50,7 +45,6 @@ function parseDeploymentConfig(deploymentPath) {
     // Required top-level fields
     requireField(os !== undefined, 'os is required');
     mustBeOneOf(os, ['mac', 'linux'], 'os');
-
     requireField(environment !== undefined, 'environment is required');
     mustBeOneOf(environment, ['local', 'TEE'], 'environment');
 
@@ -62,37 +56,36 @@ function parseDeploymentConfig(deploymentPath) {
     requireField(agent_contract?.contract_id, 'agent_contract.contract_id is required');
 
     // deploy_custom validations
-    if (agent_contract?.deploy_custom) {
-        const dc = agent_contract.deploy_custom;
+    if (agent_contract?.deploy_custom && agent_contract.deploy_custom.enabled !== false) {
         requireField(
-            typeof dc.funding_amount === 'number' && dc.funding_amount > 0 && dc.funding_amount <= 100,
+            typeof agent_contract.deploy_custom.funding_amount === 'number' && agent_contract.deploy_custom.funding_amount > 0 && agent_contract.deploy_custom.funding_amount <= 100,
             'deploy_custom.funding_amount must be a number > 0 and <= 100'
         );
 
-        if (dc.build_from_source) {
+        if (agent_contract.deploy_custom.build_from_source) {
             requireField(
-                !!dc.build_from_source.path_to_contract,
+                !!agent_contract.deploy_custom.build_from_source.path_to_contract,
                 'deploy_custom.build_from_source.path_to_contract is required'
             );
         }
 
         // Must provide exactly one of build_from_source or path_to_wasm
-        const hasBuildFromSource = !!dc.build_from_source;
-        const hasPathToWasm = dc.path_to_wasm !== undefined;
+        const hasBuildFromSource = !!agent_contract.deploy_custom.build_from_source;
+        const hasPathToWasm = agent_contract.deploy_custom.path_to_wasm !== undefined;
         requireField(
             hasBuildFromSource !== hasPathToWasm,
             'deploy_custom must specify exactly one of build_from_source or path_to_wasm'
         );
 
-        if (dc.init) {
-            requireField(!!dc.init.method_name, 'deploy_custom.init.method_name is required');
-            requireField(dc.init.args !== undefined, 'deploy_custom.init.args is required');
-            mustBeMultilineString(dc.init.args, 'deploy_custom.init.args');
+        if (agent_contract.deploy_custom.init) {
+            requireField(!!agent_contract.deploy_custom.init.method_name, 'deploy_custom.init.method_name is required');
+            requireField(agent_contract.deploy_custom.init.args !== undefined, 'deploy_custom.init.args is required');
+            mustBeMultilineString(agent_contract.deploy_custom.init.args, 'deploy_custom.init.args');
         }
     }
 
     // docker validations - only required when environment is TEE
-    if (docker && environment === 'TEE') {
+    if (docker && docker.enabled !== false && environment === 'TEE') {
         requireField(!!docker.tag, 'docker.tag is required when environment is TEE');
         requireField(docker.cache !== undefined, 'docker.cache is required when environment is TEE');
         requireField(typeof docker.cache === 'boolean', 'docker.cache must be boolean when environment is TEE');
@@ -100,14 +93,14 @@ function parseDeploymentConfig(deploymentPath) {
     }
 
     // approve_codehash validations
-    if (approve_codehash) {
+    if (approve_codehash && approve_codehash.enabled !== false) {
         requireField(!!approve_codehash.method_name, 'approve_codehash.method_name is required');
         requireField(approve_codehash.args !== undefined, 'approve_codehash.args is required');
         mustBeMultilineString(approve_codehash.args, 'approve_codehash.args');
     }
 
     // deploy_to_phala validations
-    if (deploy_to_phala) {
+    if (deploy_to_phala && deploy_to_phala.enabled !== false) {
         requireField(!!deploy_to_phala.docker_compose_path, 'deploy_to_phala.docker_compose_path is required');
         requireField(!!deploy_to_phala.env_file_path, 'deploy_to_phala.env_file_path is required');
     }
@@ -116,36 +109,38 @@ function parseDeploymentConfig(deploymentPath) {
         os,
         environment,
         network,
-        contract_id: agent_contract?.contract_id,
-        deploy_custom: deployCustom
-            ? {
-                funding_amount: deployCustom.funding_amount,
-                path_to_contract: deployCustom.build_from_source?.path_to_contract,
-                path_to_wasm: deployCustom.path_to_wasm,
-                init: init
-                    ? {
-                        method_name: init.method_name,
-                        args: init.args,
-                        tgas: init.tgas ?? 30,
-                    }
-                    : undefined,
-            }
-            : undefined,
-        docker: docker
+        agent_contract: {
+            contract_id: agent_contract?.contract_id,
+            deploy_custom: agent_contract?.deploy_custom && agent_contract.deploy_custom.enabled !== false
+                ? {
+                    funding_amount: agent_contract.deploy_custom.funding_amount,
+                    path_to_contract: agent_contract.deploy_custom.build_from_source?.path_to_contract,
+                    path_to_wasm: agent_contract.deploy_custom.path_to_wasm,
+                    init: agent_contract.deploy_custom.init
+                        ? {
+                            method_name: agent_contract.deploy_custom.init.method_name,
+                            args: agent_contract.deploy_custom.init.args,
+                            tgas: agent_contract.deploy_custom.init.tgas ?? 30,
+                        }
+                        : undefined,
+                }
+                : undefined,
+        },
+        docker: docker && docker.enabled !== false
             ? {
                 tag: docker.tag,
                 cache: docker.cache,
                 docker_compose_path: docker.docker_compose_path,
             }
             : undefined,
-        approve_codehash: approve_codehash
+        approve_codehash: approve_codehash && approve_codehash.enabled !== false
             ? {
                 method_name: approve_codehash.method_name,
                 args: approve_codehash.args,
                 tgas: approve_codehash.tgas ?? 30,
             }
             : undefined,
-        deploy_to_phala: deploy_to_phala
+        deploy_to_phala: deploy_to_phala && deploy_to_phala.enabled !== false
             ? {
                 docker_compose_path: deploy_to_phala.docker_compose_path,
                 env_file_path: deploy_to_phala.env_file_path,
@@ -170,26 +165,25 @@ function createDefaultProvider(network) {
     );
 }
 
-// Prefer deployment.yaml in current working directory; fall back to agent-template
+// Always use deployment.yaml in current working directory
 const cwdDeployment = path.resolve(process.cwd(), 'deployment.yaml');
-const defaultDeployment = path.resolve(__dirname, '../agent-template/deployment.yaml');
-const deploymentConfig = parseDeploymentConfig(existsSync(cwdDeployment) ? cwdDeployment : defaultDeployment);
+const deploymentConfig = parseDeploymentConfig(cwdDeployment);
 
 if (!process.env.ACCOUNT_ID) {
-    console.log('Make sure you have set the ACCOUNT_ID in .env.development.local');
+    console.log('Make sure you have set the ACCOUNT_ID in .env');
     process.exit(1);
 }
 const accountId = process.env.ACCOUNT_ID;
 
 if (!process.env.PRIVATE_KEY) {
-    console.log('Make sure you have set the PRIVATE_KEY in .env.development.local');
+    console.log('Make sure you have set the PRIVATE_KEY in .env');
     process.exit(1);
 }
 const privateKey = /** @type {import('@near-js/crypto').KeyPairString} */ (process.env.PRIVATE_KEY);
 
 if (deploymentConfig?.environment === 'TEE' && deploymentConfig?.docker) { // Only require PHALA API key if in TEE and docker is configured
     if (!process.env.PHALA_KEY) {
-        console.log('Make sure you have set the PHALA_KEY in .env.development.local');
+        console.log('Make sure you have set the PHALA_KEY in .env');
         process.exit(1);
     }
 }
@@ -202,7 +196,7 @@ const provider = createDefaultProvider(networkId);
 const signer = KeyPairSigner.fromSecretKey(privateKey);
 
 const masterAccount = new Account(accountId, provider, signer);
-const contractAccount = new Account(deploymentConfig?.contract_id, provider, signer);
+const contractAccount = new Account(deploymentConfig?.agent_contract?.contract_id, provider, signer);
 
 export const config = {
     accountId,

@@ -60,7 +60,7 @@ npm run dev
 Whitelist the agent account id thats shared when you run it 
 Edit the command
 ```bash
-near contract call-function as-transaction your_contract_id whitelist_agent json-args '{"account_id": "your_agents_account_id"}' prepaid-gas '100.0 Tgas' attached-deposit '0 NEAR' sign-as my-brand-new-account.testnet network-config testnet sign-with-plaintext-private-key your_private_key send
+near contract call-function as-transaction your_contract_id whitelist_agent json-args '{"account_id": "your_agents_account_id"}' prepaid-gas '100.0 Tgas' attached-deposit '0 NEAR' sign-as my_example_signer_account network-config testnet sign-with-plaintext-private-key your_private_key send
 ```
 
 Review the contract for other functions like removing agents and updating the owner.

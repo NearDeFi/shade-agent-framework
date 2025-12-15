@@ -2,10 +2,11 @@ import { execSync, spawn } from 'child_process';
 import { readFileSync, writeFileSync } from 'fs';
 import { config } from './config.js';
 
-export function buildImage(dockerTag, cacheFlag) {
+export function buildImage(dockerTag) {
     // Builds the image
-    console.log('Building Docker image...');
+    console.log('Building the Docker image');
     try {
+        const cacheFlag = config.deployment.docker.cache === false ? '--no-cache' : '';
         if (config.deployment.os === 'mac') {
             execSync(`docker build ${cacheFlag} --platform=linux/amd64 -t ${dockerTag}:latest .`);
         } else if (config.deployment.os === 'linux') {
@@ -13,17 +14,15 @@ export function buildImage(dockerTag, cacheFlag) {
         } else {
             throw new Error(`Unsupported or missing os in deployment config: ${config.deployment.os}`);
         }
-        console.log('Docker image built');
-        return true;
     } catch (e) {
-        console.log('Error building Docker image', e);
-        return false;
+        console.log('Error building the Docker image', e);
+        process.exit(1);
     }
 }
 
 export function pushImage(dockerTag) {
     // Pushes the image to docker hub
-    console.log('Pushing Docker image...');
+    console.log('Pushing the Docker image');
     try {
         let output;
         if (config.deployment.os === 'mac') {
@@ -37,20 +36,22 @@ export function pushImage(dockerTag) {
         } else {
             throw new Error(`Unsupported or missing os in deployment config: ${config.deployment.os}`);
         }
-        const newAppCodehash = output
-            .toString()
-            .match(/sha256:[a-f0-9]{64}/gim)[0]
-            .split('sha256:')[1];
-        console.log('Docker image pushed');
+        const match = output.toString().match(/sha256:[a-f0-9]{64}/gim);
+        if (!match || !match[0]) {
+            console.log('Error: Could not extract codehash from the Docker push output');
+            process.exit(1);
+        }
+        const newAppCodehash = match[0].split('sha256:')[1];
         return newAppCodehash;
     } catch (e) {
-        console.log('Error pushing Docker image', e);
-        return null;
+        console.log('Error pushing the Docker image', e);
+        process.exit(1);
     }
 }
 
 export function replaceInYaml(dockerTag, codehash) {
     // Replaces the codehash in the docker-compose.yaml file
+    console.log('Replacing the codehash in the docker-compose.yaml file');
     try {
         const path = config.deployment.docker.docker_compose_path;
         let data = readFileSync(path, 'utf8');
@@ -65,30 +66,22 @@ export function replaceInYaml(dockerTag, codehash) {
             dockerTag +
             data.slice(index);
         writeFileSync(path, data, 'utf8');
-        console.log('Codehash replaced in docker-compose.yaml');
-        return true;
     } catch (e) {
-        console.log('Error replacing codehash in docker-compose.yaml', e); 
-        return false;
+        console.log('Error replacing codehash in the docker-compose.yaml file', e); 
+        process.exit(1);
     }
 }
 
-export function dockerImage(dockerTag, cacheFlag) {
+export function dockerImage() {
+    const dockerTag = config.deployment.docker.tag;
     // Builds the image
-    if (!buildImage(dockerTag, cacheFlag)) {
-        return null;
-    }
+    buildImage(dockerTag);
 
     // Pushes the image and gets the new codehash
     const newAppCodehash = pushImage(dockerTag);
-    if (!newAppCodehash) {
-        return null;
-    }
 
     // Replaces the codehash in the docker-compose.yaml file
-    if (!replaceInYaml(dockerTag, newAppCodehash)) {
-        return null;
-    }
+    replaceInYaml(dockerTag, newAppCodehash);
 
     return newAppCodehash;
 }

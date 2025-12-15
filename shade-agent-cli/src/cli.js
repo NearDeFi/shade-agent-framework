@@ -3,64 +3,37 @@ import { dockerImage } from './docker.js';
 import { createAccount, deployCustomContractFromSource, deployCustomContractFromWasm, initContract, approveCodehash } from './near.js';
 import { deployPhalaWorkflow, getAppUrl } from './phala.js';
 import { config } from './config.js';
+import { versionCheck } from './version-check.js';
 
 async function main() {
-    // Version check 
-    // await versionCheck();
+    await versionCheck();
 
-    // Builds and pushes the docker image if in sandbox mode
     if (config.deployment.environment === 'TEE' && config.deployment.docker) {
-        dockerImage(config.deployment.docker.tag, config.deployment.docker.cache === false ? '--no-cache' : '');
+        dockerImage();
     }
+    if (config.deployment.agent_contract.deploy_custom) {
+        await createAccount();
 
-    // Create an account for the contract
-    if (config.deployment.deploy_custom) {
-        const accountCreated = await createAccount(config.deployment.contract_id, config.masterAccount, config.contractAccount);
-        if (!accountCreated) {
-            return;
+        if (config.deployment.agent_contract.deploy_custom.path_to_contract) {
+            await deployCustomContractFromSource();
         }
 
-        if (config.deployment.deploy_custom.path_to_contract) {
-            console.log('Deploying contract from source...');
-            const contractDeployed = await deployCustomContractFromSource(config.contractAccount, config.deployment.deploy_custom.path_to_contract);
-            if (!contractDeployed) {
-                return;
-            }
+        if (config.deployment.agent_contract.deploy_custom.path_to_wasm) {
+            await deployCustomContractFromWasm();
         }
 
-        if (config.deployment.deploy_custom.path_to_wasm) {
-            console.log('Deploying contract from WASM...');
-            const contractDeployed = await deployCustomContractFromWasm(config.contractAccount, config.deployment.deploy_custom.path_to_wasm);
-            if (!contractDeployed) {
-                return;
-            }
-        }
-
-        if (config.deployment.deploy_custom.init) {
-            const contractInitialized = await initContract(config.contractAccount, config.deployment.contract_id, config.masterAccount);
-            if (!contractInitialized) {
-                return;
-            }
+        if (config.deployment.agent_contract.deploy_custom.init) {
+            await initContract();
         }
     }
 
-    // Approve the app codehash
     if (config.deployment.approve_codehash) {
-    const appCodehashApproved = await approveCodehash(config.masterAccount, config.deployment.contract_id);
-        if (!appCodehashApproved) {
-            return;
-        }
+        await approveCodehash();
     }
 
-    // Deploy the app to Phala Cloud
     if (config.deployment.deploy_to_phala && config.deployment.environment === 'TEE') {
-        // Deploy the app to Phala Cloud
-        const appId = await deployPhalaWorkflow(config.phalaKey, config.deployment.docker.tag);
-        if (!appId) {
-            return;
-        }
-        // Print the endpoint of the app
-        await getAppUrl(appId, config.phalaKey)
+        const appId = await deployPhalaWorkflow();
+        await getAppUrl(appId);
     }
 }
 
