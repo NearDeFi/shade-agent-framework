@@ -6,9 +6,18 @@ import * as dotenv from 'dotenv';
 import { KeyPairSigner } from '@near-js/signers';
 import { JsonRpcProvider } from "@near-js/providers";
 import { Account } from "@near-js/accounts";
+import { platform } from 'os';
 
 // Load in environment variables from .env file
 dotenv.config();
+
+function detectOS() {
+    const platformName = platform();
+    if (platformName === 'darwin') return 'mac';
+    if (platformName === 'linux') return 'linux';
+    console.log(`Unsupported OS: ${platformName}. Only mac and linux are supported.`);
+    process.exit(1);
+}
 
 // Parse the deployment configuration from the deployment.yaml file
 function parseDeploymentConfig(deploymentPath) {
@@ -22,11 +31,11 @@ function parseDeploymentConfig(deploymentPath) {
     const doc = parseYaml(raw) || {};
 
     const {
-        os,
+        os, // Optional now - will auto-detect if not provided
         environment,
         network,
         agent_contract,
-        docker,
+        build_docker_image,
         approve_codehash,
         deploy_to_phala,
     } = doc;
@@ -34,7 +43,8 @@ function parseDeploymentConfig(deploymentPath) {
     // Validation helpers
     const requireField = (cond, message) => {
         if (!cond) {
-            throw new Error(`deployment.yaml invalid: ${message}`);
+            console.log(`deployment.yaml invalid: ${message}`);
+            process.exit(1);
         }
     };
     const mustBeOneOf = (value, allowed, label) =>
@@ -42,9 +52,13 @@ function parseDeploymentConfig(deploymentPath) {
     const mustBeMultilineString = (value, label) =>
         requireField(typeof value === 'string' && value.includes('\n'), `${label} must be a multiline string block`);
 
-    // Required top-level fields
-    requireField(os !== undefined, 'os is required');
-    mustBeOneOf(os, ['mac', 'linux'], 'os');
+    // Auto-detect OS if not provided
+    const detectedOS = os || detectOS();
+    if (os !== undefined) {
+        mustBeOneOf(os, ['mac', 'linux'], 'os');
+    }
+
+    // Environment is still required in deployment.yaml
     requireField(environment !== undefined, 'environment is required');
     mustBeOneOf(environment, ['local', 'TEE'], 'environment');
 
@@ -84,12 +98,12 @@ function parseDeploymentConfig(deploymentPath) {
         }
     }
 
-    // docker validations - only required when environment is TEE
-    if (docker && docker.enabled !== false && environment === 'TEE') {
-        requireField(!!docker.tag, 'docker.tag is required when environment is TEE');
-        requireField(docker.cache !== undefined, 'docker.cache is required when environment is TEE');
-        requireField(typeof docker.cache === 'boolean', 'docker.cache must be boolean when environment is TEE');
-        requireField(!!docker.docker_compose_path, 'docker.docker_compose_path is required when environment is TEE');
+    // build_docker_image validations - only required when environment is TEE
+    if (build_docker_image && build_docker_image.enabled !== false && environment === 'TEE') {
+        requireField(!!build_docker_image.tag, 'build_docker_image.tag is required when environment is TEE');
+        requireField(build_docker_image.cache !== undefined, 'build_docker_image.cache is required when environment is TEE');
+        requireField(typeof build_docker_image.cache === 'boolean', 'build_docker_image.cache must be boolean when environment is TEE');
+        requireField(!!build_docker_image.docker_compose_path, 'build_docker_image.docker_compose_path is required when environment is TEE');
     }
 
     // approve_codehash validations
@@ -103,10 +117,11 @@ function parseDeploymentConfig(deploymentPath) {
     if (deploy_to_phala && deploy_to_phala.enabled !== false) {
         requireField(!!deploy_to_phala.docker_compose_path, 'deploy_to_phala.docker_compose_path is required');
         requireField(!!deploy_to_phala.env_file_path, 'deploy_to_phala.env_file_path is required');
+        requireField(!!deploy_to_phala.app_name, 'deploy_to_phala.app_name is required');
     }
 
     return {
-        os,
+        os: detectedOS,
         environment,
         network,
         agent_contract: {
@@ -126,11 +141,11 @@ function parseDeploymentConfig(deploymentPath) {
                 }
                 : undefined,
         },
-        docker: docker && docker.enabled !== false
+        build_docker_image: build_docker_image && build_docker_image.enabled !== false
             ? {
-                tag: docker.tag,
-                cache: docker.cache,
-                docker_compose_path: docker.docker_compose_path,
+                tag: build_docker_image.tag,
+                cache: build_docker_image.cache,
+                docker_compose_path: build_docker_image.docker_compose_path,
             }
             : undefined,
         approve_codehash: approve_codehash && approve_codehash.enabled !== false
@@ -144,6 +159,7 @@ function parseDeploymentConfig(deploymentPath) {
             ? {
                 docker_compose_path: deploy_to_phala.docker_compose_path,
                 env_file_path: deploy_to_phala.env_file_path,
+                app_name: deploy_to_phala.app_name,
             }
             : undefined,
     };
@@ -181,7 +197,7 @@ if (!process.env.PRIVATE_KEY) {
 }
 const privateKey = /** @type {import('@near-js/crypto').KeyPairString} */ (process.env.PRIVATE_KEY);
 
-if (deploymentConfig?.environment === 'TEE' && deploymentConfig?.docker) { // Only require PHALA API key if in TEE and docker is configured
+if (deploymentConfig?.environment === 'TEE' && deploymentConfig?.build_docker_image) { // Only require PHALA API key if in TEE and build_docker_image is configured
     if (!process.env.PHALA_KEY) {
         console.log('Make sure you have set the PHALA_KEY in .env');
         process.exit(1);

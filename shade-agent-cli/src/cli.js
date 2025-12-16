@@ -8,8 +8,8 @@ import { versionCheck } from './version-check.js';
 async function main() {
     await versionCheck();
 
-    if (config.deployment.environment === 'TEE' && config.deployment.docker) {
-        dockerImage();
+    if (config.deployment.environment === 'TEE' && config.deployment.build_docker_image) {
+        await dockerImage();
     }
     if (config.deployment.agent_contract.deploy_custom) {
         await createAccount();

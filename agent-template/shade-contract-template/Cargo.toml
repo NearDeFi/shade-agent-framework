@@ -1,5 +1,5 @@
 [package]
-name = "shade-contract-template"
+name = "shade-contract"
 description = "Basic Shade Agents contract template"
 version = "0.1.0"
 edition = "2021"

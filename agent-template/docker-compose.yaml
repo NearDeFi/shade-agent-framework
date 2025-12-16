@@ -4,12 +4,11 @@ services:
       AGENT_CONTRACT_ID: ${AGENT_CONTRACT_ID}
       SPONSOR_ACCOUNT_ID: ${SPONSOR_ACCOUNT_ID}
       SPONSOR_PRIVATE_KEY: ${SPONSOR_PRIVATE_KEY}
-    platform: linux/amd64 # Explicitly set for TDX
-    # shade-agent-app image
-    image: pivortex/shade-agent-app@sha256:a86e3a4300b069c08d629a38d61a3d780f7992eaf36aa505e4527e466553e2e5
+    platform: linux/amd64
+    image: pivortex/shade-agent-test@sha256:6c1614aa008b2daa9d5f9cd51c435827ff7e5bec4cc93305c5e35d226a0e2ee6
     container_name: shade-agent-app
     ports:
-      - "3000:3000"
+      - 3000:3000
     volumes:
       - /var/run/tappd.sock:/var/run/tappd.sock
     restart: always

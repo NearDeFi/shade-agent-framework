@@ -1,8 +1,5 @@
-# mode: mac | linux
-os: mac 
-
-# environment: TEE | local
-environment: local
+# environment: local | TEE
+environment: TEE
 
 # network: testnet | mainnet
 network: testnet
@@ -16,9 +13,9 @@ agent_contract:
   # and it will assume the agent contract is deployed to contract_id
   # and is already initialized
   deploy_custom: 
-    enabled: true
+    enabled: false
     # Amount to fund the agent contract with in NEAR
-    funding_amount: 10 # Optmiize this owen
+    funding_amount: 7
 
     # Choose ONE of the following (mutually exclusive):
     # Option 1: Build from contract source
@@ -43,15 +40,15 @@ agent_contract:
 
 # Optional, if not provided the current docker-compose.yaml file will be used
 # Only ran if environment is TEE
-docker:
-  enabled: true
+build_docker_image:
+  enabled: false
   # Fill this out
-  tag: 
+  tag: pivortex/shade-agent-test
   cache: true
   docker_compose_path: ./docker-compose.yaml
 
 approve_codehash:
-  enabled: true
+  enabled: false
   method_name: approve_codehash
   # The CODEHASH will automatically be replaced with the codehash of the docker image once it's pushed to the registry
   args: |
@@ -63,6 +60,7 @@ approve_codehash:
 # Optional, if not provided the app will not be deployed to Phala Cloud
 deploy_to_phala:
   enabled: true
+  app_name: my-first-shade-agent
   docker_compose_path: ./docker-compose.yaml
   env_file_path: ./.env
 

@@ -67,27 +67,43 @@ async function innerDeployCustomContractFromWasm(wasmPath) {
     }
 }
 
-// TODO make this dynamic + check docker image
+function resolveWasmPath(absoluteSourcePath) {
+    const cargoTomlPath = path.join(absoluteSourcePath, 'Cargo.toml');
+    if (!fs.existsSync(cargoTomlPath)) {
+        console.log(`Cargo.toml not found at ${cargoTomlPath}`);
+        process.exit(1);
+    }
+
+    const cargoToml = fs.readFileSync(cargoTomlPath, 'utf8');
+    const nameMatch = cargoToml.match(/^\s*name\s*=\s*"([^"]+)"/m);
+    if (!nameMatch || !nameMatch[1]) {
+        console.log('Could not find package name in Cargo.toml');
+        process.exit(1);
+    }
+
+    const crateName = nameMatch[1].replace(/-/g, '_');
+    const wasmPath = path.join(absoluteSourcePath, 'target', 'near', `${crateName}.wasm`);
+    if (!fs.existsSync(wasmPath)) {
+        console.log(`WASM not found at ${wasmPath} make sure the contract build produced this file.`);
+        process.exit(1);
+    }
+
+    return wasmPath;
+}
 
 export async function deployCustomContractFromSource() {
     const sourcePath = config.deployment.agent_contract.deploy_custom.path_to_contract;
     try {
         // Resolve to absolute path for Docker volume mount
         const absoluteSourcePath = path.resolve(process.cwd(), sourcePath);
-        console.log(`Building the contract from source at ${absoluteSourcePath}`);
+        console.log(`Building the contract from source`);
 
-        if (config.deployment.os === 'mac') {
-            // Use Docker-based builder on macOS
-            execSync(
-                `docker run --rm -v "${absoluteSourcePath}":/workspace pivortex/near-builder@sha256:cdffded38c6cff93a046171269268f99d517237fac800f58e5ad1bcd8d6e2418 cargo near build non-reproducible-wasm`,
-                { stdio: 'inherit' }
-            );
-        } else {
-            // Use local cargo near on non-mac
-            execSync('cargo near build non-reproducible-wasm', { cwd: absoluteSourcePath, stdio: 'inherit' });
-        }
+        execSync(
+            `docker run --rm -v "${absoluteSourcePath}":/workspace pivortex/near-builder@sha256:cdffded38c6cff93a046171269268f99d517237fac800f58e5ad1bcd8d6e2418 cargo near build non-reproducible-wasm`,
+            { stdio: 'pipe' }
+        );
 
-        const wasmPath = path.join(absoluteSourcePath, 'target', 'near', 'shade_contract_template.wasm');
+        const wasmPath = resolveWasmPath(absoluteSourcePath);
         await innerDeployCustomContractFromWasm(wasmPath);
     } catch (e) {
         console.log('Error building/deploying the custom contract from source', e);
@@ -126,7 +142,7 @@ export async function initContract() {
         const rawArgs = typeof initCfg.args === 'string' ? JSON.parse(initCfg.args) : initCfg.args;
         const args = resolvePlaceholders(rawArgs);
 
-        const initRes = await contractAccount.callFunctionRaw({
+        await contractAccount.callFunctionRaw({
             contractId,
             methodName,
             args,
@@ -154,8 +170,8 @@ export async function approveCodehash() {
 
         // Resolve codehash placeholder based on environment and docker-compose
         const requiresTee = config.deployment.environment === 'TEE';
-        const composePath = config.deployment?.docker?.docker_compose_path
-            ? path.resolve(config.deployment.docker.docker_compose_path)
+        const composePath = config.deployment?.build_docker_image?.docker_compose_path
+            ? path.resolve(config.deployment.build_docker_image.docker_compose_path)
             : path.resolve(process.cwd(), 'docker-compose.yaml');
 
         if (args && typeof args === 'object' && 'codehash' in args) {
@@ -175,7 +191,7 @@ export async function approveCodehash() {
             }
         }
 
-        const approveRes = await masterAccount.callFunctionRaw({
+        await masterAccount.callFunctionRaw({
             contractId,
             methodName: approveCfg.method_name,
             args,

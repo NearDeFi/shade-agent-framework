@@ -1,4 +1,7 @@
 import { execSync } from 'child_process';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import fs from 'fs';
 import { config } from './config.js';
 
 // Use native fetch if available, otherwise require node-fetch
@@ -10,15 +13,51 @@ if (typeof fetch === 'function') {
     fetchFn = (input, init) => import('node-fetch').then(({ default: fetch }) => fetch(input, init));
 }
 
-// Use the specific phala version
-const PHALA_VERSION = '1.0.35';
-const PHALA_COMMAND = `npx phala@${PHALA_VERSION}`;
+// Resolve the locally installed phala binary (installed via npm)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+function getPhalaBin() {
+    // When CLI is installed globally or locally, phala should be in the CLI package's node_modules
+    // __dirname is src/, so go up one level to the package root, then to node_modules/.bin
+    const cliBin = path.resolve(__dirname, '..', 'node_modules', '.bin', 'phala');
+    if (fs.existsSync(cliBin)) return cliBin;
+    
+    // If not found in .bin, try to find the phala package and get its bin from package.json
+    const phalaPkgPath = path.resolve(__dirname, '..', 'node_modules', 'phala');
+    if (fs.existsSync(phalaPkgPath)) {
+        try {
+            const pkgJson = JSON.parse(fs.readFileSync(path.join(phalaPkgPath, 'package.json'), 'utf8'));
+            const binPath = pkgJson.bin?.phala || pkgJson.bin?.pha;
+            if (binPath) {
+                const fullBinPath = path.resolve(phalaPkgPath, binPath);
+                if (fs.existsSync(fullBinPath)) return fullBinPath;
+            }
+        } catch (e) {
+            // Continue to error
+        }
+    }
+    
+    console.log('phala binary not found. Make sure phala@1.0.35 is installed with @neardefi/shade-agent-cli.');
+    process.exit(1);
+}
+const PHALA_COMMAND = getPhalaBin();
 
-function loginToPhala(phalaKey) {
+function getAppNameFromDeployment() {
+    const appName = config.deployment?.deploy_to_phala?.app_name;
+    if (!appName || typeof appName !== 'string') {
+        console.log('deploy_to_phala.app_name is required in deployment.yaml');
+        process.exit(1);
+    }
+    return appName;
+}
+
+function loginToPhala() {
+    const phalaKey = config.phalaKey;
+
     // Logs in to Phala Cloud
     console.log('Logging in to Phala Cloud');
     try {
-        execSync(`${PHALA_COMMAND} auth login ${phalaKey}`);
+        execSync(`${PHALA_COMMAND} auth login ${phalaKey}`, { stdio: 'pipe' });
         console.log('Successfully logged in to Phala Cloud');
     } catch (e) {
         console.log('Error authenticating with Phala Cloud', e);
@@ -26,11 +65,10 @@ function loginToPhala(phalaKey) {
     }
 }
 
-function deployToPhala(dockerTag) {
+function deployToPhala() {
     // Deploys the app to Phala Cloud using phala CLI
     console.log('Deploying to Phala Cloud');
-    const appNameSplit = dockerTag.split('/');
-    const appName = appNameSplit[appNameSplit.length - 1];
+    const appName = getAppNameFromDeployment();
     
     // Validate app name length
     if (appName.length <= 3) {
@@ -42,13 +80,9 @@ function deployToPhala(dockerTag) {
         const composePath = config.deployment?.deploy_to_phala?.docker_compose_path;
         const envFilePath = config.deployment?.deploy_to_phala?.env_file_path;
 
-        if (!composePath || !envFilePath) {
-            throw new Error('deploy_to_phala.docker_compose_path and env_file_path are required in deployment config');
-        }
-
         const result = execSync(
             `${PHALA_COMMAND} cvms create --name ${appName} --vcpu 1 --compose ${composePath} --env-file ${envFilePath}`,
-            { encoding: 'utf-8' }
+            { encoding: 'utf-8', stdio: 'pipe' }
         );
 
         const deploymentUrlMatch = result.match(/App URL\s*│\s*(https:\/\/[^\s]+)/);
@@ -88,12 +122,16 @@ export async function getAppUrl(appId) {
             }
             const data = await response.json();
             if (!data.error) {
-                // Find the app url with port 3000
+                // List all non-empty public URLs
                 if (Array.isArray(data.public_urls)) {
-                    const url3000 = data.public_urls.find(u => u.app && u.app.includes('-3000.'));
-                    if (url3000 && url3000.app) {
-                        console.log(`\n Your app is live at: ${url3000.app}`);
-                        return url3000.app;
+                    const validUrls = data.public_urls.filter(u => u.app && u.app.trim() !== '');
+                    if (validUrls.length > 0) {
+                        console.log(`\n Your app is live at:`);
+                        validUrls.forEach((urlObj, index) => {
+                            console.log(`  ${index + 1}. ${urlObj.app}${urlObj.instance ? ` (instance: ${urlObj.instance})` : ''}`);
+                        });
+                        // Return the first URL for backwards compatibility
+                        return validUrls[0].app;
                     }
                 }
             }
@@ -109,13 +147,11 @@ export async function getAppUrl(appId) {
 }
 
 export async function deployPhalaWorkflow() {
-    const phalaKey = config.phalaKey;
-    const dockerTag = config.deployment.docker.tag;
     // Logs in to Phala Cloud
-    loginToPhala(phalaKey);
+    loginToPhala();
 
     // Deploys the app to Phala Cloud
-    const appId = deployToPhala(dockerTag);
+    const appId = deployToPhala();
 
     return appId;
 }

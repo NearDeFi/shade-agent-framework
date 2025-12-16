@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "tsx src/index.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
+    "start": "tsx dist/index.js",
     "docker:build": "sudo docker build --platform linux/amd64 -t pivortex/my-app:latest .",
     "docker:build:no-cache": "sudo docker build --no-cache --platform linux/amd64 -t pivortex/my-app:latest .",
     "docker:push": "sudo docker push pivortex/my-app",
@@ -16,16 +16,16 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.15.0",
-    "@neardefi/shade-api-ts": "file:../shade-api-ts",
+    "@neardefi/shade-api-ts": "file:./shade-api-ts",
     "chainsig.js": "^1.1.11",
     "cors": "^2.8.5",
     "dotenv": "^16.5.0",
     "ethers": "^6.11.1",
-    "hono": "^4.8.4"
+    "hono": "^4.8.4",
+    "tsx": "^4.0.0"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
-    "tsx": "^4.0.0",
     "typescript": "^5.0.0"
   }
 }
