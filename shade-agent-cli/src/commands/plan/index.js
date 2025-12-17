@@ -3,32 +3,22 @@ import { readFileSync, existsSync } from 'fs';
 import path from 'path';
 import { parse as parseYaml } from 'yaml';
 import { getDeploymentConfig, getCredentialsOptional, getPhalaKeyOptional } from '../../utils/config.js';
+import { replacePlaceholders } from '../../utils/placeholders.js';
 
 // Helper to resolve placeholders in args
 function resolvePlaceholders(args, accountId, network, environment, codehash) {
-    const resolve = (val) => {
-        if (typeof val === 'string') {
-            if (val === '<MASTER_ACCOUNT_ID>') return accountId || '<MASTER_ACCOUNT_ID>';
-            if (val === '<DEFAULT_MPC_CONTRACT_ID>') {
-                return network === 'mainnet' ? 'v1.signer' : 'v1.signer-prod.testnet';
-            }
-            if (val === '<REQUIRES_TEE>') {
-                return environment === 'TEE';
-            }
-            if (val === '<CODEHASH>') {
-                return codehash || '<CODEHASH>';
-            }
-            return val;
-        }
-        if (Array.isArray(val)) return val.map(resolve);
-        if (val && typeof val === 'object') {
-            return Object.fromEntries(Object.entries(val).map(([k, v]) => [k, resolve(v)]));
-        }
-        return val;
-    };
+    const replacements = {};
     
-    const rawArgs = typeof args === 'string' ? JSON.parse(args) : args;
-    return resolve(rawArgs);
+    if (accountId) {
+        replacements['<MASTER_ACCOUNT_ID>'] = accountId;
+    }
+    replacements['<DEFAULT_MPC_CONTRACT_ID>'] = network === 'mainnet' ? 'v1.signer' : 'v1.signer-prod.testnet';
+    replacements['<REQUIRES_TEE>'] = environment === 'TEE';
+    if (codehash) {
+        replacements['<CODEHASH>'] = codehash;
+    }
+    
+    return replacePlaceholders(args, replacements);
 }
 
 // Get codehash from docker-compose file
@@ -199,6 +189,14 @@ export function planCommand() {
                     logWrapped('The agent contract won\'t be initialized.');
                     console.log('');
                 }
+                
+                // Contract locking status
+                if (deployment.agent_contract.deploy_custom.delete_key) {
+                    logWrapped('The contract account will be locked (access key deleted) after deployment.');
+                } else {
+                    logWrapped('The contract account will not be locked.');
+                }
+                console.log('');
             } else {
                 console.log('📜 Agent Contract Deployment');
                 console.log('─'.repeat(70));

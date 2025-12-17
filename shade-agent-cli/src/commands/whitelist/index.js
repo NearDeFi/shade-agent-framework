@@ -2,24 +2,7 @@ import { Command } from 'commander';
 import input from '@inquirer/input';
 import { getConfig, getDeploymentConfig } from '../../utils/config.js';
 import { getCredentialsOptional } from '../../utils/config.js';
-
-// Helper to resolve placeholders in args
-function resolvePlaceholders(args, agentAccountId) {
-    const resolve = (val) => {
-        if (typeof val === 'string') {
-            if (val === '<AGENT_ACCOUNT_ID>') return agentAccountId || '<AGENT_ACCOUNT_ID>';
-            return val;
-        }
-        if (Array.isArray(val)) return val.map(resolve);
-        if (val && typeof val === 'object') {
-            return Object.fromEntries(Object.entries(val).map(([k, v]) => [k, resolve(v)]));
-        }
-        return val;
-    };
-    
-    const rawArgs = typeof args === 'string' ? JSON.parse(args) : args;
-    return resolve(rawArgs);
-}
+import { replacePlaceholder } from '../../utils/placeholders.js';
 
 function tgasToGas(tgas) {
     return BigInt(tgas) * BigInt(1000000000000);
@@ -72,7 +55,9 @@ export function whitelistCommand() {
             }
             
             // Resolve placeholders in args
-            const resolvedArgs = resolvePlaceholders(whitelistCfg.args, agentAccountId);
+            const resolvedArgs = agentAccountId 
+                ? replacePlaceholder(whitelistCfg.args, '<AGENT_ACCOUNT_ID>', agentAccountId)
+                : whitelistCfg.args;
             
             if (agentAccountId) {
                 console.log(`\nWhitelisting agent account: ${agentAccountId}`);

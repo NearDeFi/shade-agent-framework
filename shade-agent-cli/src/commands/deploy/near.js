@@ -4,6 +4,7 @@ import { execSync } from 'child_process';
 import { NEAR } from '@near-js/tokens';
 import { parse } from 'yaml';
 import { getConfig } from '../../utils/config.js';
+import { replacePlaceholder, hasPlaceholder } from '../../utils/placeholders.js';
 
 // Sleep for the specified number of milliseconds
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -17,21 +18,57 @@ export async function createAccount() {
     const contractId = config.deployment.agent_contract.contract_id;
     const masterAccount = config.masterAccount;
     const contractAccount = config.contractAccount;
-    // Use only the first provider for existence check to avoid failover on AccountDoesNotExist
-    // Check if the contract account exists and delete it if it does
+    const fundingAmount = config.deployment.agent_contract.deploy_custom.funding_amount;
+    
+    // Check if master account has enough balance (including contract account balance if it exists)
+    const requiredBalance = fundingAmount + 0.1;
+    const masterBalance = await masterAccount.getBalance(NEAR);
+    const masterBalanceDecimal = parseFloat(NEAR.toDecimal(masterBalance));
+    
+    // Get contract account balance if it exists (will be returned to master when deleted)
+    let contractAccountExists = false;
+    let contractBalanceDecimal = 0;
     try {
-        await contractAccount.getBalance();
-        console.log("Contract account already exists, deleting it");
-        await contractAccount.deleteAccount(masterAccount.accountId);
-        await sleep(1000);
+        const state = await contractAccount.getState();
+        contractAccountExists = true;
+        // Extract balance from state - state.balance.total is a BigInt
+        if (state && state.balance && state.balance.total) {
+            const contractBalance = state.balance.total;
+            contractBalanceDecimal = parseFloat(NEAR.toDecimal(contractBalance));
+        }
     } catch (e) {
-        if (e.type === 'AccountDoesNotExist') {
-            console.log("Contract account does not exist, creating it");
-        } else {
-            console.log('Error checking contract account existence', e);
+        // Contract account doesn't exist, balance is 0 - this is fine
+        if (e.type !== 'AccountDoesNotExist') {
+            throw e;
+        }
+    }
+    
+    const totalBalance = masterBalanceDecimal + contractBalanceDecimal;
+    
+    if (totalBalance < requiredBalance) {
+        console.error(`❌ Error: You need to fund your master account ${masterAccount.accountId}`);
+        console.error(`It has balance ${totalBalance} NEAR (master: ${masterBalanceDecimal} NEAR${contractBalanceDecimal > 0 ? ` + contract: ${contractBalanceDecimal} NEAR` : ''}) but needs ${requiredBalance} NEAR (${fundingAmount} NEAR for the contract + 0.1 NEAR for transaction fees)`);
+        if (config.deployment.network === 'testnet') {
+            console.error(`\n💬 Need testnet NEAR? Ask in the Shade Agent Telegram Group: https://t.me/+mrNSq_0tp4IyNzg8`);
+        }
+        process.exit(1);
+    }
+    
+    // Delete the contract account if it exists
+    if (contractAccountExists) {
+        console.log("Contract account already exists, deleting it");
+        try {
             await contractAccount.deleteAccount(masterAccount.accountId);
             await sleep(1000);
+        } catch (deleteError) {
+            if (deleteError.type === 'AccessKeyDoesNotExist') {
+                console.error('❌ Error: You cannot delete a contract account that does not have the same public key as your master account, pick a new unique contract_id or change back to your old master account for which you created the contract account with');
+                process.exit(1);
+            }
+            throw deleteError;
         }
+    } else {
+        console.log("Contract account does not exist, creating it");
     }
 
     // Create the contract account
@@ -127,26 +164,11 @@ export async function initContract() {
 
         const methodName = initCfg.method_name;
 
-        const resolvePlaceholders = (val) => {
-            if (typeof val === 'string') {
-                if (val === '<MASTER_ACCOUNT_ID>') return config.accountId;
-                if (val === '<DEFAULT_MPC_CONTRACT_ID>') {
-                    return config.deployment.network === 'mainnet' ? 'v1.signer' : 'v1.signer-prod.testnet';
-                }
-                if (val === '<REQUIRES_TEE>') {
-                    return config.deployment.environment === 'TEE';
-                }
-                return val;
-            }
-            if (Array.isArray(val)) return val.map(resolvePlaceholders);
-            if (val && typeof val === 'object') {
-                return Object.fromEntries(Object.entries(val).map(([k, v]) => [k, resolvePlaceholders(v)]));
-            }
-            return val;
-        };
-
-        const rawArgs = typeof initCfg.args === 'string' ? JSON.parse(initCfg.args) : initCfg.args;
-        const args = resolvePlaceholders(rawArgs);
+        // Replace placeholders in args
+        let args = replacePlaceholder(initCfg.args, '<MASTER_ACCOUNT_ID>', config.accountId);
+        args = replacePlaceholder(args, '<DEFAULT_MPC_CONTRACT_ID>', 
+            config.deployment.network === 'mainnet' ? 'v1.signer' : 'v1.signer-prod.testnet');
+        args = replacePlaceholder(args, '<REQUIRES_TEE>', config.deployment.environment === 'TEE');
 
         await contractAccount.callFunctionRaw({
             contractId,
@@ -161,6 +183,25 @@ export async function initContract() {
     }
 }
 
+export async function deleteContractKey() {
+    const config = await getConfig();
+    const contractAccount = config.contractAccount;
+    const masterAccount = config.masterAccount;
+    
+    // Get the master account's public key (the same key used to create the contract account)
+    const publicKey = await masterAccount.getSigner().getPublicKey();
+    
+    try {
+        console.log('Deleting contract key to lock the account');
+        await contractAccount.deleteKey(publicKey);
+        await sleep(1000);
+        console.log('Contract key deleted successfully');
+    } catch (e) {
+        console.log('Error deleting contract key', e);
+        process.exit(1);
+    }
+}
+
 export async function approveCodehash() {
     const config = await getConfig();
     const masterAccount = config.masterAccount;
@@ -170,17 +211,17 @@ export async function approveCodehash() {
     try {
         const approveCfg = config.deployment.approve_codehash;
 
-        const args =
-            typeof approveCfg.args === 'string'
-                ? JSON.parse(approveCfg.args)
-                : approveCfg.args;
-
         // Resolve codehash placeholder based on environment and docker-compose
         const requiresTee = config.deployment.environment === 'TEE';
-        const composePath = path.resolve(config.deployment.docker_compose_path);
+        let args = approveCfg.args;
 
-        if (args && typeof args === 'object' && 'codehash' in args) {
-            if (args.codehash === '<CODEHASH>' && requiresTee) {
+        // Only process codehash if the placeholder exists in args
+        if (hasPlaceholder(approveCfg.args, '<CODEHASH>')) {
+            let codehashValue = null;
+
+            if (requiresTee) {
+                // For TEE, get codehash from docker-compose file
+                const composePath = path.resolve(config.deployment.docker_compose_path);
                 const compose = fs.readFileSync(composePath, 'utf8');
                 // Parse YAML to specifically target shade-agent-app image
                 const doc = parse(compose);
@@ -190,10 +231,14 @@ export async function approveCodehash() {
                     console.log(`Could not find codehash for shade-agent-app in ${composePath}`);
                     process.exit(1);
                 }
-                args.codehash = imageMatch[1];
-            } else if (config.deployment.environment === 'local') {
-                args.codehash = 'not-in-a-tee';
+                codehashValue = imageMatch[1];
+            } else {
+                // For local environment
+                codehashValue = 'not-in-a-tee';
             }
+
+            // Replace <CODEHASH> placeholder anywhere in args
+            args = replacePlaceholder(approveCfg.args, '<CODEHASH>', codehashValue);
         }
 
         await masterAccount.callFunctionRaw({

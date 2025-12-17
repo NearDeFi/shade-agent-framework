@@ -141,6 +141,7 @@ export function parseDeploymentConfig(deploymentPath) {
             deploy_custom: agent_contract?.deploy_custom && agent_contract.deploy_custom.enabled !== false
                 ? {
                     funding_amount: agent_contract.deploy_custom.funding_amount,
+                    delete_key: agent_contract.deploy_custom.delete_key === true,
                     source_path: (agent_contract.deploy_custom.deploy_from_source && agent_contract.deploy_custom.deploy_from_source.enabled !== false)
                         ? agent_contract.deploy_custom.deploy_from_source.source_path
                         : undefined,
