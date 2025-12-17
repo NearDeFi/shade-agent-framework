@@ -72,32 +72,37 @@ export function parseDeploymentConfig(deploymentPath) {
             'deploy_custom.funding_amount must be a number > 0 and <= 100'
         );
 
-        if (agent_contract.deploy_custom.deploy_from_source) {
+        const deployFromSource = agent_contract.deploy_custom.deploy_from_source;
+        const deployFromWasm = agent_contract.deploy_custom.deploy_from_wasm;
+        const deployFromSourceEnabled = deployFromSource && deployFromSource.enabled !== false;
+        const deployFromWasmEnabled = deployFromWasm && deployFromWasm.enabled !== false;
+
+        if (deployFromSourceEnabled) {
             requireField(
-                !!agent_contract.deploy_custom.deploy_from_source.source_path,
+                !!deployFromSource.source_path,
                 'deploy_custom.deploy_from_source.source_path is required'
             );
         }
 
-        if (agent_contract.deploy_custom.deploy_from_wasm) {
+        if (deployFromWasmEnabled) {
             requireField(
-                !!agent_contract.deploy_custom.deploy_from_wasm.wasm_path,
+                !!deployFromWasm.wasm_path,
                 'deploy_custom.deploy_from_wasm.wasm_path is required'
             );
         }
 
-        // Must provide exactly one of deploy_from_source or deploy_from_wasm
-        const hasDeployFromSource = !!agent_contract.deploy_custom.deploy_from_source;
-        const hasDeployFromWasm = !!agent_contract.deploy_custom.deploy_from_wasm;
+        // Must provide exactly one of deploy_from_source or deploy_from_wasm enabled
         requireField(
-            hasDeployFromSource !== hasDeployFromWasm,
-            'deploy_custom must specify exactly one of deploy_from_source or deploy_from_wasm'
+            deployFromSourceEnabled !== deployFromWasmEnabled,
+            'deploy_custom must specify exactly one of deploy_from_source or deploy_from_wasm with enabled: true'
         );
 
-        if (agent_contract.deploy_custom.init) {
-            requireField(!!agent_contract.deploy_custom.init.method_name, 'deploy_custom.init.method_name is required');
-            requireField(agent_contract.deploy_custom.init.args !== undefined, 'deploy_custom.init.args is required');
-            mustBeMultilineString(agent_contract.deploy_custom.init.args, 'deploy_custom.init.args');
+        const init = agent_contract.deploy_custom.init;
+        const initEnabled = init && init.enabled !== false;
+        if (initEnabled) {
+            requireField(!!init.method_name, 'deploy_custom.init.method_name is required');
+            requireField(init.args !== undefined, 'deploy_custom.init.args is required');
+            mustBeMultilineString(init.args, 'deploy_custom.init.args');
         }
     }
 
@@ -135,9 +140,13 @@ export function parseDeploymentConfig(deploymentPath) {
             deploy_custom: agent_contract?.deploy_custom && agent_contract.deploy_custom.enabled !== false
                 ? {
                     funding_amount: agent_contract.deploy_custom.funding_amount,
-                    source_path: agent_contract.deploy_custom.deploy_from_source?.source_path,
-                    wasm_path: agent_contract.deploy_custom.deploy_from_wasm?.wasm_path,
-                    init: agent_contract.deploy_custom.init
+                    source_path: (agent_contract.deploy_custom.deploy_from_source && agent_contract.deploy_custom.deploy_from_source.enabled !== false)
+                        ? agent_contract.deploy_custom.deploy_from_source.source_path
+                        : undefined,
+                    wasm_path: (agent_contract.deploy_custom.deploy_from_wasm && agent_contract.deploy_custom.deploy_from_wasm.enabled !== false)
+                        ? agent_contract.deploy_custom.deploy_from_wasm.wasm_path
+                        : undefined,
+                    init: (agent_contract.deploy_custom.init && agent_contract.deploy_custom.init.enabled !== false)
                         ? {
                             method_name: agent_contract.deploy_custom.init.method_name,
                             args: agent_contract.deploy_custom.init.args,

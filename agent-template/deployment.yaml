@@ -1,8 +1,8 @@
 # environment: local | TEE
-environment: TEE
+environment: local
 
 # network: testnet | mainnet
-network: mainnet
+network: testnet
 
 # Path to docker-compose file
 docker_compose_path: ./docker-compose.yaml
@@ -10,26 +10,30 @@ docker_compose_path: ./docker-compose.yaml
 agent_contract: 
   # NEAR Account Id of the contract
   # Fill this out with a unique contract id for your agent contract
+  # For example: example-contract-123.testnet
   contract_id: owens-contractoj.testnet
   
   # Optional, if not provided the contract will not be deployed 
-  # and it will assume the agent contract is deployed to contract_id
-  # and is already initialized
+  # and it's assumed the agent contract is already deployed to the contract_id
+  # and is initialized
   deploy_custom: 
     enabled: true
     # Amount to fund the agent contract with in NEAR
     funding_amount: 7
 
-    # Choose ONE of the following (mutually exclusive):
+    # Choose ONE of the following:
     # Option 1: Build contract from source and deploy
     deploy_from_source: 
+      enabled: true
       source_path: ./shade-contract-template
     # Option 2: Use pre-built WASM file
-    # deploy_from_wasm:
-    #   wasm_path: ./shade-contract-template/target/near/shade_contract_template.wasm
+    deploy_from_wasm:
+      enabled: false
+      wasm_path: ./shade-contract-template/target/near/shade_contract_template.wasm
 
     # Optional, if not provided the contract will not be initialized
     init: 
+      enabled: true
       method_name: new
       # The MASTER_ACCOUNT_ID will automatically be replaced with the master account set up in the auth of the CLI
       # The DEFAULT_MPC_CONTRACT_ID will automatically be selected based on the network
@@ -43,18 +47,22 @@ agent_contract:
       # tgas: 10
 
 # Optional, if not provided the current docker-compose.yaml file will be used
-# Only ran if environment is TEE
+# Only applicable if the environment is TEE
 build_docker_image:
   enabled: true
-  # Fill this out
+  # Fill this out with the docker tag you want to use. For example: pivortex/shade-agent-test
   tag: pivortex/shade-agent-test
   cache: true
   dockerfile_path: ./Dockerfile
 
+# Optional, if not provided the codehash will not be approved
 approve_codehash:
   enabled: true
   method_name: approve_codehash
-  # The CODEHASH will automatically be replaced with the codehash of the docker image once it's pushed to the registry
+  # The CODEHASH will automatically be replaced with the appropriate codehash
+  # for local it will be set to "not-in-a-tee"
+  # for TEE and docker disabled it will be set to the existing codehash in your docker-compose file
+  # for TEE and docker enabled it will be set to the codehash of the docker image once it's pushed to the registry
   args: |
     {
       "codehash": "<CODEHASH>"
@@ -62,6 +70,7 @@ approve_codehash:
   # tgas: 10
 
 # Optional, if not provided the app will not be deployed to Phala Cloud
+# Only applicable if the environment is TEE
 deploy_to_phala:
   enabled: true
   app_name: my-first-shade-agent
