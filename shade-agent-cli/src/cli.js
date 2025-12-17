@@ -4,6 +4,7 @@ import select from '@inquirer/select';
 import { deployCommand } from './commands/deploy/index.js';
 import { planCommand } from './commands/plan/index.js';
 import { authCommand } from './commands/auth/index.js';
+import { whitelistCommand } from './commands/whitelist/index.js';
 import { versionCheck } from './utils/version-check.js';
 
 // Handle SIGINT (Ctrl+C) gracefully - exit without error
@@ -36,10 +37,12 @@ program
 const deployCmd = deployCommand();
 const planCmd = planCommand();
 const authCmd = authCommand();
+const whitelistCmd = whitelistCommand();
 
 program.addCommand(deployCmd);
 program.addCommand(planCmd);
 program.addCommand(authCmd);
+program.addCommand(whitelistCmd);
 
 // Global version check
 program.hook('preAction', async () => {
@@ -48,7 +51,7 @@ program.hook('preAction', async () => {
 
 // Check if no command was provided
 const args = process.argv.slice(2);
-const knownCommands = ['auth', 'deploy', 'plan'];
+const knownCommands = ['auth', 'deploy', 'plan', 'whitelist'];
 const firstArg = args[0];
 
 if (args.length === 0 || (firstArg && !knownCommands.includes(firstArg) && !firstArg.startsWith('-'))) {
@@ -59,6 +62,7 @@ if (args.length === 0 || (firstArg && !knownCommands.includes(firstArg) && !firs
             choices: [
                 { name: 'Deploy - Deploy a Shade agent', value: 'deploy' },
                 { name: 'Plan - Show deployment plan (dry-run)', value: 'plan' },
+                { name: 'Whitelist - Whitelist an agent account', value: 'whitelist' },
                 { name: 'Auth - Manage authentication credentials', value: 'auth' },
             ],
         });

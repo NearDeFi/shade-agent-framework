@@ -11,7 +11,7 @@ agent_contract:
   # NEAR Account Id of the contract
   # Fill this out with a unique contract id for your agent contract
   # For example: example-contract-123.testnet
-  contract_id: owens-contractoj.testnet
+  contract_id: owens-contracty123.testnet
   
   # Optional, if not provided the contract will not be deployed 
   # and it's assumed the agent contract is already deployed to the contract_id
@@ -35,16 +35,16 @@ agent_contract:
     init: 
       enabled: true
       method_name: new
-      # The MASTER_ACCOUNT_ID will automatically be replaced with the master account set up in the auth of the CLI
-      # The DEFAULT_MPC_CONTRACT_ID will automatically be selected based on the network
-      # The REQUIRES_TEE will automatically be selected based on the environment
+      # The <MASTER_ACCOUNT_ID> will automatically be replaced with the master account set up in the auth of the CLI
+      # The <DEFAULT_MPC_CONTRACT_ID> will automatically be selected based on the network
+      # The <REQUIRES_TEE> will automatically be selected based on the environment
       args: |
         {
           "owner_id": "<MASTER_ACCOUNT_ID>",
           "mpc_contract_id": "<DEFAULT_MPC_CONTRACT_ID>",
           "requires_tee": "<REQUIRES_TEE>"
         }
-      # tgas: 10
+      # tgas: 30
 
 # Optional, if not provided the current docker-compose.yaml file will be used
 # Only applicable if the environment is TEE
@@ -59,7 +59,7 @@ build_docker_image:
 approve_codehash:
   enabled: true
   method_name: approve_codehash
-  # The CODEHASH will automatically be replaced with the appropriate codehash
+  # The <CODEHASH> will automatically be replaced with the appropriate codehash
   # for local it will be set to "not-in-a-tee"
   # for TEE and docker disabled it will be set to the existing codehash in your docker-compose file
   # for TEE and docker enabled it will be set to the codehash of the docker image once it's pushed to the registry
@@ -67,7 +67,7 @@ approve_codehash:
     {
       "codehash": "<CODEHASH>"
     }
-  # tgas: 10
+  # tgas: 30
 
 # Optional, if not provided the app will not be deployed to Phala Cloud
 # Only applicable if the environment is TEE
@@ -75,3 +75,14 @@ deploy_to_phala:
   enabled: true
   app_name: my-first-shade-agent
   env_file_path: ./.env
+
+# Optional, if not provided the "shade-agent-cli whitelist" command will not be available
+whitelist_agent:
+  method_name: whitelist_agent
+  # The <AGENT_ACCOUNT_ID> will automatically be replaced with the agent account id
+  # specified when running the "shade-agent-cli whitelist" command
+  args: |
+    {
+      "account_id": "<AGENT_ACCOUNT_ID>"
+    }
+  # tgas: 30

@@ -34,6 +34,7 @@ export function parseDeploymentConfig(deploymentPath) {
         build_docker_image,
         approve_codehash,
         deploy_to_phala,
+        whitelist_agent,
     } = doc;
 
     // Validation helpers
@@ -174,6 +175,13 @@ export function parseDeploymentConfig(deploymentPath) {
             ? {
                 env_file_path: deploy_to_phala.env_file_path,
                 app_name: deploy_to_phala.app_name,
+            }
+            : undefined,
+        whitelist_agent: whitelist_agent
+            ? {
+                method_name: whitelist_agent.method_name,
+                args: whitelist_agent.args,
+                tgas: whitelist_agent.tgas ?? 30,
             }
             : undefined,
     };
