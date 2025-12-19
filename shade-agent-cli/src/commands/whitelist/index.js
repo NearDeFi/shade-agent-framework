@@ -1,8 +1,10 @@
 import { Command } from 'commander';
+import chalk from 'chalk';
 import input from '@inquirer/input';
 import { getConfig, getDeploymentConfig } from '../../utils/config.js';
 import { getCredentialsOptional } from '../../utils/config.js';
 import { replacePlaceholder } from '../../utils/placeholders.js';
+import { isExitPromptError } from '../../utils/error-handler.js';
 
 function tgasToGas(tgas) {
     return BigInt(tgas) * BigInt(1000000000000);
@@ -12,22 +14,34 @@ export function whitelistCommand() {
     const cmd = new Command('whitelist');
     cmd.description('Whitelist an agent account');
     
+    // Handle errors for invalid arguments
+    cmd.configureOutput({
+        writeErr: (str) => {
+            if (str.includes('too many arguments') || str.includes('unknown option')) {
+                console.error(chalk.red(`Error: No more arguments are required after 'whitelist'.`));
+                process.exit(1);
+            } else {
+                process.stderr.write(str);
+            }
+        }
+    });
+    
     cmd.action(async () => {
         try {
             // Load deployment config first to check if whitelist_agent is configured
             const deployment = getDeploymentConfig();
             
             if (!deployment.whitelist_agent) {
-                console.log('❌ Error: whitelist_agent is not configured in deployment.yaml');
-                console.log('Please add a whitelist_agent section to your deployment.yaml file.');
+                console.error(chalk.red('Error: whitelist_agent is not configured in deployment.yaml'));
+                console.error(chalk.yellow('Please add a whitelist_agent section to your deployment.yaml file.'));
                 process.exit(1);
             }
             
             // Check if master account is set
             const credentials = await getCredentialsOptional(deployment.network);
             if (!credentials) {
-                console.log(`❌ Error: No master account found for ${deployment.network} network.`);
-                console.log('Please run "shade auth set" to set master account.');
+                console.error(chalk.red(`Error: No master account found for ${deployment.network} network.`));
+                console.error(chalk.yellow('Please run "shade auth set" to set master account.'));
                 process.exit(1);
             }
             
@@ -82,15 +96,19 @@ export function whitelistCommand() {
                     console.log('\n✅ Successfully whitelisted agent account!');
                 }
             } catch (e) {
-                console.error('\n❌ Error whitelisting agent account:', e.message);
+                console.error(chalk.red(`\nError whitelisting agent account: ${e.message}`));
                 if (e.type) {
-                    console.error(`Error type: ${e.type}`);
+                    console.error(chalk.yellow(`Error type: ${e.type}`));
                 }
                 process.exit(1);
             }
             
         } catch (error) {
-            console.error('❌ Error:', error.message);
+            // ExitPromptError is handled globally in cli.js
+            if (isExitPromptError(error)) {
+                process.exit(0);
+            }
+            console.error(chalk.red(`Error: ${error.message}`));
             if (error.stack) {
                 console.error(error.stack);
             }

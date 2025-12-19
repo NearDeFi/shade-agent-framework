@@ -4,6 +4,7 @@ import input from '@inquirer/input';
 import { KeyPair } from '@near-js/crypto';
 import { generate as randomWords } from 'random-words';
 import { getCredentials, setCredentials, getPhalaKey, setPhalaKey, deleteCredentials, deletePhalaKey } from '../../utils/keystore.js';
+import { isExitPromptError, showInvalidArgumentError } from '../../utils/error-handler.js';
 import chalk from 'chalk';
 
 // Generate a random account ID using two random words
@@ -12,7 +13,7 @@ function generateRandomAccountId() {
 }
 
 // Helper function to create account via faucet service
-async function createAccountViaFaucet(accountId, publicKey) {
+async function createAccountViaFaucet(accountId, publicKey, showTransactionDetails = true) {
     const faucetUrl = 'https://helper.nearprotocol.com/account';
     
     const data = {
@@ -49,14 +50,14 @@ async function createAccountViaFaucet(accountId, publicKey) {
             if (result.status && result.transaction_outcome) {
                 // The response might be the outcome directly
                 const outcome = result;
-                return handleTransactionOutcome(outcome, accountId);
+                return handleTransactionOutcome(outcome, accountId, showTransactionDetails);
             }
             throw new Error('Faucet service did not return a valid transaction response');
         }
         
         const outcome = result.final_execution_outcome;
         
-        return handleTransactionOutcome(outcome, accountId);
+        return handleTransactionOutcome(outcome, accountId, showTransactionDetails);
     } catch (error) {
         console.error(chalk.red(`\nError creating account via faucet: ${error.message}`));
         throw error;
@@ -64,7 +65,7 @@ async function createAccountViaFaucet(accountId, publicKey) {
 }
 
 // Helper function to handle transaction outcome
-function handleTransactionOutcome(outcome, accountId) {
+function handleTransactionOutcome(outcome, accountId, showTransactionDetails = true) {
     // Get transaction ID from transaction_outcome (at the top level of outcome)
     const txOutcome = outcome.transaction_outcome;
     if (!txOutcome || !txOutcome.id) {
@@ -98,15 +99,19 @@ function handleTransactionOutcome(outcome, accountId) {
             // Check if the value is "false" (as bytes or string)
             if (decodedValue === false || decodedValue === 'false' || decodedValue === Buffer.from('false').toString('base64')) {
                 console.log(chalk.yellow(`\nWarning: Account creation may have failed (faucet returned false)`));
-                console.log(chalk.cyan(`  Transaction ID: ${txId}`));
-                console.log(chalk.cyan(`  View transaction: https://explorer.testnet.near.org/transactions/${txId}`));
+                if (showTransactionDetails) {
+                    console.log(chalk.cyan(`  Transaction ID: ${txId}`));
+                    console.log(chalk.cyan(`  View transaction: https://explorer.testnet.near.org/transactions/${txId}`));
+                }
                 throw new Error('Account creation failed - faucet service returned false');
             }
             
             // Success!
             console.log(chalk.green(`✓ Account created successfully!`));
-            console.log(chalk.cyan(`  Transaction ID: ${txId}`));
-            console.log(chalk.cyan(`  View transaction: https://explorer.testnet.near.org/transactions/${txId}`));
+            if (showTransactionDetails) {
+                console.log(chalk.cyan(`  Transaction ID: ${txId}`));
+                console.log(chalk.cyan(`  View transaction: https://explorer.testnet.near.org/transactions/${txId}`));
+            }
             return true;
         }
         
@@ -114,8 +119,10 @@ function handleTransactionOutcome(outcome, accountId) {
         if (outcome.status.Failure) {
             const failure = outcome.status.Failure;
             console.log(chalk.yellow(`\nWarning: Account creation failed`));
-            console.log(chalk.cyan(`  Transaction ID: ${txId}`));
-            console.log(chalk.cyan(`  View transaction: https://explorer.testnet.near.org/transactions/${txId}`));
+            if (showTransactionDetails) {
+                console.log(chalk.cyan(`  Transaction ID: ${txId}`));
+                console.log(chalk.cyan(`  View transaction: https://explorer.testnet.near.org/transactions/${txId}`));
+            }
             throw new Error(`Account creation failed: ${JSON.stringify(failure)}`);
         }
         
@@ -128,26 +135,42 @@ function handleTransactionOutcome(outcome, accountId) {
     // If we get here and have a transaction ID, assume success (account was created)
     // This handles cases where the status might not be in the expected format
     console.log(chalk.green(`✓ Account created successfully!`));
-    console.log(chalk.cyan(`  Transaction ID: ${txId}`));
-    console.log(chalk.cyan(`  View transaction: https://explorer.testnet.near.org/transactions/${txId}`));
+    if (showTransactionDetails) {
+        console.log(chalk.cyan(`  Transaction ID: ${txId}`));
+        console.log(chalk.cyan(`  View transaction: https://explorer.testnet.near.org/transactions/${txId}`));
+    }
     return true;
 }
 
-// Helper function to prompt for credentials or use autocomplete for testnet
-async function promptAndStoreCredentials(network) {
+// Helper function to prompt for credentials or create new account for testnet
+async function promptAndStoreCredentials(network, credentialOptionArg = null) {
     let accountId, privateKey;
     
-    // For testnet, offer autocomplete option
+    // For testnet, offer create-new option
     if (network === 'testnet') {
-        const credentialOption = await select({
+        let credentialOption = credentialOptionArg;
+        
+        // Validate if provided
+        if (credentialOption && !['create-new', 'existing-account'].includes(credentialOption)) {
+            console.error(chalk.red(`Error: Invalid credential option '${credentialOptionArg}'. Must be one of: create-new, existing-account`));
+            console.error(chalk.yellow('\nAvailable options:'));
+            console.error(`  ${chalk.yellow('create-new')} - ${chalk.blue('Generate a random new account')}`);
+            console.error(`  ${chalk.yellow('existing-account')} - ${chalk.blue('Enter credentials for an existing account')}`);
+            process.exit(1);
+        }
+        
+        // Prompt if not provided
+        if (!credentialOption) {
+            credentialOption = await select({
             message: 'How would you like to set up credentials?',
             choices: [
-                { name: 'Generate random account ID and keypair automatically', value: 'autocomplete' },
-                { name: 'Enter credentials manually', value: 'manual' },
+                    { name: `${chalk.yellow('create-new')} - ${chalk.blue('Generate a random new account')}`, value: 'create-new' },
+                    { name: `${chalk.yellow('existing-account')} - ${chalk.blue('Enter credentials for an existing account')}`, value: 'existing-account' },
             ],
         });
+        }
         
-        if (credentialOption === 'autocomplete') {
+        if (credentialOption === 'create-new') {
             // Generate account ID using two random words
             accountId = `${generateRandomAccountId()}.testnet`;
             
@@ -157,13 +180,8 @@ async function promptAndStoreCredentials(network) {
             privateKey = keyPair.toString();
             const publicKey = keyPair.getPublicKey().toString();
             
-            console.log(chalk.blue(`\nGenerated credentials:`));
-            console.log(chalk.cyan(`  Account ID: ${accountId}`));
-            console.log(chalk.cyan(`  Private Key: ${privateKey}`));
-            console.log(chalk.cyan(`  Public Key: ${publicKey}`));
-            
             // Create account via faucet service - must succeed before storing credentials
-            await createAccountViaFaucet(accountId, publicKey);
+            await createAccountViaFaucet(accountId, publicKey, false);
         } else {
             accountId = await input({
                 message: 'Enter account ID:',
@@ -190,7 +208,7 @@ async function promptAndStoreCredentials(network) {
             });
         }
     } else {
-        // For mainnet, always prompt manually
+        // For mainnet, always use existing-account (no account creation via faucet)
         accountId = await input({
             message: 'Enter account ID:',
             validate: (value) => {
@@ -218,7 +236,6 @@ async function promptAndStoreCredentials(network) {
     
     await setCredentials(network, accountId.trim(), privateKey.trim());
     console.log(chalk.green(`✓ Master account stored for ${network}`));
-    console.log(chalk.green(`\nStored master account for ${network}:`));
     console.log(chalk.cyan(`  Account ID: ${accountId.trim()}`));
     console.log(chalk.cyan(`  Private Key: ${privateKey.trim()}`));
 }
@@ -227,33 +244,87 @@ export function authCommand() {
     const cmd = new Command('auth');
     cmd.description('Set up master account and authentication');
     
+    // Handle errors for invalid arguments or unknown subcommands
+    cmd.configureOutput({
+        writeErr: (str) => {
+            // Check if it's a "too many arguments" or "unknown command" error
+            if (str.includes('too many arguments') || str.includes('unknown command')) {
+                const args = process.argv.slice(2);
+                const providedArg = args[1]; // The argument after 'auth'
+                
+                console.error(chalk.red(`Error: '${providedArg}' is not a valid subcommand for 'auth'.`));
+                console.error(chalk.yellow('\nAvailable subcommands:'));
+                console.error(`  ${chalk.yellow('set')} - ${chalk.blue('Set Shade Agent CLI credentials')}`);
+                console.error(`  ${chalk.yellow('get')} - ${chalk.blue('Get Shade Agent CLI credentials')}`);
+                console.error(`  ${chalk.yellow('clear')} - ${chalk.blue('Clear Shade Agent CLI credentials')}`);
+                process.exit(1);
+            } else {
+                process.stderr.write(str);
+            }
+        }
+    });
+    
+    // Accept an optional argument to catch invalid subcommands
+    cmd.argument('[invalid]', 'Invalid argument handler');
+    
     // Define the set action function
-    const setAction = async () => {
+    const setAction = async (whatToSetArg, networkArg = null, credentialOptionArg = null) => {
         try {
-            // Ask what to set
-            const whatToSet = await select({
+            // Validate argument if provided (check user-facing values first)
+            if (whatToSetArg && !['all', 'near', 'phala'].includes(whatToSetArg)) {
+                showInvalidArgumentError(whatToSetArg, 'option', [
+                    { value: 'all', description: 'Set both NEAR and PHALA credentials' },
+                    { value: 'near', description: 'Set NEAR master account only' },
+                    { value: 'phala', description: 'Set PHALA API key only' },
+                ]);
+            }
+            
+            // Normalize arguments: "near" -> "network" (for internal use)
+            let whatToSet = whatToSetArg;
+            if (whatToSet === 'near') {
+                whatToSet = 'network';
+            }
+            
+            // Ask what to set if not provided
+            if (!whatToSet) {
+                whatToSet = await select({
                 message: 'What would you like to set?',
-                choices: [
-                    { name: 'All (NEAR + PHALA)', value: 'both' },
-                    { name: 'Just NEAR (master account)', value: 'network' },
-                    { name: 'Just PHALA (API key)', value: 'phala' },
-                ],
-            });
-
-            if (whatToSet === 'network' || whatToSet === 'both') {
-                const network = await select({
-                    message: 'Select network:',
                     choices: [
-                        { name: 'Testnet', value: 'testnet' },
-                        { name: 'Mainnet', value: 'mainnet' },
+                        { name: `${chalk.yellow('all')} - ${chalk.blue('Set both NEAR and PHALA credentials')}`, value: 'all' },
+                        { name: `${chalk.yellow('near')} - ${chalk.blue('Set NEAR master account only')}`, value: 'network' },
+                        { name: `${chalk.yellow('phala')} - ${chalk.blue('Set PHALA API key only')}`, value: 'phala' },
                     ],
                 });
-
-                // Prompt for credentials (will replace if they exist)
-                await promptAndStoreCredentials(network);
             }
 
-            if (whatToSet === 'phala' || whatToSet === 'both') {
+            if (whatToSet === 'network' || whatToSet === 'all') {
+                let network = networkArg;
+                
+                // Validate network if provided
+                if (network && !['testnet', 'mainnet'].includes(network)) {
+                    console.error(chalk.red(`Error: Invalid network '${networkArg}'. Must be one of: testnet, mainnet`));
+                    console.error(chalk.yellow('\nAvailable options:'));
+                    console.error(`  ${chalk.yellow('testnet')} - ${chalk.blue('NEAR Testnet')}`);
+                    console.error(`  ${chalk.yellow('mainnet')} - ${chalk.blue('NEAR Mainnet')}`);
+                    process.exit(1);
+                }
+                
+                // Prompt if not provided
+                if (!network) {
+                    network = await select({
+                        message: 'Select network:',
+                        choices: [
+                            { name: `${chalk.yellow('testnet')} - ${chalk.blue('NEAR Testnet')}`, value: 'testnet' },
+                            { name: `${chalk.yellow('mainnet')} - ${chalk.blue('NEAR Mainnet')}`, value: 'mainnet' },
+                        ],
+                    });
+                }
+
+                // Prompt for credentials (will replace if they exist)
+                await promptAndStoreCredentials(network, credentialOptionArg);
+            }
+
+            if (whatToSet === 'phala' || whatToSet === 'all') {
                 // Prompt for PHALA API key (will replace if it exists)
                 const phalaKey = await input({
                     message: 'Enter PHALA API key:',
@@ -272,8 +343,8 @@ export function authCommand() {
                 console.log(chalk.cyan(`  ${trimmedKey}`));
             }
         } catch (error) {
-            // Handle SIGINT gracefully - exit silently
-            if (error.name === 'ExitPromptError' || error.message?.includes('SIGINT')) {
+            // ExitPromptError is handled globally in cli.js
+            if (isExitPromptError(error)) {
                 process.exit(0);
             }
             if (error.message && error.message.includes('libsecret')) {
@@ -290,25 +361,57 @@ export function authCommand() {
     };
     
     // Define the get action function
-    const getAction = async () => {
+    const getAction = async (whatToGetArg, networkArg = null) => {
         try {
-            const whatToGet = await select({
+            // Validate argument if provided (check user-facing values first)
+            if (whatToGetArg && !['all', 'near', 'phala'].includes(whatToGetArg)) {
+                showInvalidArgumentError(whatToGetArg, 'option', [
+                    { value: 'all', description: 'Get both NEAR and PHALA credentials' },
+                    { value: 'near', description: 'Get NEAR master account only' },
+                    { value: 'phala', description: 'Get PHALA API key only' },
+                ]);
+            }
+            
+            // Normalize arguments: "near" -> "network" (for internal use)
+            let whatToGet = whatToGetArg;
+            if (whatToGet === 'near') {
+                whatToGet = 'network';
+            }
+            
+            // Ask what to get if not provided
+            if (!whatToGet) {
+                whatToGet = await select({
                 message: 'What would you like to view?',
-                choices: [
-                    { name: 'All (NEAR + PHALA)', value: 'both' },
-                    { name: 'Just NEAR (master account)', value: 'network' },
-                    { name: 'Just PHALA (API key)', value: 'phala' },
-                ],
-            });
-
-            if (whatToGet === 'network' || whatToGet === 'both') {
-                const network = await select({
-                    message: 'Select network:',
                     choices: [
-                        { name: 'Testnet', value: 'testnet' },
-                        { name: 'Mainnet', value: 'mainnet' },
+                        { name: `${chalk.yellow('all')} - ${chalk.blue('Get both NEAR and PHALA credentials')}`, value: 'all' },
+                        { name: `${chalk.yellow('near')} - ${chalk.blue('Get NEAR master account only')}`, value: 'network' },
+                        { name: `${chalk.yellow('phala')} - ${chalk.blue('Get PHALA API key only')}`, value: 'phala' },
                     ],
                 });
+            }
+
+            if (whatToGet === 'network' || whatToGet === 'all') {
+                let network = networkArg;
+                
+                // Validate network if provided
+                if (network && !['testnet', 'mainnet'].includes(network)) {
+                    console.error(chalk.red(`Error: Invalid network '${networkArg}'. Must be one of: testnet, mainnet`));
+                    console.error(chalk.yellow('\nAvailable options:'));
+                    console.error(`  ${chalk.yellow('testnet')} - ${chalk.blue('NEAR Testnet')}`);
+                    console.error(`  ${chalk.yellow('mainnet')} - ${chalk.blue('NEAR Mainnet')}`);
+                    process.exit(1);
+                }
+                
+                // Prompt if not provided
+                if (!network) {
+                    network = await select({
+                        message: 'Select network:',
+                        choices: [
+                            { name: `${chalk.yellow('testnet')} - ${chalk.blue('NEAR Testnet')}`, value: 'testnet' },
+                            { name: `${chalk.yellow('mainnet')} - ${chalk.blue('NEAR Mainnet')}`, value: 'mainnet' },
+                        ],
+                    });
+                }
                 
                 const credentials = await getCredentials(network);
                 
@@ -322,7 +425,7 @@ export function authCommand() {
                 }
             }
 
-            if (whatToGet === 'phala' || whatToGet === 'both') {
+            if (whatToGet === 'phala' || whatToGet === 'all') {
                 const phalaKey = await getPhalaKey();
                 if (!phalaKey) {
                     console.log(chalk.yellow('\nNo PHALA API key found'));
@@ -333,8 +436,8 @@ export function authCommand() {
                 }
             }
         } catch (error) {
-            // Handle SIGINT gracefully - exit silently
-            if (error.name === 'ExitPromptError' || error.message?.includes('SIGINT')) {
+            // ExitPromptError is handled globally in cli.js
+            if (isExitPromptError(error)) {
                 process.exit(0);
             }
             if (error.message && error.message.includes('libsecret')) {
@@ -351,29 +454,61 @@ export function authCommand() {
     };
     
     // Define the clear action function
-    const clearAction = async () => {
+    const clearAction = async (whatToClearArg, networkArg = null) => {
         try {
-            // Ask what to clear
-            const whatToClear = await select({
-                message: 'What would you like to clear?',
-                choices: [
-                    { name: 'All (NEAR + PHALA)', value: 'both' },
-                    { name: 'Just NEAR (master account)', value: 'network' },
-                    { name: 'Just PHALA (API key)', value: 'phala' },
-                ],
-            });
-
-            if (whatToClear === 'network' || whatToClear === 'both') {
-                const network = await select({
-                    message: 'Select network:',
+            // Validate argument if provided (check user-facing values first)
+            if (whatToClearArg && !['all', 'near', 'phala'].includes(whatToClearArg)) {
+                showInvalidArgumentError(whatToClearArg, 'option', [
+                    { value: 'all', description: 'Clear both NEAR and PHALA credentials' },
+                    { value: 'near', description: 'Clear NEAR master account only' },
+                    { value: 'phala', description: 'Clear PHALA API key only' },
+                ]);
+            }
+            
+            // Normalize arguments: "near" -> "network" (for internal use)
+            let whatToClear = whatToClearArg;
+            if (whatToClear === 'near') {
+                whatToClear = 'network';
+            }
+            
+            // Ask what to clear if not provided
+            if (!whatToClear) {
+                whatToClear = await select({
+                    message: 'What would you like to clear?',
                     choices: [
-                        { name: 'Both (Testnet + Mainnet)', value: 'both' },
-                        { name: 'Testnet', value: 'testnet' },
-                        { name: 'Mainnet', value: 'mainnet' },
+                        { name: `${chalk.yellow('all')} - ${chalk.blue('Clear both NEAR and PHALA credentials')}`, value: 'all' },
+                        { name: `${chalk.yellow('near')} - ${chalk.blue('Clear NEAR master account only')}`, value: 'network' },
+                        { name: `${chalk.yellow('phala')} - ${chalk.blue('Clear PHALA API key only')}`, value: 'phala' },
                     ],
                 });
+            }
 
-                if (network === 'both') {
+            if (whatToClear === 'network' || whatToClear === 'all') {
+                let network = networkArg;
+                
+                // Validate network if provided
+                if (network && !['all', 'testnet', 'mainnet'].includes(network)) {
+                    console.error(chalk.red(`Error: Invalid network '${networkArg}'. Must be one of: all, testnet, mainnet`));
+                    console.error(chalk.yellow('\nAvailable options:'));
+                    console.error(`  ${chalk.yellow('all')} - ${chalk.blue('Clear both networks')}`);
+                    console.error(`  ${chalk.yellow('testnet')} - ${chalk.blue('NEAR Testnet')}`);
+                    console.error(`  ${chalk.yellow('mainnet')} - ${chalk.blue('NEAR Mainnet')}`);
+                    process.exit(1);
+                }
+                
+                // Prompt if not provided
+                if (!network) {
+                    network = await select({
+                        message: 'Select network:',
+                        choices: [
+                            { name: `${chalk.yellow('all')} - ${chalk.blue('Clear both networks')}`, value: 'all' },
+                            { name: `${chalk.yellow('testnet')} - ${chalk.blue('NEAR Testnet')}`, value: 'testnet' },
+                            { name: `${chalk.yellow('mainnet')} - ${chalk.blue('NEAR Mainnet')}`, value: 'mainnet' },
+                        ],
+                    });
+                }
+
+                if (network === 'all') {
                     // Clear both testnet and mainnet
                     const testnetDeleted = await deleteCredentials('testnet');
                     const mainnetDeleted = await deleteCredentials('mainnet');
@@ -399,7 +534,7 @@ export function authCommand() {
                 }
             }
 
-            if (whatToClear === 'phala' || whatToClear === 'both') {
+            if (whatToClear === 'phala' || whatToClear === 'all') {
                 const deleted = await deletePhalaKey();
                 if (deleted) {
                     console.log(chalk.green('✓ PHALA API key cleared'));
@@ -408,8 +543,8 @@ export function authCommand() {
                 }
             }
         } catch (error) {
-            // Handle SIGINT gracefully - exit silently
-            if (error.name === 'ExitPromptError' || error.message?.includes('SIGINT')) {
+            // ExitPromptError is handled globally in cli.js
+            if (isExitPromptError(error)) {
                 process.exit(0);
             }
             if (error.message && error.message.includes('libsecret')) {
@@ -427,32 +562,106 @@ export function authCommand() {
     
     // auth set command
     const setCmd = new Command('set');
-    setCmd.description('Set master account for a network');
-    setCmd.action(setAction);
+    setCmd.description('Set Shade Agent CLI credentials');
+    setCmd.configureOutput({
+        writeErr: (str) => {
+            if (str.includes('too many arguments')) {
+                // Get the last valid argument from the command (set accepts max 3 args)
+                const args = process.argv.slice(2);
+                const authIndex = args.indexOf('auth');
+                const setIndex = args.indexOf('set', authIndex);
+                const providedArgs = args.slice(setIndex + 1);
+                // Last valid argument is the 3rd one (index 2), or the last one if fewer than 3
+                const lastValidArg = providedArgs[Math.min(2, providedArgs.length - 2)] || 'set';
+                console.error(chalk.red(`Error: No more arguments are required after '${lastValidArg}'.`));
+                process.exit(1);
+            } else {
+                process.stderr.write(str);
+            }
+        }
+    });
+    setCmd.argument('[type]', 'Type of credentials to set: all, near, or phala')
+        .argument('[network]', 'Network: testnet or mainnet (only for near/all)')
+        .argument('[credentialOption]', 'Credential option: create-new or existing-account (only for testnet)')
+        .action(async (type, network, credentialOption) => {
+            await setAction(type, network, credentialOption);
+        });
     
     // auth get command
     const getCmd = new Command('get');
-    getCmd.description('Get master account for a network');
-    getCmd.action(getAction);
+    getCmd.description('Get Shade Agent CLI credentials');
+    getCmd.configureOutput({
+        writeErr: (str) => {
+            if (str.includes('too many arguments')) {
+                // Get the last valid argument from the command (get accepts max 2 args)
+                const args = process.argv.slice(2);
+                const authIndex = args.indexOf('auth');
+                const getIndex = args.indexOf('get', authIndex);
+                const providedArgs = args.slice(getIndex + 1);
+                // Last valid argument is the 2nd one (index 1), or the last one if fewer than 2
+                const lastValidArg = providedArgs[Math.min(1, providedArgs.length - 2)] || 'get';
+                console.error(chalk.red(`Error: No more arguments are required after '${lastValidArg}'.`));
+                process.exit(1);
+            } else {
+                process.stderr.write(str);
+            }
+        }
+    });
+    getCmd.argument('[type]', 'Type of credentials to get: all, near, or phala')
+        .argument('[network]', 'Network: testnet or mainnet (only for near/all)')
+        .action(async (type, network) => {
+            await getAction(type, network);
+        });
     
     // auth clear command
     const clearCmd = new Command('clear');
-    clearCmd.description('Clear master account or PHALA API key');
-    clearCmd.action(clearAction);
+    clearCmd.description('Clear Shade Agent CLI credentials');
+    clearCmd.configureOutput({
+        writeErr: (str) => {
+            if (str.includes('too many arguments')) {
+                // Get the last valid argument from the command (clear accepts max 2 args)
+                const args = process.argv.slice(2);
+                const authIndex = args.indexOf('auth');
+                const clearIndex = args.indexOf('clear', authIndex);
+                const providedArgs = args.slice(clearIndex + 1);
+                // Last valid argument is the 2nd one (index 1), or the last one if fewer than 2
+                const lastValidArg = providedArgs[Math.min(1, providedArgs.length - 2)] || 'clear';
+                console.error(chalk.red(`Error: No more arguments are required after '${lastValidArg}'.`));
+                process.exit(1);
+            } else {
+                process.stderr.write(str);
+            }
+        }
+    });
+    clearCmd.argument('[type]', 'Type of credentials to clear: all, near, or phala')
+        .argument('[network]', 'Network: all, testnet, or mainnet (only for near/all)')
+        .action(async (type, network) => {
+            await clearAction(type, network);
+        });
     
     cmd.addCommand(setCmd);
     cmd.addCommand(getCmd);
     cmd.addCommand(clearCmd);
     
     // Default action: show selector if no subcommand provided
-    cmd.action(async () => {
+    cmd.action(async (invalidArg) => {
+        // If an argument was provided, it's not a valid subcommand
+        if (invalidArg) {
+            console.error(chalk.red(`Error: '${invalidArg}' is not a valid subcommand for 'auth'.`));
+            console.error(chalk.yellow('\nAvailable subcommands:'));
+            console.error(`  ${chalk.yellow('set')} - ${chalk.blue('Set Shade Agent CLI credentials')}`);
+            console.error(`  ${chalk.yellow('get')} - ${chalk.blue('Get Shade Agent CLI credentials')}`);
+            console.error(`  ${chalk.yellow('clear')} - ${chalk.blue('Clear Shade Agent CLI credentials')}`);
+            process.exit(1);
+        }
+        
         try {
             const subcommand = await select({
                 message: 'What would you like to do?',
                 choices: [
-                    { name: 'Set - Set master account for a network', value: 'set' },
-                    { name: 'Get - Get stored master account', value: 'get' },
-                    { name: 'Clear - Clear master account or PHALA API key', value: 'clear' },
+                    { name: `${chalk.yellow('set')} - ${chalk.blue('Set Shade Agent CLI credentials')}`, value: 'set' },
+                    { name: `${chalk.yellow('get')} - ${chalk.blue('Get Shade Agent CLI credentials')}`, value: 'get' },
+                    { name: `${chalk.yellow('clear')} - ${chalk.blue('Clear Shade Agent CLI credentials')}`, value: 'clear' },
                 ],
             });
             
@@ -465,8 +674,8 @@ export function authCommand() {
                 await clearAction();
             }
         } catch (error) {
-            // Handle SIGINT gracefully - exit silently
-            if (error.name === 'ExitPromptError' || error.message?.includes('SIGINT')) {
+            // ExitPromptError is handled globally in cli.js
+            if (isExitPromptError(error)) {
                 process.exit(0);
             }
             throw error;

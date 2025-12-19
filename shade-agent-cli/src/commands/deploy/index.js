@@ -1,4 +1,5 @@
 import { Command } from 'commander';
+import chalk from 'chalk';
 import { dockerImage } from './docker.js';
 import { createAccount, deployCustomContractFromSource, deployCustomContractFromWasm, initContract, approveCodehash, deleteContractKey } from './near.js';
 import { deployPhalaWorkflow, getAppUrl } from './phala.js';
@@ -7,6 +8,18 @@ import { getConfig } from '../../utils/config.js';
 export function deployCommand() {
     const cmd = new Command('deploy');
     cmd.description('Deploy a Shade agent');
+    
+    // Handle errors for invalid arguments
+    cmd.configureOutput({
+        writeErr: (str) => {
+            if (str.includes('too many arguments') || str.includes('unknown option')) {
+                console.error(chalk.red(`Error: No more arguments are required after 'deploy'.`));
+                process.exit(1);
+            } else {
+                process.stderr.write(str);
+            }
+        }
+    });
     
     cmd.action(async () => {
         try {
@@ -47,7 +60,7 @@ export function deployCommand() {
         
         console.log('\n✅ Deployment completed successfully!');
         } catch (error) {
-            console.error('❌ Error during deployment:', error.message);
+            console.error(chalk.red(`Error during deployment: ${error.message}`));
             if (error.stack) {
                 console.error(error.stack);
             }

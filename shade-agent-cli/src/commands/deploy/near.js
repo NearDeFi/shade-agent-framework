@@ -3,6 +3,7 @@ import path from 'path';
 import { execSync } from 'child_process';
 import { NEAR } from '@near-js/tokens';
 import { parse } from 'yaml';
+import chalk from 'chalk';
 import { getConfig } from '../../utils/config.js';
 import { replacePlaceholder, hasPlaceholder } from '../../utils/placeholders.js';
 
@@ -46,10 +47,10 @@ export async function createAccount() {
     const totalBalance = masterBalanceDecimal + contractBalanceDecimal;
     
     if (totalBalance < requiredBalance) {
-        console.error(`❌ Error: You need to fund your master account ${masterAccount.accountId}`);
-        console.error(`It has balance ${totalBalance} NEAR (master: ${masterBalanceDecimal} NEAR${contractBalanceDecimal > 0 ? ` + contract: ${contractBalanceDecimal} NEAR` : ''}) but needs ${requiredBalance} NEAR (${fundingAmount} NEAR for the contract + 0.1 NEAR for transaction fees)`);
+        console.error(chalk.red(`Error: You need to fund your master account ${masterAccount.accountId}`));
+        console.error(chalk.yellow(`It has balance ${totalBalance} NEAR (master: ${masterBalanceDecimal} NEAR${contractBalanceDecimal > 0 ? ` + contract: ${contractBalanceDecimal} NEAR` : ''}) but needs ${requiredBalance} NEAR (${fundingAmount} NEAR for the contract + 0.1 NEAR for transaction fees)`));
         if (config.deployment.network === 'testnet') {
-            console.error(`\n💬 Need testnet NEAR? Ask in the Shade Agent Telegram Group: https://t.me/+mrNSq_0tp4IyNzg8`);
+            console.error(chalk.cyan(`\n💬 Need testnet NEAR? Ask in the Shade Agent Telegram Group: https://t.me/+mrNSq_0tp4IyNzg8`));
         }
         process.exit(1);
     }
@@ -62,7 +63,7 @@ export async function createAccount() {
             await sleep(1000);
         } catch (deleteError) {
             if (deleteError.type === 'AccessKeyDoesNotExist') {
-                console.error('❌ Error: You cannot delete a contract account that does not have the same public key as your master account, pick a new unique contract_id or change back to your old master account for which you created the contract account with');
+                console.error(chalk.red('Error: You cannot delete a contract account that does not have the same public key as your master account, pick a new unique contract_id or change back to your old master account for which you created the contract account with'));
                 process.exit(1);
             }
             throw deleteError;

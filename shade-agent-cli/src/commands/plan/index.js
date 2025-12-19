@@ -93,6 +93,18 @@ export function planCommand() {
     const cmd = new Command('plan');
     cmd.description('Show what would happen when deploying (dry-run)');
     
+    // Handle errors for invalid arguments
+    cmd.configureOutput({
+        writeErr: (str) => {
+            if (str.includes('too many arguments') || str.includes('unknown option')) {
+                console.error(chalk.red(`Error: No more arguments are required after 'plan'.`));
+                process.exit(1);
+            } else {
+                process.stderr.write(str);
+            }
+        }
+    });
+    
     cmd.action(async () => {
         try {
             // Load deployment config (doesn't require credentials)
@@ -335,7 +347,7 @@ export function planCommand() {
             console.log('');
             console.log('');            
         } catch (error) {
-            console.error('❌ Error generating plan:', error.message);
+            console.error(chalk.red(`Error generating plan: ${error.message}`));
             if (error.stack) {
                 console.error(error.stack);
             }
