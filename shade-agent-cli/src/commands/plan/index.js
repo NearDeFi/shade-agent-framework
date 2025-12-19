@@ -1,47 +1,10 @@
 import { Command } from 'commander';
-import { readFileSync, existsSync } from 'fs';
 import path from 'path';
-import { parse as parseYaml } from 'yaml';
 import chalk from 'chalk';
-import { getDeploymentConfig, getCredentialsOptional, getPhalaKeyOptional } from '../../utils/config.js';
-import { replacePlaceholders } from '../../utils/placeholders.js';
-
-// Helper to resolve placeholders in args
-function resolvePlaceholders(args, accountId, network, environment, codehash) {
-    const replacements = {};
-    
-    if (accountId) {
-        replacements['<MASTER_ACCOUNT_ID>'] = accountId;
-    }
-    replacements['<DEFAULT_MPC_CONTRACT_ID>'] = network === 'mainnet' ? 'v1.signer' : 'v1.signer-prod.testnet';
-    replacements['<REQUIRES_TEE>'] = environment === 'TEE';
-    if (codehash) {
-        replacements['<CODEHASH>'] = codehash;
-    }
-    
-    return replacePlaceholders(args, replacements);
-}
-
-// Get codehash from docker-compose file
-function getCodehashFromCompose(composePath) {
-    try {
-        if (!existsSync(composePath)) {
-            return null;
-        }
-        const compose = readFileSync(composePath, 'utf8');
-        const doc = parseYaml(compose);
-        const image = doc?.services?.['shade-agent-app']?.image;
-        if (typeof image === 'string') {
-            const imageMatch = image.match(/@sha256:([a-f0-9]{64})/i);
-            if (imageMatch) {
-                return imageMatch[1];
-            }
-        }
-        return null;
-    } catch (e) {
-        return null;
-    }
-}
+import { getDeploymentConfig, getNearCredentialsOptional, getPhalaKeyOptional } from '../../utils/config.js';
+import { resolveDeploymentPlaceholders } from '../../utils/deployment-placeholders.js';
+import { getCodehashValue } from '../../utils/codehash.js';
+import { createCommandErrorHandler } from '../../utils/error-handler.js';
 
 // Format JSON args nicely
 function formatArgs(args) {
@@ -91,52 +54,28 @@ function logWrapped(text, maxWidth = 70, indent = 0) {
 
 export function planCommand() {
     const cmd = new Command('plan');
-    cmd.description('Show what would happen when deploying (dry-run)');
+    cmd.description('Show the deployment plan');
     
     // Handle errors for invalid arguments
-    cmd.configureOutput({
-        writeErr: (str) => {
-            if (str.includes('too many arguments') || str.includes('unknown option')) {
-                console.error(chalk.red(`Error: No more arguments are required after 'plan'.`));
-                process.exit(1);
-            } else {
-                process.stderr.write(str);
-            }
-        }
-    });
+    cmd.configureOutput(createCommandErrorHandler('plan', { maxArgs: 0 }));
     
     cmd.action(async () => {
         try {
-            // Load deployment config (doesn't require credentials)
+            // Load deployment config 
             const deployment = getDeploymentConfig();
             
-            // Optionally load credentials to check if they exist and get account ID
-            const credentials = await getCredentialsOptional(deployment.network);
+            // Optionally load NEAR credentials to check if they exist and get account ID
+            const credentials = await getNearCredentialsOptional(deployment.network);
             const accountId = credentials?.accountId || null;
             
             // Optionally load PHALA key
             const phalaKey = await getPhalaKeyOptional();
             
             // Determine codehash value
-            let codehash = null;
-            let codehashSource = null;
-            
-            if (deployment.environment === 'TEE') {
-                if (deployment.build_docker_image) {
-                    // Docker will be built, codehash will be computed
-                    codehash = '<CODEHASH>';
-                    codehashSource = 'computed';
-                } else {
-                    // Docker not enabled, get from existing compose file
-                    const composePath = path.resolve(deployment.docker_compose_path);
-                    codehash = getCodehashFromCompose(composePath);
-                    codehashSource = 'existing';
-                }
-            } else {
-                // Local environment
-                codehash = 'not-in-a-tee';
-                codehashSource = 'local';
-            }
+            const composePath = deployment.environment === 'TEE' && !deployment.build_docker_image
+                ? deployment.docker_compose_path
+                : null;
+            const codehash = getCodehashValue(deployment, composePath);
             
             // Start building the plan output
             console.log('\n' + chalk.cyan.bold('═'.repeat(70)));
@@ -197,7 +136,7 @@ export function planCommand() {
                 // Initialization
                 if (deployment.agent_contract.deploy_custom.init) {
                     const initCfg = deployment.agent_contract.deploy_custom.init;
-                    const resolvedArgs = resolvePlaceholders(
+                    const resolvedArgs = resolveDeploymentPlaceholders(
                         initCfg.args,
                         accountId,
                         deployment.network,
@@ -254,13 +193,13 @@ export function planCommand() {
             console.log('');
             // 3. Approve Codehash
             if (deployment.approve_codehash) {
-                console.log(chalk.cyan.bold('✅ Codehash Approval'));
+                console.log(chalk.cyan.bold('✓ Codehash Approval'));
                 console.log(chalk.gray('─'.repeat(70)));
                 console.log('');
                 
                 const approveCfg = deployment.approve_codehash;
                 
-                const resolvedArgs = resolvePlaceholders(
+                const resolvedArgs = resolveDeploymentPlaceholders(
                     approveCfg.args,
                     accountId,
                     deployment.network,
@@ -291,7 +230,7 @@ export function planCommand() {
                 console.log('');
                 console.log('');
             } else {
-                console.log(chalk.cyan.bold('✅ Codehash Approval'));
+                console.log(chalk.cyan.bold('✓ Codehash Approval'));
                 console.log(chalk.gray('─'.repeat(70)));
                 console.log('');
                     logWrapped(chalk.gray('• The codehash won\'t be approved.'), 70, 2);
@@ -347,9 +286,9 @@ export function planCommand() {
             console.log('');
             console.log('');            
         } catch (error) {
-            console.error(chalk.red(`Error generating plan: ${error.message}`));
+            console.log(chalk.red(`Error generating plan: ${error.message}`));
             if (error.stack) {
-                console.error(error.stack);
+                console.log(error.stack);
             }
             process.exit(1);
         }

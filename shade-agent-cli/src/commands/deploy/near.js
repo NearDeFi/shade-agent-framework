@@ -2,18 +2,18 @@ import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 import { NEAR } from '@near-js/tokens';
-import { parse } from 'yaml';
 import chalk from 'chalk';
 import { getConfig } from '../../utils/config.js';
-import { replacePlaceholder, hasPlaceholder } from '../../utils/placeholders.js';
+import { hasPlaceholder } from '../../utils/placeholders.js';
+import { resolveDeploymentPlaceholders } from '../../utils/deployment-placeholders.js';
+import { getCodehashValue } from '../../utils/codehash.js';
+import { tgasToGas } from '../../utils/near.js';
+import { checkTransactionOutcome } from '../../utils/transaction-outcome.js';
 
-// Sleep for the specified number of milliseconds
+// Sleep for the specified number of milliseconds for nonce problems
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-function tgasToGas(tgas) {
-    return BigInt(tgas) * BigInt(1000000000000);
-}
-
+// Create the contract account
 export async function createAccount() {
     const config = await getConfig();
     const contractId = config.deployment.agent_contract.contract_id;
@@ -32,7 +32,7 @@ export async function createAccount() {
     try {
         const state = await contractAccount.getState();
         contractAccountExists = true;
-        // Extract balance from state - state.balance.total is a BigInt
+        // Extract balance from state 
         if (state && state.balance && state.balance.total) {
             const contractBalance = state.balance.total;
             contractBalanceDecimal = parseFloat(NEAR.toDecimal(contractBalance));
@@ -40,17 +40,18 @@ export async function createAccount() {
     } catch (e) {
         // Contract account doesn't exist, balance is 0 - this is fine
         if (e.type !== 'AccountDoesNotExist') {
-            throw e;
+            console.log(chalk.red(`Error: ${e.message}`));
+            process.exit(1);
         }
     }
     
     const totalBalance = masterBalanceDecimal + contractBalanceDecimal;
     
     if (totalBalance < requiredBalance) {
-        console.error(chalk.red(`Error: You need to fund your master account ${masterAccount.accountId}`));
-        console.error(chalk.yellow(`It has balance ${totalBalance} NEAR (master: ${masterBalanceDecimal} NEAR${contractBalanceDecimal > 0 ? ` + contract: ${contractBalanceDecimal} NEAR` : ''}) but needs ${requiredBalance} NEAR (${fundingAmount} NEAR for the contract + 0.1 NEAR for transaction fees)`));
+        console.log(chalk.red(`Error: You need to fund your master account ${masterAccount.accountId}`));
+        console.log(chalk.yellow(`It has balance ${totalBalance} NEAR (master: ${masterBalanceDecimal} NEAR${contractBalanceDecimal > 0 ? ` + contract: ${contractBalanceDecimal} NEAR` : ''}) but needs ${requiredBalance} NEAR (${fundingAmount} NEAR for the contract + 0.1 NEAR for transaction fees)`));
         if (config.deployment.network === 'testnet') {
-            console.error(chalk.cyan(`\n💬 Need testnet NEAR? Ask in the Shade Agent Telegram Group: https://t.me/+mrNSq_0tp4IyNzg8`));
+            console.log(chalk.cyan(`\n💬 Need testnet NEAR? Ask in the Shade Agent Telegram Group: https://t.me/+mrNSq_0tp4IyNzg8`));
         }
         process.exit(1);
     }
@@ -63,10 +64,11 @@ export async function createAccount() {
             await sleep(1000);
         } catch (deleteError) {
             if (deleteError.type === 'AccessKeyDoesNotExist') {
-                console.error(chalk.red('Error: You cannot delete a contract account that does not have the same public key as your master account, pick a new unique contract_id or change back to your old master account for which you created the contract account with'));
+                console.log(chalk.red('Error: You cannot delete a contract account that does not have the same public key as your master account, pick a new unique contract_id or change back to your old master account for which you created the contract account with'));
                 process.exit(1);
             }
-            throw deleteError;
+            console.log(chalk.red(`Error: ${deleteError.message}`));
+            process.exit(1);
         }
     } else {
         console.log("Contract account does not exist, creating it");
@@ -75,36 +77,57 @@ export async function createAccount() {
     // Create the contract account
     try {
         console.log('Creating contract account');
-        await masterAccount.createAccount(
+        const result = await masterAccount.createAccount(
             contractId,
             await masterAccount.getSigner().getPublicKey(),
             NEAR.toUnits(config.deployment.agent_contract.deploy_custom.funding_amount),
         );
+        
+        // Check transaction outcome if result is available
+        if (result && result.final_execution_outcome) {
+            const success = checkTransactionOutcome(result.final_execution_outcome);
+            if (!success) {
+                console.log(chalk.red('✗ Failed to create contract account'));
+                process.exit(1);
+            }
+        }
+        
         await sleep(1000);
     } catch (e) {
-        console.log('Error creating contract account', e);
+        console.log(chalk.red(`Error creating contract account: ${e.message}`));
         process.exit(1);
     }
 }
 
-
+// Deploy the custom contract from a WASM file fetches path from deployment.yaml
 export async function deployCustomContractFromWasm() {
     const config = await getConfig();
     const wasmPath = config.deployment.agent_contract.deploy_custom.wasm_path;
     return await innerDeployCustomContractFromWasm(wasmPath);
 }
 
+// Deploy the custom contract from a WASM file for a given wasm path
 async function innerDeployCustomContractFromWasm(wasmPath) {
     const config = await getConfig();
     const contractAccount = config.contractAccount;
     try {
+        console.log('Deploying the contract');
         // Deploys the contract bytes (requires more funding)
         const file = fs.readFileSync(wasmPath);
-        await contractAccount.deployContract(new Uint8Array(file));
-        console.log('Custom contract deployed:', contractAccount.accountId);
+        const result = await contractAccount.deployContract(new Uint8Array(file));
+        
+        // Check transaction outcome if result is available
+        if (result && result.final_execution_outcome) {
+            const success = checkTransactionOutcome(result.final_execution_outcome);
+            if (!success) {
+                console.log(chalk.red('✗ Failed to deploy contract'));
+                process.exit(1);
+            }
+        }
+        
         await sleep(1000);
     } catch (e) {
-        console.log('Error deploying the custom contract from WASM', e);
+        console.log(chalk.red(`Error deploying the custom contract from WASM: ${e.message}`));
         process.exit(1);
     }
 }
@@ -112,27 +135,28 @@ async function innerDeployCustomContractFromWasm(wasmPath) {
 function resolveWasmPath(absoluteSourcePath) {
     const cargoTomlPath = path.join(absoluteSourcePath, 'Cargo.toml');
     if (!fs.existsSync(cargoTomlPath)) {
-        console.log(`Cargo.toml not found at ${cargoTomlPath}`);
+        console.log(chalk.red(`Cargo.toml not found at ${cargoTomlPath}`));
         process.exit(1);
     }
 
     const cargoToml = fs.readFileSync(cargoTomlPath, 'utf8');
     const nameMatch = cargoToml.match(/^\s*name\s*=\s*"([^"]+)"/m);
     if (!nameMatch || !nameMatch[1]) {
-        console.log('Could not find package name in Cargo.toml');
+        console.log(chalk.red('Could not find package name in Cargo.toml'));
         process.exit(1);
     }
 
     const crateName = nameMatch[1].replace(/-/g, '_');
     const wasmPath = path.join(absoluteSourcePath, 'target', 'near', `${crateName}.wasm`);
     if (!fs.existsSync(wasmPath)) {
-        console.log(`WASM not found at ${wasmPath} make sure the contract build produced this file.`);
+        console.log(chalk.red(`WASM not found at ${wasmPath} make sure the contract build produced this file.`));
         process.exit(1);
     }
 
     return wasmPath;
 }
 
+// Deploy the custom contract from source
 export async function deployCustomContractFromSource() {
     const config = await getConfig();
     const sourcePath = config.deployment.agent_contract.deploy_custom.source_path;
@@ -149,11 +173,12 @@ export async function deployCustomContractFromSource() {
         const wasmPath = resolveWasmPath(absoluteSourcePath);
         await innerDeployCustomContractFromWasm(wasmPath);
     } catch (e) {
-        console.log('Error building/deploying the custom contract from source', e);
+        console.log(chalk.red(`Error building/deploying the custom contract from source: ${e.message}`));
         process.exit(1);
     }
 }
 
+// Initialize the contract
 export async function initContract() {
     const config = await getConfig();
     const contractAccount = config.contractAccount;
@@ -165,25 +190,40 @@ export async function initContract() {
 
         const methodName = initCfg.method_name;
 
-        // Replace placeholders in args
-        let args = replacePlaceholder(initCfg.args, '<MASTER_ACCOUNT_ID>', config.accountId);
-        args = replacePlaceholder(args, '<DEFAULT_MPC_CONTRACT_ID>', 
-            config.deployment.network === 'mainnet' ? 'v1.signer' : 'v1.signer-prod.testnet');
-        args = replacePlaceholder(args, '<REQUIRES_TEE>', config.deployment.environment === 'TEE');
+        // Resolve deployment placeholders in args
+        // For init, we don't need codehash, so pass null
+        const args = resolveDeploymentPlaceholders(
+            initCfg.args,
+            config.accountId,
+            config.deployment.network,
+            config.deployment.environment,
+            null
+        );
 
-        await contractAccount.callFunctionRaw({
+        const result = await contractAccount.callFunctionRaw({
             contractId,
             methodName,
             args,
             gas: tgasToGas(initCfg.tgas),
         });
+        
+        // Check transaction outcome if result is available
+        if (result && result.final_execution_outcome) {
+            const success = checkTransactionOutcome(result.final_execution_outcome);
+            if (!success) {
+                console.log(chalk.red('✗ Failed to initialize contract'));
+                process.exit(1);
+            }
+        }
+        
         await sleep(1000);
     } catch (e) {
-        console.log('Error initializing the contract', e);
+        console.log(chalk.red(`Error initializing the contract: ${e.message}`));
         process.exit(1);
     }
 }
 
+// Delete the contract key
 export async function deleteContractKey() {
     const config = await getConfig();
     const contractAccount = config.contractAccount;
@@ -194,15 +234,25 @@ export async function deleteContractKey() {
     
     try {
         console.log('Deleting contract key to lock the account');
-        await contractAccount.deleteKey(publicKey);
+        const result = await contractAccount.deleteKey(publicKey);
+        
+        // Check transaction outcome if result is available
+        if (result && result.final_execution_outcome) {
+            const success = checkTransactionOutcome(result.final_execution_outcome);
+            if (!success) {
+                console.log(chalk.red('✗ Failed to delete contract key'));
+                process.exit(1);
+            }
+        }
+        
         await sleep(1000);
-        console.log('Contract key deleted successfully');
     } catch (e) {
-        console.log('Error deleting contract key', e);
+        console.log(chalk.red(`Error deleting contract key: ${e.message}`));
         process.exit(1);
     }
 }
 
+// Approve the specified codehash based on deployment config
 export async function approveCodehash() {
     const config = await getConfig();
     const masterAccount = config.masterAccount;
@@ -213,44 +263,49 @@ export async function approveCodehash() {
         const approveCfg = config.deployment.approve_codehash;
 
         // Resolve codehash placeholder based on environment and docker-compose
-        const requiresTee = config.deployment.environment === 'TEE';
         let args = approveCfg.args;
 
         // Only process codehash if the placeholder exists in args
         if (hasPlaceholder(approveCfg.args, '<CODEHASH>')) {
-            let codehashValue = null;
-
-            if (requiresTee) {
-                // For TEE, get codehash from docker-compose file
-                const composePath = path.resolve(config.deployment.docker_compose_path);
-                const compose = fs.readFileSync(composePath, 'utf8');
-                // Parse YAML to specifically target shade-agent-app image
-                const doc = parse(compose);
-                const image = doc?.services?.['shade-agent-app']?.image;
-                const imageMatch = typeof image === 'string' ? image.match(/@sha256:([a-f0-9]{64})/i) : null;
-                if (!imageMatch) {
-                    console.log(`Could not find codehash for shade-agent-app in ${composePath}`);
-                    process.exit(1);
-                }
-                codehashValue = imageMatch[1];
-            } else {
-                // For local environment
-                codehashValue = 'not-in-a-tee';
+            const composePath = config.deployment.environment === 'TEE' && !config.deployment.build_docker_image
+                ? config.deployment.docker_compose_path
+                : null;
+            const codehashValue = getCodehashValue(config.deployment, composePath);
+            
+            if (!codehashValue || codehashValue === '<CODEHASH>') {
+                console.log(chalk.red(`Could not find codehash for shade-agent-app in ${config.deployment.docker_compose_path}`));
+                process.exit(1);
             }
 
-            // Replace <CODEHASH> placeholder anywhere in args
-            args = replacePlaceholder(approveCfg.args, '<CODEHASH>', codehashValue);
+            // Resolve all deployment placeholders (including CODEHASH)
+            args = resolveDeploymentPlaceholders(
+                approveCfg.args,
+                config.accountId,
+                config.deployment.network,
+                config.deployment.environment,
+                codehashValue
+            );
         }
 
-        await masterAccount.callFunctionRaw({
+        const result = await masterAccount.callFunctionRaw({
             contractId,
             methodName: approveCfg.method_name,
             args,
             gas: tgasToGas(approveCfg.tgas),
         });
+        
+        // Check transaction outcome if result is available
+        if (result && result.final_execution_outcome) {
+            const success = checkTransactionOutcome(result.final_execution_outcome);
+            if (!success) {
+                console.log(chalk.red('✗ Failed to approve codehash'));
+                process.exit(1);
+            }
+        }
+        
         await sleep(1000);
     } catch (e) {
-        console.log('Error approving the codehash', e);
+        console.log(chalk.red(`Error approving the codehash: ${e.message}`));
         process.exit(1);
     }
 }

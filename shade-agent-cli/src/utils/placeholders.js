@@ -1,48 +1,23 @@
-/**
- * Recursively replace a placeholder identifier with a value throughout an args object
- * @param {any} args - The args object (can be string, object, array, etc.)
- * @param {string} placeholder - The placeholder to replace (e.g., '<CODEHASH>')
- * @param {any} value - The value to replace it with
- * @returns {any} - The args object with placeholders replaced
- */
-export function replacePlaceholder(args, placeholder, value) {
-    const replace = (val) => {
-        if (typeof val === 'string') {
-            if (val === placeholder) {
-                return value;
-            }
-            return val;
-        }
-        if (Array.isArray(val)) {
-            return val.map(replace);
-        }
-        if (val && typeof val === 'object') {
-            return Object.fromEntries(Object.entries(val).map(([k, v]) => [k, replace(v)]));
+import chalk from 'chalk';
+
+// Replace placeholder with value
+function replacePlaceholderInValue(val, placeholder, value) {
+    if (typeof val === 'string') {
+        if (val === placeholder) {
+            return value;
         }
         return val;
-    };
-    
-    // Handle string args (JSON)
-    if (typeof args === 'string') {
-        try {
-            const parsed = JSON.parse(args);
-            const replaced = replace(parsed);
-            return replaced;
-        } catch (e) {
-            // If it's not valid JSON, just return as-is
-            return args === placeholder ? value : args;
-        }
     }
-    
-    return replace(args);
+    if (Array.isArray(val)) {
+        return val.map(v => replacePlaceholderInValue(v, placeholder, value));
+    }
+    if (val && typeof val === 'object') {
+        return Object.fromEntries(Object.entries(val).map(([k, v]) => [k, replacePlaceholderInValue(v, placeholder, value)]));
+    }
+    return val;
 }
 
-/**
- * Check if a placeholder exists anywhere in the args object
- * @param {any} args - The args object
- * @param {string} placeholder - The placeholder to search for
- * @returns {boolean} - True if placeholder exists, false otherwise
- */
+// Check if a placeholder exists anywhere in the args object
 export function hasPlaceholder(args, placeholder) {
     const check = (val) => {
         if (typeof val === 'string') {
@@ -73,12 +48,7 @@ export function hasPlaceholder(args, placeholder) {
     return check(args);
 }
 
-/**
- * Recursively replace multiple placeholders with their values
- * @param {any} args - The args object
- * @param {Object} replacements - Object mapping placeholder strings to their values
- * @returns {any} - The args object with all placeholders replaced
- */
+// Recursively replace placeholders with their values
 export function replacePlaceholders(args, replacements) {
     let result = args;
     
@@ -87,19 +57,15 @@ export function replacePlaceholders(args, replacements) {
         try {
             result = JSON.parse(result);
         } catch (e) {
-            // If it's not valid JSON, treat as plain string
-            for (const [placeholder, value] of Object.entries(replacements)) {
-                if (result === placeholder) {
-                    return value;
-                }
-            }
-            return result;
+            // If it's not valid JSON, exit with error
+            console.log(chalk.red(`Error: Invalid JSON in args: ${result}`));
+            process.exit(1);
         }
     }
     
     // Apply each replacement
     for (const [placeholder, value] of Object.entries(replacements)) {
-        result = replacePlaceholder(result, placeholder, value);
+        result = replacePlaceholderInValue(result, placeholder, value);
     }
     
     return result;

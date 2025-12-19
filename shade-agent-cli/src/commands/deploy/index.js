@@ -4,22 +4,14 @@ import { dockerImage } from './docker.js';
 import { createAccount, deployCustomContractFromSource, deployCustomContractFromWasm, initContract, approveCodehash, deleteContractKey } from './near.js';
 import { deployPhalaWorkflow, getAppUrl } from './phala.js';
 import { getConfig } from '../../utils/config.js';
+import { createCommandErrorHandler } from '../../utils/error-handler.js';
 
 export function deployCommand() {
     const cmd = new Command('deploy');
-    cmd.description('Deploy a Shade agent');
+    cmd.description('Deploy the Shade Agent');
     
     // Handle errors for invalid arguments
-    cmd.configureOutput({
-        writeErr: (str) => {
-            if (str.includes('too many arguments') || str.includes('unknown option')) {
-                console.error(chalk.red(`Error: No more arguments are required after 'deploy'.`));
-                process.exit(1);
-            } else {
-                process.stderr.write(str);
-            }
-        }
-    });
+    cmd.configureOutput(createCommandErrorHandler('deploy', { maxArgs: 0 }));
     
     cmd.action(async () => {
         try {
@@ -54,15 +46,14 @@ export function deployCommand() {
         }
 
         if (config.deployment.deploy_to_phala && config.deployment.environment === 'TEE') {
-            const appId = await deployPhalaWorkflow();
-            await getAppUrl(appId);
+            await deployPhalaWorkflow();
         }
         
-        console.log('\n✅ Deployment completed successfully!');
+        console.log(chalk.green('\n✓ Deployment completed successfully!'));
         } catch (error) {
-            console.error(chalk.red(`Error during deployment: ${error.message}`));
+            console.log(chalk.red(`Error during deployment: ${error.message}`));
             if (error.stack) {
-                console.error(error.stack);
+                console.log(error.stack);
             }
             process.exit(1);
         }

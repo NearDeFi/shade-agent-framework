@@ -5,13 +5,13 @@ import { KeyPairSigner } from '@near-js/signers';
 import { JsonRpcProvider } from "@near-js/providers";
 import { Account } from "@near-js/accounts";
 import { platform } from 'os';
-import { getCredentials, getPhalaKey } from './keystore.js';
+import { getNearCredentials, getPhalaKey } from './keystore.js';
 
 function detectOS() {
     const platformName = platform();
     if (platformName === 'darwin') return 'mac';
     if (platformName === 'linux') return 'linux';
-    console.log(`Unsupported OS: ${platformName}. Only mac and linux are supported.`);
+    console.log(`Unsupported OS: ${platformName}. Only mac and linux are supported currently.`);
     process.exit(1);
 }
 
@@ -55,18 +55,24 @@ export function parseDeploymentConfig(deploymentPath) {
         mustBeOneOf(os, ['mac', 'linux'], 'os');
     }
 
-    // Environment is still required in deployment.yaml
+    // Environment is required 
     requireField(environment !== undefined, 'environment is required');
     mustBeOneOf(environment, ['local', 'TEE'], 'environment');
 
+    // Network is required and must be one of testnet or mainnet
     requireField(network !== undefined, 'network is required');
     mustBeOneOf(network, ['testnet', 'mainnet'], 'network');
 
-    // agent_contract required
+    // agent_contract is required and must have a contract_id
     requireField(agent_contract !== undefined, 'agent_contract is required');
     requireField(agent_contract?.contract_id, 'agent_contract.contract_id is required');
 
-    // deploy_custom validations
+    // docker_compose_path is required if TEE environment is enabled
+    if (environment === 'TEE') {
+        requireField(!!docker_compose_path, 'docker_compose_path is required');
+    }
+
+    // deploy_custom validations if enabled
     if (agent_contract?.deploy_custom && agent_contract.deploy_custom.enabled !== false) {
         requireField(
             typeof agent_contract.deploy_custom.funding_amount === 'number' && agent_contract.deploy_custom.funding_amount > 0 && agent_contract.deploy_custom.funding_amount <= 100,
@@ -78,6 +84,7 @@ export function parseDeploymentConfig(deploymentPath) {
         const deployFromSourceEnabled = deployFromSource && deployFromSource.enabled !== false;
         const deployFromWasmEnabled = deployFromWasm && deployFromWasm.enabled !== false;
 
+        // deploy_custom.deploy_from_source.source_path is required if deploy_from_source is enabled
         if (deployFromSourceEnabled) {
             requireField(
                 !!deployFromSource.source_path,
@@ -85,6 +92,7 @@ export function parseDeploymentConfig(deploymentPath) {
             );
         }
 
+        // deploy_custom.deploy_from_wasm.wasm_path is required if deploy_from_wasm is enabled
         if (deployFromWasmEnabled) {
             requireField(
                 !!deployFromWasm.wasm_path,
@@ -92,23 +100,24 @@ export function parseDeploymentConfig(deploymentPath) {
             );
         }
 
-        // Must provide exactly one of deploy_from_source or deploy_from_wasm enabled
+        // deploy_custom must specify exactly one of deploy_from_source or deploy_from_wasm
         requireField(
             deployFromSourceEnabled !== deployFromWasmEnabled,
-            'deploy_custom must specify exactly one of deploy_from_source or deploy_from_wasm with enabled: true'
+            'deploy_custom must specify exactly one of deploy_from_source or deploy_from_wasm'
         );
 
+        // deploy_custom.init validations if enabled
         const init = agent_contract.deploy_custom.init;
         const initEnabled = init && init.enabled !== false;
         if (initEnabled) {
+            // deploy_custom.init.method_name is required if init is enabled
             requireField(!!init.method_name, 'deploy_custom.init.method_name is required');
+            // deploy_custom.init.args is required if init is enabled
             requireField(init.args !== undefined, 'deploy_custom.init.args is required');
+            // deploy_custom.init.args must be a multiline string block
             mustBeMultilineString(init.args, 'deploy_custom.init.args');
         }
     }
-
-    // docker_compose_path validation - always required
-    requireField(!!docker_compose_path, 'docker_compose_path is required');
 
     // build_docker_image validations - only required when environment is TEE
     if (build_docker_image && build_docker_image.enabled !== false && environment === 'TEE') {
@@ -208,13 +217,9 @@ function createDefaultProvider(network) {
 let cachedConfig = null;
 let cachedDeploymentConfig = null;
 
-/**
- * Get the deployment configuration from deployment.yaml without requiring credentials.
- * This is useful for plan mode or other read-only operations.
- * @param {string} [deploymentPath] - Optional path to deployment.yaml. Defaults to ./deployment.yaml
- * @returns {Object} The deployment configuration object
- */
+// Fetch deployment config from deployment.yaml and parse it
 export function getDeploymentConfig(deploymentPath) {
+    // Caching deployment config to avoid parsing the file multiple times
     if (cachedDeploymentConfig) {
         return cachedDeploymentConfig;
     }
@@ -225,23 +230,16 @@ export function getDeploymentConfig(deploymentPath) {
     return deploymentConfig;
 }
 
-/**
- * Get credentials optionally (returns null if they don't exist or if there's an error).
- * @param {string} network - 'testnet' or 'mainnet'
- * @returns {Promise<{accountId: string, privateKey: string} | null>}
- */
-export async function getCredentialsOptional(network) {
+// Get near credentials it won't throw an error if it doesn't exist
+export async function getNearCredentialsOptional(network) {
     try {
-        return await getCredentials(network);
+        return await getNearCredentials(network);
     } catch (error) {
         return null;
     }
 }
 
-/**
- * Get PHALA key optionally (returns null if it doesn't exist or if there's an error).
- * @returns {Promise<string | null>}
- */
+// Get PHALA key it won't throw an error if it doesn't exist
 export async function getPhalaKeyOptional() {
     try {
         return await getPhalaKey();
@@ -250,12 +248,7 @@ export async function getPhalaKeyOptional() {
     }
 }
 
-/**
- * Get the configuration. This function loads the config lazily and caches it.
- * The config is only loaded when deploy command is used.
- * Credentials are fetched from the keystore based on the network in deployment.yaml.
- * @returns {Promise<Object>} The configuration object
- */
+// Fetch the config
 export async function getConfig() {
     if (cachedConfig) {
         return cachedConfig;
@@ -271,8 +264,8 @@ export async function getConfig() {
         process.exit(1);
     }
 
-    // Fetch credentials from keystore based on network
-    const credentials = await getCredentials(networkId);
+    // Fetch NEAR credentials from keystore based on network
+    const credentials = await getNearCredentials(networkId);
     if (!credentials) {
         console.log(`No master account found for ${networkId} network.`);
         console.log(`Please run 'shade auth set' to set master account for ${networkId}.`);

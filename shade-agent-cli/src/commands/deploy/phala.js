@@ -2,6 +2,7 @@ import { execSync } from 'child_process';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
+import chalk from 'chalk';
 import { getConfig } from '../../utils/config.js';
 
 // Use native fetch (available in Node.js 18+)
@@ -31,28 +32,30 @@ function getPhalaBin() {
         }
     }
     
-    console.log('phala binary not found. Make sure phala@1.0.35 is installed with @neardefi/shade-agent-cli.');
+    console.log(chalk.red('Phala binary not found. Make sure phala@1.0.35 is installed with @neardefi/shade-agent-cli.'));
     process.exit(1);
 }
 const PHALA_COMMAND = getPhalaBin();
 
+// Get the app name from the deployment.yaml file
 async function getAppNameFromDeployment() {
     const config = await getConfig();
     const appName = config.deployment?.deploy_to_phala?.app_name;
     if (!appName || typeof appName !== 'string') {
-        console.log('deploy_to_phala.app_name is required in deployment.yaml');
+        console.log(chalk.red('deploy_to_phala.app_name is required in deployment.yaml'));
         process.exit(1);
     }
     return appName;
 }
 
+// Login to Phala Cloud
 async function loginToPhala() {
     const config = await getConfig();
     const phalaKey = config.phalaKey;
 
     if (!phalaKey) {
-        console.log('Error: PHALA API key is required but not found.');
-        console.log("Please run 'shade auth set' to store the PHALA API key.");
+        console.log(chalk.red('Error: PHALA API key is required but not found.'));
+        console.log(chalk.yellow("Please run 'shade auth set' to store the PHALA API key."));
         process.exit(1);
     }
 
@@ -60,13 +63,13 @@ async function loginToPhala() {
     console.log('Logging in to Phala Cloud');
     try {
         execSync(`${PHALA_COMMAND} auth login ${phalaKey}`, { stdio: 'pipe' });
-        console.log('Successfully logged in to Phala Cloud');
     } catch (e) {
-        console.log('Error authenticating with Phala Cloud', e);
+        console.log(chalk.red(`Error authenticating with Phala Cloud: ${e.message}`));
         process.exit(1);
     }
 }
 
+// Deploy the app to Phala Cloud
 async function deployToPhala() {
     // Deploys the app to Phala Cloud using phala CLI
     console.log('Deploying to Phala Cloud');
@@ -74,7 +77,7 @@ async function deployToPhala() {
     
     // Validate app name length
     if (appName.length <= 3) {
-        console.log('Error: Docker tag app name must be longer than 3 characters');
+        console.log(chalk.red('Error: Docker tag app name must be longer than 3 characters'));
         process.exit(1);
     }
     
@@ -99,30 +102,29 @@ async function deployToPhala() {
         if (appId) {
             return appId[1];
         } else {
-            console.log('Could not extract App ID from output');
+            console.log(chalk.red('Could not extract App ID from output'));
             process.exit(1);
         }
     } catch (e) {
-        console.log('Error deploying to Phala Cloud', e);
+        console.log(chalk.red(`Error deploying to Phala Cloud: ${e.message}`));
         process.exit(1);
     }
 }
 
-// They might not use port 3000, this should be dynamic
-
+// Get the app URL from the app ID
 export async function getAppUrl(appId) {
     const config = await getConfig();
     const phalaKey = config.phalaKey;
     console.log('Getting the app URL');
     const url = `https://cloud-api.phala.network/api/v1/cvms/${appId}`;
-    const maxAttempts = 30;
+    const maxAttempts = 5;
     const delay = 1000;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {
         try {
             const response = await fetchFn(url, { headers: { 'X-API-Key': phalaKey } });
             if (!response.ok) {
-                console.log(`HTTP error! status: ${response.status}`);
+                console.log(chalk.red(`HTTP error! status: ${response.status}`));
                 continue;
             }
             const data = await response.json();
@@ -135,22 +137,21 @@ export async function getAppUrl(appId) {
                         validUrls.forEach((urlObj, index) => {
                             console.log(`  ${index + 1}. ${urlObj.app}${urlObj.instance ? ` (instance: ${urlObj.instance})` : ''}`);
                         });
-                        // Return the first URL for backwards compatibility
-                        return validUrls[0].app;
                     }
                 }
             }
         } catch (e) {
-            console.error(`Error fetching CVM network info (attempt ${attempt}):`, e);
+            console.log(chalk.red(`Error fetching CVM network info (attempt ${attempt}): ${e.message}`));
         }
         if (attempt < maxAttempts) {
             await new Promise(res => setTimeout(res, delay));
         }
     }
-    console.error(`Failed to get app URL: CVM Network Info did not become ready after ${maxAttempts} attempts.`);
+    console.log(chalk.red(`Failed to get app URL: CVM Network Info did not become ready after ${maxAttempts} attempts.`));
     return null;
 }
 
+// Deploy to phala and get the app URL
 export async function deployPhalaWorkflow() {
     // Logs in to Phala Cloud
     await loginToPhala();
@@ -158,6 +159,6 @@ export async function deployPhalaWorkflow() {
     // Deploys the app to Phala Cloud
     const appId = await deployToPhala();
 
-    return appId;
+    // Gets the app URL from the app ID
+    await getAppUrl(appId);
 }
-

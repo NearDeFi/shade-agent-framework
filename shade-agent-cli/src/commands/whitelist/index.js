@@ -2,29 +2,18 @@ import { Command } from 'commander';
 import chalk from 'chalk';
 import input from '@inquirer/input';
 import { getConfig, getDeploymentConfig } from '../../utils/config.js';
-import { getCredentialsOptional } from '../../utils/config.js';
-import { replacePlaceholder } from '../../utils/placeholders.js';
-import { isExitPromptError } from '../../utils/error-handler.js';
-
-function tgasToGas(tgas) {
-    return BigInt(tgas) * BigInt(1000000000000);
-}
+import { getNearCredentialsOptional } from '../../utils/config.js';
+import { replacePlaceholders } from '../../utils/placeholders.js';
+import { isExitPromptError, createCommandErrorHandler } from '../../utils/error-handler.js';
+import { tgasToGas } from '../../utils/near.js';
+import { checkTransactionOutcome } from '../../utils/transaction-outcome.js';
 
 export function whitelistCommand() {
     const cmd = new Command('whitelist');
-    cmd.description('Whitelist an agent account');
+    cmd.description('Whitelist an agent account in the agent contract');
     
     // Handle errors for invalid arguments
-    cmd.configureOutput({
-        writeErr: (str) => {
-            if (str.includes('too many arguments') || str.includes('unknown option')) {
-                console.error(chalk.red(`Error: No more arguments are required after 'whitelist'.`));
-                process.exit(1);
-            } else {
-                process.stderr.write(str);
-            }
-        }
-    });
+    cmd.configureOutput(createCommandErrorHandler('whitelist', { maxArgs: 0 }));
     
     cmd.action(async () => {
         try {
@@ -32,16 +21,16 @@ export function whitelistCommand() {
             const deployment = getDeploymentConfig();
             
             if (!deployment.whitelist_agent) {
-                console.error(chalk.red('Error: whitelist_agent is not configured in deployment.yaml'));
-                console.error(chalk.yellow('Please add a whitelist_agent section to your deployment.yaml file.'));
+                console.log(chalk.red('Error: whitelist_agent is not configured in deployment.yaml'));
+                console.log(chalk.yellow('Please add a whitelist_agent section to your deployment.yaml file.'));
                 process.exit(1);
             }
             
             // Check if master account is set
-            const credentials = await getCredentialsOptional(deployment.network);
+            const credentials = await getNearCredentialsOptional(deployment.network);
             if (!credentials) {
-                console.error(chalk.red(`Error: No master account found for ${deployment.network} network.`));
-                console.error(chalk.yellow('Please run "shade auth set" to set master account.'));
+                console.log(chalk.red(`Error: No master account found for ${deployment.network} network.`));
+                console.log(chalk.yellow('Please run "shade auth set" to set master account.'));
                 process.exit(1);
             }
             
@@ -70,7 +59,7 @@ export function whitelistCommand() {
             
             // Resolve placeholders in args
             const resolvedArgs = agentAccountId 
-                ? replacePlaceholder(whitelistCfg.args, '<AGENT_ACCOUNT_ID>', agentAccountId)
+                ? replacePlaceholders(whitelistCfg.args, { '<AGENT_ACCOUNT_ID>': agentAccountId })
                 : whitelistCfg.args;
             
             if (agentAccountId) {
@@ -83,22 +72,31 @@ export function whitelistCommand() {
             
             // Make the contract call
             try {
-                await config.masterAccount.callFunctionRaw({
+                const result = await config.masterAccount.callFunctionRaw({
                     contractId,
                     methodName: whitelistCfg.method_name,
                     args: resolvedArgs,
                     gas: tgasToGas(whitelistCfg.tgas),
                 });
                 
+                // Check transaction outcome if result is available
+                if (result && result.final_execution_outcome) {
+                    const success = checkTransactionOutcome(result.final_execution_outcome);
+                    if (!success) {
+                        console.log(chalk.red(`\n✗ Failed to whitelist agent account${agentAccountId ? `: ${agentAccountId}` : ''}`));
+                        process.exit(1);
+                    }
+                }
+                
                 if (agentAccountId) {
-                    console.log(`\n✅ Successfully whitelisted agent account: ${agentAccountId}`);
+                    console.log(chalk.green(`\n✓ Successfully whitelisted agent account: ${agentAccountId}`));
                 } else {
-                    console.log('\n✅ Successfully whitelisted agent account!');
+                    console.log(chalk.green('\n✓ Successfully whitelisted agent account!'));
                 }
             } catch (e) {
-                console.error(chalk.red(`\nError whitelisting agent account: ${e.message}`));
+                console.log(chalk.red(`\nError whitelisting agent account: ${e.message}`));
                 if (e.type) {
-                    console.error(chalk.yellow(`Error type: ${e.type}`));
+                    console.log(chalk.yellow(`Error type: ${e.type}`));
                 }
                 process.exit(1);
             }
@@ -108,9 +106,9 @@ export function whitelistCommand() {
             if (isExitPromptError(error)) {
                 process.exit(0);
             }
-            console.error(chalk.red(`Error: ${error.message}`));
+            console.log(chalk.red(`Error: ${error.message}`));
             if (error.stack) {
-                console.error(error.stack);
+                console.log(error.stack);
             }
             process.exit(1);
         }

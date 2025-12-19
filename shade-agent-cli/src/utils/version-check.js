@@ -14,7 +14,7 @@ function getCurrentVersion() {
         const packageJson = JSON.parse(readFileSync(packagePath, 'utf8'));
         return packageJson.version;
     } catch (error) {
-        console.error('Error reading package.json:', error.message);
+        console.log('Error reading package.json:', error.message);
         return null;
     }
 }
@@ -44,6 +44,7 @@ async function checkForUpdates() {
     }
 }
 
+// Check for updates and display if available
 export async function versionCheck() {
     const updateInfo = await checkForUpdates();
     if (!updateInfo) {

@@ -1,46 +1,54 @@
 #!/usr/bin/env node
 import { Command } from 'commander';
-import select from '@inquirer/select';
 import chalk from 'chalk';
 import { deployCommand } from './commands/deploy/index.js';
 import { planCommand } from './commands/plan/index.js';
 import { authCommand } from './commands/auth/index.js';
 import { whitelistCommand } from './commands/whitelist/index.js';
 import { versionCheck } from './utils/version-check.js';
-import { isExitPromptError } from './utils/error-handler.js';
+import { isExitPromptError, validateAndSelectOption } from './utils/error-handler.js';
 
 // Handle SIGINT (Ctrl+C) gracefully - exit without error
 process.on('SIGINT', () => {
     process.exit(0);
 });
 
-// Handle unhandled promise rejections from inquirer (e.g., ExitPromptError)
-process.on('unhandledRejection', (error) => {
-    // Silently exit on SIGINT-related errors from inquirer
+// Handle errors from inquirer prompts (both async and sync)
+const handlePromptError = (error) => {
     if (isExitPromptError(error)) {
         process.exit(0);
-        return;
     }
-    // Let other errors be handled normally
-});
+};
 
-// Handle uncaught exceptions from inquirer prompts
-process.on('uncaughtException', (error) => {
-    // Silently exit on SIGINT-related errors from inquirer
-    if (isExitPromptError(error)) {
-        process.exit(0);
-        return;
-    }
-    // For other errors, let the default behavior happen (Node will exit with error code)
-    // We don't re-throw because that would cause issues
-});
+process.on('unhandledRejection', handlePromptError);
+process.on('uncaughtException', handlePromptError);
 
 const program = new Command();
 
 program
     .name('shade')
     .description('CLI tool for deploying and managing Shade agents')
-    .version('1.0.2');
+    .version('1.0.2')
+    // Configure help to hide the invalid options 
+    .configureHelp({
+        subcommandTerm: (cmd) => {
+            // If command has explicit usage, use it (replacing [invalid] with [command])
+            const usage = cmd.usage();
+            if (usage !== undefined && usage !== '[options]') {
+                return cmd.name() + ' ' + usage.replace(/\[invalid\]/g, '[command]');
+            }
+            // If command has no options, don't show [options]
+            if (cmd.options.length === 0) {
+                return cmd.name();
+            }
+            // Default: commander.js will add [options] automatically
+            return cmd.name();
+        }
+    })
+    .addHelpText('after', `
+Run 'shade <command>' for more information on a command.
+Run 'shade' without arguments to see the interactive menu.
+    `);
 
 // Add commands
 const deployCmd = deployCommand();
@@ -60,50 +68,38 @@ program.hook('preAction', async () => {
 
 // Check if no command was provided
 const args = process.argv.slice(2);
-const knownCommands = ['auth', 'deploy', 'plan', 'whitelist'];
 const firstArg = args[0];
 
-// If a command is provided, validate it first
-if (firstArg && !firstArg.startsWith('-')) {
-    if (!knownCommands.includes(firstArg)) {
-        console.error(chalk.red(`Error: Unknown command '${firstArg}'.`));
-        console.error(chalk.yellow('\nAvailable commands:'));
-        knownCommands.forEach(cmd => {
-            const descriptions = {
-                'deploy': 'Deploy a Shade agent',
-                'plan': 'Show deployment plan (dry-run)',
-                'whitelist': 'Whitelist an agent account',
-                'auth': 'Manage authentication credentials'
-            };
-            console.error(`  ${chalk.yellow(cmd)} - ${chalk.blue(descriptions[cmd] || '')}`);
-        });
-        console.error(chalk.yellow('\nRun \'shade\' without arguments to see the interactive menu.'));
-        process.exit(1);
-    }
-}
+const commandOptions = [
+    { value: 'deploy', description: 'Deploy the Shade Agent' },
+    { value: 'plan', description: 'Show the deployment plan' },
+    { value: 'whitelist', description: 'Whitelist an agent account in the agent contract' },
+    { value: 'auth', description: 'Manage Shade Agent CLI credentials' }
+];
 
-if (args.length === 0) {
-    // Show selector if no command provided
+// Validate command if provided, or prompt if not
+// Skip validation/prompt if firstArg is a flag (like --help, -v, etc.) - let commander.js handle it
+if (args.length === 0 || (firstArg && !firstArg.startsWith('-'))) {
     try {
-        const command = await select({
-            message: 'What would you like to do?',
-            choices: [
-                { name: `${chalk.yellow('deploy')} - ${chalk.blue('Deploy a Shade agent')}`, value: 'deploy' },
-                { name: `${chalk.yellow('plan')} - ${chalk.blue('Show deployment plan (dry-run)')}`, value: 'plan' },
-                { name: `${chalk.yellow('whitelist')} - ${chalk.blue('Whitelist an agent account')}`, value: 'whitelist' },
-                { name: `${chalk.yellow('auth')} - ${chalk.blue('Manage authentication credentials')}`, value: 'auth' },
-            ],
+        // Validate and select command if provided, or prompt if not
+        const command = await validateAndSelectOption({
+            value: args.length > 0 ? firstArg : null,
+            options: commandOptions,
+            message: 'What would you like to do?'
         });
         
-        // Add the selected command to argv and continue with normal parsing
-        process.argv.push(command);
-    } catch (error) {
-        // ExitPromptError is handled globally, but we check here too for the main menu
-        if (isExitPromptError(error)) {
-            process.exit(0);
+        // If no command was provided initially, add the selected command to argv
+        if (args.length === 0) {
+            process.argv.push(command);
         }
-        throw error;
-    }
+        } catch (error) {
+            // ExitPromptError is handled globally, but we check here too for the main menu
+            if (isExitPromptError(error)) {
+                process.exit(0);
+            }
+            console.log(chalk.red(`Error: ${error.message}`));
+            process.exit(1);
+        }
 }
 
 // Parse normally (will use selected command if selector was shown)

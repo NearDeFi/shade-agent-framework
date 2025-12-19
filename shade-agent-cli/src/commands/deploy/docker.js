@@ -3,6 +3,7 @@ import { readFileSync, writeFileSync } from 'fs';
 import path from 'path';
 import { platform } from 'os';
 import { parse, stringify } from 'yaml';
+import chalk from 'chalk';
 import { getConfig } from '../../utils/config.js';
 
 function needsSudo() {
@@ -10,7 +11,7 @@ function needsSudo() {
     return platformName === 'linux';
 }
 
-// Safely update the docker-compose image using YAML parsing
+// Update the docker-compose image in the docker-compose file
 export async function replaceInYaml(dockerTag, codehash) {
     console.log('Replacing the codehash in the yaml file');
     try {
@@ -20,23 +21,23 @@ export async function replaceInYaml(dockerTag, codehash) {
         const doc = parse(compose);
 
         if (!doc.services || !doc.services['shade-agent-app']) {
-            console.log(`Could not find services.shade-agent-app in ${path}`);
+            console.log(chalk.red(`Could not find services.shade-agent-app in ${path}`));
             process.exit(1);
         }
 
-        // Set image to tag@digest
+        // Set image to tag@sha256:codehash
         doc.services['shade-agent-app'].image = `${dockerTag}@sha256:${codehash}`;
 
         const updated = stringify(doc);
         writeFileSync(path, updated, 'utf8');
     } catch (e) {
-        console.log('Error replacing codehash in the yaml file', e);
+        console.log(chalk.red(`Error replacing codehash in the yaml file: ${e.message}`));
         process.exit(1);
     }
 }
 
+// Build the Docker image
 export async function buildImage(dockerTag) {
-    // Builds the image
     console.log('Building the Docker image');
     try {
         const config = await getConfig();
@@ -48,11 +49,12 @@ export async function buildImage(dockerTag) {
         const buildContext = path.dirname(path.resolve(dockerfilePath));
         execSync(`${dockerCmd} build ${cacheFlag} ${dockerfileFlag} --platform=linux/amd64 -t ${dockerTag}:latest ${buildContext}`, { stdio: 'pipe' });
     } catch (e) {
-        console.log('Error building the Docker image', e);
+        console.log(chalk.red(`Error building the Docker image: ${e.message}`));
         process.exit(1);
     }
 }
 
+// Push the Docker image to docker hub
 export async function pushImage(dockerTag) {
     // Pushes the image to docker hub
     console.log('Pushing the Docker image');
@@ -64,17 +66,18 @@ export async function pushImage(dockerTag) {
         );
         const match = output.toString().match(/sha256:[a-f0-9]{64}/gim);
         if (!match || !match[0]) {
-            console.log('Error: Could not extract codehash from the Docker push output');
+            console.log(chalk.red('Error: Could not extract codehash from the Docker push output'));
             process.exit(1);
         }
         const newAppCodehash = match[0].split('sha256:')[1];
         return newAppCodehash;
     } catch (e) {
-        console.log('Error pushing the Docker image', e);
+        console.log(chalk.red(`Error pushing the Docker image: ${e.message}`));
         process.exit(1);
     }
 }
 
+// Build the Docker image and push it to docker hub
 export async function dockerImage() {
     const config = await getConfig();
     const dockerTag = config.deployment.build_docker_image.tag;
