@@ -1,15 +1,10 @@
 import { execSync } from 'child_process';
 import { readFileSync, writeFileSync } from 'fs';
 import path from 'path';
-import { platform } from 'os';
 import { parse, stringify } from 'yaml';
 import chalk from 'chalk';
 import { getConfig } from '../../utils/config.js';
-
-function needsSudo() {
-    const platformName = platform();
-    return platformName === 'linux';
-}
+import { getSudoPrefix } from '../../utils/docker-utils.js';
 
 // Update the docker-compose image in the docker-compose file
 export async function replaceInYaml(dockerTag, codehash) {
@@ -44,10 +39,10 @@ export async function buildImage(dockerTag) {
         const cacheFlag = config.deployment.build_docker_image.cache === false ? '--no-cache' : '';
         const dockerfilePath = config.deployment.build_docker_image.dockerfile_path;
         const dockerfileFlag = `-f ${dockerfilePath}`;
-        const dockerCmd = needsSudo() ? 'sudo docker' : 'docker';
+        const sudoPrefix = getSudoPrefix();
         // Use the directory containing the Dockerfile as build context
         const buildContext = path.dirname(path.resolve(dockerfilePath));
-        execSync(`${dockerCmd} build ${cacheFlag} ${dockerfileFlag} --platform=linux/amd64 -t ${dockerTag}:latest ${buildContext}`, { stdio: 'pipe' });
+        execSync(`${sudoPrefix}docker build ${cacheFlag} ${dockerfileFlag} --platform=linux/amd64 -t ${dockerTag}:latest ${buildContext}`, { stdio: 'pipe' });
     } catch (e) {
         console.log(chalk.red(`Error building the Docker image: ${e.message}`));
         process.exit(1);
@@ -59,9 +54,9 @@ export async function pushImage(dockerTag) {
     // Pushes the image to docker hub
     console.log('Pushing the Docker image');
     try {
-        const dockerCmd = needsSudo() ? 'sudo docker' : 'docker';
+        const sudoPrefix = getSudoPrefix();
         const output = execSync(
-            `${dockerCmd} push ${dockerTag}`,
+            `${sudoPrefix}docker push ${dockerTag}`,
             { encoding: 'utf-8', stdio: 'pipe' }
         );
         const match = output.toString().match(/sha256:[a-f0-9]{64}/gim);

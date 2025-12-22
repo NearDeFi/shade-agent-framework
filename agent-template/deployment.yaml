@@ -1,5 +1,5 @@
 # environment: local | TEE
-environment: local
+environment: TEE
 
 # network: testnet | mainnet
 network: testnet
@@ -51,11 +51,11 @@ agent_contract:
 # Optional, if not provided the current docker-compose.yaml file will be used
 # Only applicable if the environment is TEE
 build_docker_image:
-  enabled: false
+  enabled: true
   # Fill this out with the docker tag you want to use. For example: pivortex/shade-agent-test
   tag: pivortex/shade-agent-test
   cache: true
-  dockerfile_path: ./Dockerfile
+  dockerfile_path: ../Dockerfile
 
 # Optional, if not provided the codehash will not be approved
 approve_codehash:

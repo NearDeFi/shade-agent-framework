@@ -3,7 +3,7 @@ import path from 'path';
 import chalk from 'chalk';
 import { getDeploymentConfig, getNearCredentialsOptional, getPhalaKeyOptional } from '../../utils/config.js';
 import { resolveDeploymentPlaceholders } from '../../utils/deployment-placeholders.js';
-import { getCodehashValue } from '../../utils/codehash.js';
+import { getCodehashValueForPlan } from '../../utils/codehash.js';
 import { createCommandErrorHandler } from '../../utils/error-handler.js';
 
 // Format JSON args nicely
@@ -75,7 +75,7 @@ export function planCommand() {
             const composePath = deployment.environment === 'TEE' && !deployment.build_docker_image
                 ? deployment.docker_compose_path
                 : null;
-            const codehash = getCodehashValue(deployment, composePath);
+            const codehash = getCodehashValueForPlan(deployment, composePath);
             
             // Start building the plan output
             console.log('\n' + chalk.cyan.bold('═'.repeat(70)));

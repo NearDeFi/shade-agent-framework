@@ -1,6 +1,7 @@
 import { readFileSync, existsSync } from 'fs';
 import path from 'path';
 import { parse } from 'yaml';
+import chalk from 'chalk';
 
 // Get codehash from docker-compose file
 export function getCodehashFromCompose(composePath) {
@@ -23,14 +24,31 @@ export function getCodehashFromCompose(composePath) {
     }
 }
 
-// Determine codehash value based on deployment configuration
-export function getCodehashValue(deployment, composePath = null) {
+// Determine codehash value for deploy mode - always reads from compose file
+export function getCodehashValueForDeploy(deployment, composePath = null) {
+    if (deployment.environment === 'TEE') {
+        if (composePath) {
+            const resolvedPath = path.resolve(composePath);
+            const codehash = getCodehashFromCompose(resolvedPath);
+            if (codehash) {
+                return codehash;
+            }
+        }
+        console.log(chalk.red(`Could not find codehash for shade-agent-app in ${composePath || 'docker-compose.yaml'}`));
+        process.exit(1);
+    } else {
+        // Local environment
+        return 'not-in-a-tee';
+    }
+}
+
+// Determine codehash value for plan mode - shows placeholder if build_docker_image is enabled
+export function getCodehashValueForPlan(deployment, composePath = null) {
     if (deployment.environment === 'TEE') {
         if (deployment.build_docker_image) {
-            // Docker will be built, codehash will be computed
+            // Docker will be built, codehash will be computed - show placeholder
             return '<CODEHASH>';
         } else {
-            // Docker not enabled, get from existing compose file
             if (composePath) {
                 const resolvedPath = path.resolve(composePath);
                 const codehash = getCodehashFromCompose(resolvedPath);
@@ -43,4 +61,5 @@ export function getCodehashValue(deployment, composePath = null) {
         return 'not-in-a-tee';
     }
 }
+
 

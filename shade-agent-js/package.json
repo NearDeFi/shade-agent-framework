@@ -1,6 +1,6 @@
 {
     "type": "module",
-    "name": "@neardefi/shade-api-ts",
+    "name": "@neardefi/shade-agent-js",
     "version": "0.1.0",
     "main": "dist/index.cjs",
     "types": "dist/index.d.cts",

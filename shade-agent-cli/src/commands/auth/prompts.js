@@ -1,4 +1,5 @@
 import input from '@inquirer/input';
+import confirm from '@inquirer/confirm';
 import { validateAndSelectOption } from '../../utils/error-handler.js';
 
 // Select credential type (all/near/phala)
@@ -100,6 +101,14 @@ export async function promptForPhalaKey() {
             }
             return true;
         },
+    });
+}
+
+// Confirm overwriting existing credentials
+export async function confirmOverwriteCredentials(message = 'Do you want to continue?') {
+    return await confirm({
+        message,
+        default: false
     });
 }
 

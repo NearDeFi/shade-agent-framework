@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { serve } from "@hono/node-server";
 import { cors } from "hono/cors";
 import dotenv from "dotenv";
-import { ShadeClient } from "@neardefi/shade-api-ts";
+import { ShadeClient } from "@neardefi/shade-agent-js";
 import ethAccount from "./routes/ethAccount";
 import agentAccount from "./routes/agentAccount";
 import transaction from "./routes/transaction";

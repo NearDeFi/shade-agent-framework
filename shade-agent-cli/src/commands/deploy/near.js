@@ -6,9 +6,10 @@ import chalk from 'chalk';
 import { getConfig } from '../../utils/config.js';
 import { hasPlaceholder } from '../../utils/placeholders.js';
 import { resolveDeploymentPlaceholders } from '../../utils/deployment-placeholders.js';
-import { getCodehashValue } from '../../utils/codehash.js';
+import { getCodehashValueForDeploy } from '../../utils/codehash.js';
 import { tgasToGas } from '../../utils/near.js';
 import { checkTransactionOutcome } from '../../utils/transaction-outcome.js';
+import { getSudoPrefix } from '../../utils/docker-utils.js';
 
 // Sleep for the specified number of milliseconds for nonce problems
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -165,12 +166,21 @@ export async function deployCustomContractFromSource() {
         const absoluteSourcePath = path.resolve(process.cwd(), sourcePath);
         console.log(`Building the contract from source`);
 
+        const sudoPrefix = getSudoPrefix();
         execSync(
-            `docker run --rm -v "${absoluteSourcePath}":/workspace pivortex/near-builder@sha256:cdffded38c6cff93a046171269268f99d517237fac800f58e5ad1bcd8d6e2418 cargo near build non-reproducible-wasm`,
+            `${sudoPrefix}docker run --rm -v "${absoluteSourcePath}":/workspace pivortex/near-builder@sha256:cdffded38c6cff93a046171269268f99d517237fac800f58e5ad1bcd8d6e2418 cargo near build non-reproducible-wasm`,
             { stdio: 'pipe' }
         );
 
         const wasmPath = resolveWasmPath(absoluteSourcePath);
+        
+        // Fix file ownership after Docker creates it (Docker runs as root, files owned by root)
+        if (process.platform === 'linux') {
+            const uid = process.getuid();
+            const gid = process.getgid();
+            execSync(`${sudoPrefix}chown ${uid}:${gid} "${wasmPath}"`, { stdio: 'pipe' });
+        }
+        
         await innerDeployCustomContractFromWasm(wasmPath);
     } catch (e) {
         console.log(chalk.red(`Error building/deploying the custom contract from source: ${e.message}`));
@@ -267,15 +277,11 @@ export async function approveCodehash() {
 
         // Only process codehash if the placeholder exists in args
         if (hasPlaceholder(approveCfg.args, '<CODEHASH>')) {
-            const composePath = config.deployment.environment === 'TEE' && !config.deployment.build_docker_image
+            // Always read from docker-compose.yaml - it will have been updated by dockerImage() if build_docker_image is enabled
+            const composePath = config.deployment.environment === 'TEE'
                 ? config.deployment.docker_compose_path
                 : null;
-            const codehashValue = getCodehashValue(config.deployment, composePath);
-            
-            if (!codehashValue || codehashValue === '<CODEHASH>') {
-                console.log(chalk.red(`Could not find codehash for shade-agent-app in ${config.deployment.docker_compose_path}`));
-                process.exit(1);
-            }
+            const codehashValue = getCodehashValueForDeploy(config.deployment, composePath);
 
             // Resolve all deployment placeholders (including CODEHASH)
             args = resolveDeploymentPlaceholders(

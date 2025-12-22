@@ -94,7 +94,7 @@ async function deployToPhala() {
         const deploymentUrlMatch = result.match(/App URL\s*│\s*(https:\/\/[^\s]+)/);
         if (deploymentUrlMatch) {
             const deploymentUrl = deploymentUrlMatch[1];
-            console.log(`\n Phala Application Dashboard URL: ${deploymentUrl}`);
+            console.log(`\nPhala Application Dashboard URL: ${deploymentUrl}`);
         }
         
         // Extract App ID from the output 
@@ -124,7 +124,9 @@ export async function getAppUrl(appId) {
         try {
             const response = await fetchFn(url, { headers: { 'X-API-Key': phalaKey } });
             if (!response.ok) {
-                console.log(chalk.red(`HTTP error! status: ${response.status}`));
+                if (attempt === maxAttempts) {
+                    console.log(chalk.red(`HTTP error! status: ${response.status}`));
+                }
                 continue;
             }
             const data = await response.json();
@@ -133,15 +135,19 @@ export async function getAppUrl(appId) {
                 if (Array.isArray(data.public_urls)) {
                     const validUrls = data.public_urls.filter(u => u.app && u.app.trim() !== '');
                     if (validUrls.length > 0) {
-                        console.log(`\n Your app is live at:`);
+                        // Print URLs and exit immediately
+                        console.log(`\nYour app is live at:`);
                         validUrls.forEach((urlObj, index) => {
                             console.log(`  ${index + 1}. ${urlObj.app}${urlObj.instance ? ` (instance: ${urlObj.instance})` : ''}`);
                         });
+                        return validUrls;
                     }
                 }
             }
         } catch (e) {
-            console.log(chalk.red(`Error fetching CVM network info (attempt ${attempt}): ${e.message}`));
+            if (attempt === maxAttempts) {
+                console.log(chalk.red(`Error fetching CVM network info (attempt ${attempt}): ${e.message}`));
+            }
         }
         if (attempt < maxAttempts) {
             await new Promise(res => setTimeout(res, delay));
