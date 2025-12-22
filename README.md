@@ -36,20 +36,25 @@ Fill in the environment variables in a .env within the template
 AGENT_CONTRACT_ID=
 SPONSOR_ACCOUNT_ID=
 SPONSOR_PRIVATE_KEY=
-ACCOUNT_ID=
-PRIVATE_KEY=
-PHALA_KEY=
 ```
 
-for local you can leave out phala key, the sponsor account id and account id can be the same, the sponsor private key and private key can be the same. 
-
-Fill out the contract_id in the deployment.yaml file.
+Fill out the contract_id and docker tag in the deployment.yaml file.
 
 Run the CLI
 
+Set up auth in the CLI
+
 ```bash
-npm run shade:cli
+npm run shade:cli auth
 ```
+
+Deploy 
+
+```bash
+npm run shade:cli deploy
+```
+
+for local
 
 Start the agent 
 
@@ -60,7 +65,7 @@ npm run dev
 Whitelist the agent account id thats shared when you run it 
 Edit the command
 ```bash
-near contract call-function as-transaction your_contract_id whitelist_agent json-args '{"account_id": "your_agents_account_id"}' prepaid-gas '100.0 Tgas' attached-deposit '0 NEAR' sign-as my_example_signer_account network-config testnet sign-with-plaintext-private-key your_private_key send
+npm run shade:cli whitelist
 ```
 
 Review the contract for other functions like removing agents and updating the owner.
@@ -72,9 +77,9 @@ Review the contract for other functions like removing agents and updating the ow
 - Fewer environment variables
 - Remove shade-agent-api from docker-compose.yaml
 - Edit environment variables passed in docker-compose.yaml
-- Copy deployment.yaml
+- Copy the example deployment.yaml
 - contract id does not need to be a sub account of the account id 
-- You need to create an shade client for example
+- You need to create a shade client for example
 
 ```js
 export const agent = await ShadeClient.create({
@@ -123,6 +128,8 @@ serve({ fetch: app.fetch, port });
       },
     });
 ```
+
+You may need to cast results into types now, this can be got from chainsig.js, see the transaction route for full example
 
 - Methods no longer return json so no need to do balance.balance after doing agent.balance()
 
