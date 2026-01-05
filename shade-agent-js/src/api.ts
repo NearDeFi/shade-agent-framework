@@ -1,34 +1,10 @@
 import { Provider } from "@near-js/providers";
-import { createDefaultProvider, fundAgent } from "./utils/near";
+import { createDefaultProvider, internalFundAgent } from "./utils/near";
 import { Attestation, getTappdClient, getAttestation } from "./utils/tee";
 import { TappdClient } from "./utils/tappd";
 import { deriveAndAddAdditionalKeys, generateAgent, getAgentSigner } from "./utils/agent";
 import { Account } from "@near-js/accounts";
 import { SerializedReturnValue, TxExecutionStatus, BlockReference } from "@near-js/types";
-
-// Signature response types
-export interface Secp256k1SignatureResponse {
-    scheme: 'Secp256k1';
-    big_r: {
-      affine_point: string;
-    };
-    s: {
-      scalar: string;
-    };
-    recovery_id: number;
-  }
-  
-  export interface Ed25519SignatureResponse {
-    scheme: 'Ed25519';
-    signature: number[];
-  }
-  
-  export type SignatureResponse = Secp256k1SignatureResponse | Ed25519SignatureResponse;
-  
-  export enum SignatureKeyType {
-      Eddsa = 'Eddsa',
-      Ecdsa = 'Ecdsa',
-  }
 
 export interface AgentStatus {
     verified: boolean;
@@ -48,7 +24,6 @@ export interface ShadeConfig {
     sponsor?: {
         accountId: string;
         privateKey: string;
-        fundAmount?: number;
     }
     rpc?: Provider;
     numKeys?: number;
@@ -88,14 +63,6 @@ export class ShadeClient {
             if (!config.sponsor.privateKey || config.sponsor.privateKey.trim() === "") {
                 throw new Error("sponsor.privateKey is required when sponsor is provided");
             }
-            // Set default fundAmount to 0.3 if undefined
-            if (config.sponsor.fundAmount === undefined) {
-                config.sponsor.fundAmount = 0.3;
-            }
-            // Validate fundAmount
-            if (typeof config.sponsor.fundAmount !== "number" || config.sponsor.fundAmount < 0.1 || config.sponsor.fundAmount > 10) {
-                throw new Error("sponsor.fundAmount must be a number between 0.1 and 10");
-            }
         }
 
         // Set default numKeys to 1 if undefined
@@ -125,28 +92,11 @@ export class ShadeClient {
 
         const agentPrivateKeys: string[] = [];
         // Generate agent account ID
-        const { accountId, agentPrivateKey, derivedWithTEE: firstKeyDerivedWithTEE } = await generateAgent(tappdClient, config.derivationPath);
+        const { accountId, agentPrivateKey, derivedWithTEE } = await generateAgent(tappdClient, config.derivationPath);
         agentPrivateKeys.push(agentPrivateKey);
-        
-        // Set initial TEE state based on first key derivation
-        let keysDerivedWithTEE = firstKeyDerivedWithTEE;
-        
-        // If sponsor is provided, fund the agent account automatically
-        if (config.sponsor) {
-            await fundAgent(accountId, config.sponsor.accountId, config.sponsor.privateKey, config.sponsor.fundAmount, config.rpc);
-            // If the agent is funded and numKeys is greater than 1, derive additional keys
-            if (config.numKeys > 1) {
-                const { additionalKeys, allDerivedWithTEE } = await deriveAndAddAdditionalKeys(config.numKeys - 1, tappdClient, config.derivationPath);
-                agentPrivateKeys.push(...additionalKeys);
-                // If any additional key was not derived with TEE, set flag to false
-                if (!allDerivedWithTEE) {
-                    keysDerivedWithTEE = false;
-                }
-            }
-        }
 
         // Return agent instance
-        return new ShadeClient(config, tappdClient, accountId, agentPrivateKeys, keysDerivedWithTEE);
+        return new ShadeClient(config, tappdClient, accountId, agentPrivateKeys, derivedWithTEE);
     }
 
     /**
@@ -246,10 +196,14 @@ export class ShadeClient {
             throw new Error("rpc provider is required for call functions");
         }
 
-        // If the keys were not previously added to the account, add them now
+        // If keys were not previously added to the account, add them now
         if (this.config.numKeys > 1 && this.agentPrivateKeys.length === 1) {
-            const { additionalKeys } = await deriveAndAddAdditionalKeys(this.config.numKeys - 1, this.tappdClient, this.config.derivationPath);
+            const { additionalKeys, allDerivedWithTEE } = await deriveAndAddAdditionalKeys(this.config.numKeys - 1, this.tappdClient, this.config.derivationPath);
             this.agentPrivateKeys.push(...additionalKeys);
+            // If any additional key was not derived with TEE, set flag to false
+            if (!allDerivedWithTEE) {
+                this.keysDerivedWithTEE = false;
+            }
         }
 
         // Get the signer for the current key
@@ -268,49 +222,19 @@ export class ShadeClient {
         });
     }
 
-    // /**
-    //  * Requests a digital signature from the agent for a given payload and path
-    //  * @param params - The parameters for the signature request
-    //  * @param params.path - The path associated with the signature request
-    //  * @param params.payload - The payload to be signed
-    //  * @param params.keyType - The type of key to use for signing (default is 'Ecdsa')
-    //  * @returns A promise that resolves with the result of the signature request
-    //  */
-    // async requestSignature(params: {
-    //     path: string;
-    //     payload: string;
-    //     keyType?: SignatureKeyType | string;
-    //     deposit?: bigint | string | number;
-    //     gas?: bigint | string | number;
-    //     waitUntil?: TxExecutionStatus;
-    // }): Promise<SignatureResponse> {
-    //     // Normalize keyType to string value
-    //     const keyType: string = params.keyType 
-    //         ? (typeof params.keyType === 'string' ? params.keyType : params.keyType)
-    //         : SignatureKeyType.Ecdsa;
-
-    //     return await this.call({
-    //         methodName: "request_signature",
-    //         args: {
-    //             path: params.path,
-    //             payload: params.payload,
-    //             key_type: keyType,
-    //         },
-    //         deposit: params.deposit,
-    //         gas: params.gas,
-    //         waitUntil: params.waitUntil,
-    //     });
-    // }
-
     async getAttestation(): Promise<Attestation> {
         return getAttestation(this.tappdClient, this.agentAccountId, this.keysDerivedWithTEE);
     }
 
+    async fundAgent(fundAmount: number): Promise<void> {
+        await internalFundAgent(this.agentAccountId, this.config.sponsor.accountId, this.config.sponsor.privateKey, fundAmount, this.config.rpc);
+    }
+
     getAgentPrivateKeys(acknowledgeRisk: boolean = false): string[] {
-        // Add warning regardless 
-        if (!acknowledgeRisk) { // Add note about not using without calling agent contract 
-            throw new Error("Exporting private keys from the library is a risky operation, you may accidentally leak them from the TEE or use the. Please acknowledge the risk by setting acknowledgeRisk to true.");
+        if (!acknowledgeRisk) { 
+            throw new Error("WARNING: Exporting private keys from the library is a risky operation, you may accidentally leak them from the TEE. Do not use the keys to sign transactions other than to the agent contract. Please acknowledge the risk by setting acknowledgeRisk to true.");
         }
+        console.log("WARNING: Exporting private keys from the library is a risky operation, you may accidentally leak them from the TEE. Do not use the keys to sign transactions other than to the agent contract.");
         return this.agentPrivateKeys;
     }
 }

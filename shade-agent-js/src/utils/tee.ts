@@ -75,7 +75,6 @@ export async function getAttestation(tappdClient: TappdClient | undefined, agent
             clearTimeout(timeoutId);
             
             if (!response.ok) {
-                console.error(`Failed to get quote collateral: HTTP ${response.status}`);
                 throw new Error(`Failed to get quote collateral: HTTP ${response.status}`);
             }
             
@@ -83,7 +82,6 @@ export async function getAttestation(tappdClient: TappdClient | undefined, agent
             checksum = resHelper.checksum;
             collateral = JSON.stringify(resHelper.quote_collateral);
         } catch (error) {
-            console.error(`Failed to get quote collateral: ${error instanceof Error ? error.message : String(error)}`);
             throw new Error(`Failed to get quote collateral: ${error instanceof Error ? error.message : String(error)}`);
         }
         return {

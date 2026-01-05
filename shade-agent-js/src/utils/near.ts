@@ -23,7 +23,7 @@ export function createDefaultProvider(networkId: string): JsonRpcProvider {
     );
 }
 
-export async function fundAgent(agentAccountId: string, sponsorAccountId: string, sponsorPrivateKey: string, amount: number, provider: Provider): Promise<void> {
+export async function internalFundAgent(agentAccountId: string, sponsorAccountId: string, sponsorPrivateKey: string, amount: number, provider: Provider): Promise<void> {
     const signer = KeyPairSigner.fromSecretKey(sponsorPrivateKey as KeyPairString);
 
     const account = new Account(sponsorAccountId, provider, signer);
