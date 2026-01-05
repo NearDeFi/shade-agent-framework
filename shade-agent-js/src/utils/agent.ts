@@ -1,8 +1,10 @@
 import { createHash } from 'node:crypto';
 import { TappdClient } from './tappd';
 import { generateSeedPhrase } from 'near-seed-phrase';
-import { PublicKey, KeyPair, KeyPairString } from '@near-js/crypto';
+import { PublicKey, KeyPairString } from '@near-js/crypto';
 import { KeyPairSigner } from '@near-js/signers';
+import { addKeysToAccount, removeKeysFromAccount } from './near';
+import { Account } from '@near-js/accounts';
 
 export async function generateAgent(tappdClient: TappdClient | undefined, derivationPath: string | undefined): Promise<{ accountId: string, agentPrivateKey: string, derivedWithTEE: boolean }> {
     const { hash, usedTEE } = await deriveHash(tappdClient, derivationPath);
@@ -72,14 +74,37 @@ async function deriveHash(tappdClient: TappdClient | undefined, derivationPath: 
     return { hash, usedTEE };
 }
 
-export async function deriveAndAddAdditionalKeys(
-    numKeys: number,
+export async function manageKeySetup(
+    agentAccount: Account,
+    numAdditionalKeys: number,  // Number of additional keys to derive (not total)
     tappdClient: TappdClient | undefined,
     derivationPath: string | undefined
-): Promise<{ additionalKeys: string[], allDerivedWithTEE: boolean }> {
-    const { keys, allDerivedWithTEE } = await deriveAdditionalKeys(numKeys, tappdClient, derivationPath);
+): Promise<{ keysToSave: string[], allDerivedWithTEE: boolean }> {
+
+    // Get the number of keys on the account already
+    const keysOnAccount = await agentAccount.getAccessKeyList();
+    const numKeysOnAccount = keysOnAccount.keys.length;
+    const numExistingAdditionalKeys = numKeysOnAccount - 1; // Subtract the first key
+
+    // Derive keys using the higher number (needed for both adding and removing cases)
+    const numKeysToDerive = Math.max(numAdditionalKeys, numExistingAdditionalKeys);
+    const { keys, allDerivedWithTEE } = await deriveAdditionalKeys(numKeysToDerive, tappdClient, derivationPath);
+
+    if (numExistingAdditionalKeys < numAdditionalKeys) {
+        // Need to add keys
+        const keysToAdd = keys.slice(numExistingAdditionalKeys, numAdditionalKeys);
+        await addKeysToAccount(agentAccount, keysToAdd);
+    } else if (numExistingAdditionalKeys > numAdditionalKeys) {
+        // Need to remove excess keys
+        const excessKeys = keys.slice(numAdditionalKeys);
+        await removeKeysFromAccount(agentAccount, excessKeys);
+    }
+
+    // Return only the desired number of keys
+    const keysToSave = keys.slice(0, numAdditionalKeys);
+
     return {
-        additionalKeys: keys,
+        keysToSave: keysToSave,
         allDerivedWithTEE,
     };
 }

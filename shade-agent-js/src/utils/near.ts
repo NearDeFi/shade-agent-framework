@@ -73,7 +73,7 @@ export async function internalFundAgent(agentAccountId: string, sponsorAccountId
  * @param secrets - Array of secret keys to add to the account
  * @returns void
  */
-export async function addKeysFromSecrets(account: Account, secrets: string[]): Promise<void> {
+export async function addKeysToAccount(account: Account, secrets: string[]): Promise<void> {
     const maxRetries = 3;
     let lastError: Error | undefined;
     let txResult: FinalExecutionOutcome | undefined;
@@ -121,4 +121,53 @@ export async function addKeysFromSecrets(account: Account, secrets: string[]): P
 
     // All retries exhausted, throw the last error
     throw lastError || new Error(`Failed to add keys after ${maxRetries} attempts`);
+}
+
+export async function removeKeysFromAccount(account: Account, secrets: string[]): Promise<void> {
+    const maxRetries = 3;
+    let lastError: Error | undefined;
+    let txResult: FinalExecutionOutcome | undefined;
+
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+            // Build actions for removing keys
+            const actions = secrets.map((secretKey) => {
+                const keyPair = KeyPair.fromString(secretKey as KeyPairString);
+                return actionCreators.deleteKey(
+                    keyPair.getPublicKey(),
+                );
+            });
+
+            // Create signed transaction
+            const tx = await account.createSignedTransaction(
+                account.accountId,
+                actions,
+            );
+
+            // Send transaction
+            txResult = await account.provider.sendTransaction(tx);
+
+            // Check transaction status
+            if (typeof txResult.status === 'object' && txResult.status.Failure) {
+                const errorMsg = txResult.status.Failure.error_message || txResult.status.Failure.error_type;
+                lastError = new Error(`Remove keys transaction failed: ${errorMsg}`);
+                // Continue to retry if not the last attempt
+                if (attempt < maxRetries) {
+                    continue;
+                }
+            } else {
+                // Success - transaction completed without failure
+                return;
+            }
+        } catch (error) {
+            lastError = new Error(`Failed to remove keys (attempt ${attempt}/${maxRetries}): ${error instanceof Error ? error.message : String(error)}`);
+            // Continue to retry if not the last attempt
+            if (attempt < maxRetries) {
+                continue;
+            }
+        }
+    }
+
+    // All retries exhausted, throw the last error
+    throw lastError || new Error(`Failed to remove keys after ${maxRetries} attempts`);
 }

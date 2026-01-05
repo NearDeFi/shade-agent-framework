@@ -50,8 +50,11 @@ console.log("Waiting for agent to be whitelisted...");
 while (true) {
   const status = await agent.isRegistered();
   if (status.whitelisted) {
-    await agent.fundAgent(0.3);
+    if (await agent.balance() < 0.2) {
+      await agent.fundAgent(0.3);
+    }
     const registered = await agent.register();
+    console.log("registered");
     if (registered) {
       break;
     }

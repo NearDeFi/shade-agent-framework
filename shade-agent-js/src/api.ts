@@ -2,9 +2,13 @@ import { Provider } from "@near-js/providers";
 import { createDefaultProvider, internalFundAgent } from "./utils/near";
 import { Attestation, getTappdClient, getAttestation } from "./utils/tee";
 import { TappdClient } from "./utils/tappd";
-import { deriveAndAddAdditionalKeys, generateAgent, getAgentSigner } from "./utils/agent";
+import { manageKeySetup, generateAgent, getAgentSigner } from "./utils/agent";
 import { Account } from "@near-js/accounts";
 import { SerializedReturnValue, TxExecutionStatus, BlockReference } from "@near-js/types";
+import { KeyPairSigner } from "@near-js/signers";
+import { KeyPairString } from "@near-js/crypto";
+import { NEAR } from "@near-js/tokens";
+
 
 export interface AgentStatus {
     verified: boolean;
@@ -37,6 +41,7 @@ export class ShadeClient {
     private agentPrivateKeys: string[];
     private currentKeyIndex: number;
     private keysDerivedWithTEE: boolean; // true if all keys were derived with TEE entropy, false otherwise
+    private keysChecked: boolean; // true if the keys have been checked on the first call, false otherwise
     
     // Private constructor so only `create()` can be used to create an instance
     private constructor(config: ShadeConfig, tappdClient: TappdClient | undefined, accountId: string, agentPrivateKeys: string[], keysDerivedWithTEE: boolean) {
@@ -46,6 +51,7 @@ export class ShadeClient {
         this.agentPrivateKeys = agentPrivateKeys;
         this.currentKeyIndex = 0;
         this.keysDerivedWithTEE = keysDerivedWithTEE;
+        this.keysChecked = false;
     }
 
     // Async constructor
@@ -107,9 +113,10 @@ export class ShadeClient {
         return this.agentAccountId;
     }
 
-    async balance(): Promise<bigint> {
+    async balance(): Promise<number> {
         const account = new Account(this.agentAccountId, this.config.rpc);
-        return await account.getBalance();
+        const balance = await account.getBalance();
+        return parseFloat(NEAR.toDecimal(balance));
     }
 
     async isRegistered(): Promise<AgentStatus> {
@@ -196,16 +203,20 @@ export class ShadeClient {
             throw new Error("rpc provider is required for call functions");
         }
 
-        // If keys were not previously added to the account, add them now
-        if (this.config.numKeys > 1 && this.agentPrivateKeys.length === 1) {
-            const { additionalKeys, allDerivedWithTEE } = await deriveAndAddAdditionalKeys(this.config.numKeys - 1, this.tappdClient, this.config.derivationPath);
-            this.agentPrivateKeys.push(...additionalKeys);
-            // If any additional key was not derived with TEE, set flag to false
+        // Check keys are the correct number and adjust if needed
+        if (!this.keysChecked) {
+            const signer = KeyPairSigner.fromSecretKey(this.agentPrivateKeys[0] as KeyPairString);
+            const agentAccount = new Account(this.agentAccountId, this.config.rpc, signer);
+            const { keysToSave, allDerivedWithTEE } = await manageKeySetup(agentAccount, this.config.numKeys - 1, this.tappdClient, this.config.derivationPath);   
+            this.agentPrivateKeys.push(...keysToSave);
             if (!allDerivedWithTEE) {
-                this.keysDerivedWithTEE = false;
+                if (this.keysDerivedWithTEE) {
+                    throw new Error("First key was derived with TEE but additional keys were not. Something went wrong with the key derivation.");
+                }
             }
+            this.keysChecked = true;
         }
-
+        
         // Get the signer for the current key
         // create account object with signer
         const { signer, keyIndex } = getAgentSigner(this.agentPrivateKeys, this.currentKeyIndex);
@@ -227,6 +238,9 @@ export class ShadeClient {
     }
 
     async fundAgent(fundAmount: number): Promise<void> {
+        if (!this.config.sponsor) {
+            throw new Error("sponsor is required for funding the agent account");
+        }
         await internalFundAgent(this.agentAccountId, this.config.sponsor.accountId, this.config.sponsor.privateKey, fundAmount, this.config.rpc);
     }
 
