@@ -14,7 +14,7 @@ mod upgrade;
 mod views;
 
 #[cfg(test)]
-mod unit_test;
+mod unit_tests;
 
 pub type Codehash = String;
 
