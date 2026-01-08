@@ -20,6 +20,7 @@ import { NEAR } from "@near-js/tokens";
 export interface AgentStatus {
   registered: boolean;
   whitelisted: boolean;
+  codehash_is_approved: boolean;
 }
 
 interface GetAgentResponse {
@@ -27,6 +28,7 @@ interface GetAgentResponse {
   registered: boolean;
   whitelisted: boolean;
   codehash?: string | null;
+  codehash_is_approved: boolean;
 }
 
 /**
@@ -168,21 +170,30 @@ export class ShadeClient {
 
   /**
    * Gets the NEAR balance of the agent account in human readable format (e.g. 1 = one NEAR)
-   * @returns Promise that resolves to the account balance in NEAR tokens
+   * @returns Promise that resolves to the account balance in NEAR tokens, if the agent account does not exist, returns 0
    * @throws Error if network request fails
    */
   async balance(): Promise<number> {
     const account = new Account(this.agentAccountId, this.config.rpc!);
-    const balance = await account.getBalance();
-    return parseFloat(NEAR.toDecimal(balance));
+    try {
+      const balance = await account.getBalance();
+      return parseFloat(NEAR.toDecimal(balance));
+    } catch (error: any) {
+      // If the account doesn't exist, return 0 instead of throwing
+      if (error?.type === "AccountDoesNotExist") {
+        return 0;
+      }
+      // Re-throw other errors
+      throw error;
+    }
   }
 
   /**
-   * Checks if the agent is registered and whitelisted on the agent contract
-   * @returns Promise that resolves to the agent's registration status
+   * Checks the agent's registration status on the agent contract
+   * @returns Promise that resolves to an AgentStatus object containing registered, whitelisted, and codehash_is_approved booleans
    * @throws Error if agentContractId is not configured or if view call fails
    */
-  async isRegistered(): Promise<AgentStatus> {
+  async registrationStatus(): Promise<AgentStatus> {
     if (!this.config.agentContractId) {
       throw new Error(
         "agentContractId is required for checking registration status",
@@ -200,12 +211,14 @@ export class ShadeClient {
       return {
         registered: false,
         whitelisted: false,
+        codehash_is_approved: false,
       };
     }
 
     return {
       registered: res.registered,
       whitelisted: res.whitelisted,
+      codehash_is_approved: res.codehash_is_approved,
     };
   }
 

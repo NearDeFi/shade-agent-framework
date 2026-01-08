@@ -19,6 +19,9 @@ impl Contract {
             panic!("Agent not registered");
         });
         // Check the agent is registered with an approved codehash
-        require!(self.approved_codehashes.contains(&codehash));
+        require!(
+            self.approved_codehashes.contains(&codehash),
+            "Agent not registered with approved codehash"
+        );
     }
 }

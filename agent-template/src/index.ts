@@ -31,7 +31,7 @@ export const agent = await ShadeClient.create({
     accountId: sponsorAccountId,
     privateKey: sponsorPrivateKey,
   },
-  derivationPath: sponsorPrivateKey, // Random string (private key does a good job)
+  derivationPath: "tessdfsddft", // Random string (private key does a good job)
 });
 
 // Initialize app
@@ -52,7 +52,7 @@ console.log("Waiting for agent to be whitelisted...");
 // Wait until the agent is whitelisted to register
 while (true) {
   // Check if the agent is whitelisted
-  const status = await agent.isRegistered();
+  const status = await agent.registrationStatus();
   if (status.whitelisted) {
     // If the agent has low balance, fund it
     if ((await agent.balance()) < 0.2) {
@@ -60,7 +60,7 @@ while (true) {
     }
     // Register the agent
     const registered = await agent.register();
-    console.log("registered");
+    console.log("Agent registered");
     if (registered) {
       break;
     }

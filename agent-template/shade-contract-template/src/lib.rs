@@ -2,7 +2,7 @@ use dcap_qvl::{verify, QuoteCollateralV3};
 use hex::{decode, encode};
 use near_sdk::{
     env::{self, block_timestamp},
-    log, near, require,
+    near, require,
     store::{IterableMap, IterableSet},
     AccountId, BorshStorageKey, Gas, NearToken, PanicOnDefault, Promise,
 };
@@ -12,6 +12,9 @@ mod collateral;
 mod helpers;
 mod upgrade;
 mod views;
+
+#[cfg(test)]
+mod unit_test;
 
 pub type Codehash = String;
 
@@ -40,6 +43,7 @@ pub struct Agent {
     registered: bool,
     whitelisted: bool,
     codehash: Option<Codehash>,
+    codehash_is_approved: bool,
 }
 
 #[derive(BorshStorageKey)]
@@ -70,23 +74,23 @@ impl Contract {
             .get(&env::predecessor_account_id())
             .expect("Agent needs to be whitelisted first");
 
-        if self.requires_tee {
-            // Verify the attestation and get the codehash from the agent
-            let codehash = collateral::verify_attestation(attestation);
+        let codehash = match self.requires_tee {
+            true => {
+                // Verify the attestation and get the codehash from the agent
+                collateral::verify_attestation(attestation)
+            }
+            false => {
+                // Register the agent without TEE verification
+                "not-in-a-tee".to_string()
+            }
+        };
 
-            // Verify the codehash is approved
-            require!(self.approved_codehashes.contains(&codehash));
+        // Verify the codehash is approved
+        require!(self.approved_codehashes.contains(&codehash));
 
-            // Register the agent with the codehash
-            self.agents
-                .insert(env::predecessor_account_id(), Some(codehash));
-        } else {
-            // Register the agent without TEE verification
-            self.agents.insert(
-                env::predecessor_account_id(),
-                Some("not-in-a-tee".to_string()),
-            );
-        }
+        // Register the agent with the codehash
+        self.agents
+            .insert(env::predecessor_account_id(), Some(codehash));
 
         true
     }

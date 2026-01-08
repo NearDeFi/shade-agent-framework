@@ -26,11 +26,18 @@ impl Contract {
 
     // Get the details of a whitelisted agent
     pub fn get_agent(&self, account_id: AccountId) -> Option<Agent> {
-        self.agents.get(&account_id).map(|codehash_opt| Agent {
-            account_id: account_id.clone(),
-            registered: codehash_opt.is_some(),
-            whitelisted: true,
-            codehash: codehash_opt.clone(),
+        self.agents.get(&account_id).map(|codehash_opt| {
+            let codehash_is_approved = codehash_opt
+                .as_ref()
+                .map(|codehash| self.approved_codehashes.contains(codehash))
+                .unwrap_or(false);
+            Agent {
+                account_id: account_id.clone(),
+                registered: codehash_opt.is_some(),
+                whitelisted: true,
+                codehash: codehash_opt.clone(),
+                codehash_is_approved,
+            }
         })
     }
 
@@ -43,11 +50,18 @@ impl Contract {
             .iter()
             .skip(from as usize)
             .take(limit as usize)
-            .map(|(account_id, codehash_opt)| Agent {
-                account_id: account_id.clone(),
-                registered: codehash_opt.is_some(),
-                whitelisted: true,
-                codehash: codehash_opt.clone(),
+            .map(|(account_id, codehash_opt)| {
+                let codehash_is_approved = codehash_opt
+                    .as_ref()
+                    .map(|codehash| self.approved_codehashes.contains(codehash))
+                    .unwrap_or(false);
+                Agent {
+                    account_id: account_id.clone(),
+                    registered: codehash_opt.is_some(),
+                    whitelisted: true,
+                    codehash: codehash_opt.clone(),
+                    codehash_is_approved,
+                }
             })
             .collect()
     }
