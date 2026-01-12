@@ -23,6 +23,9 @@ serde = "1.0.217"
 
 [dev-dependencies]
 near-sdk = { version = "5.24.0", features = ["unit-testing"] }
+near-sandbox = "0.3.4"
+tokio = { version = "1", features = ["full"] }
+near-api = "0.8.2"
 
 [profile.release]
 codegen-units = 1
