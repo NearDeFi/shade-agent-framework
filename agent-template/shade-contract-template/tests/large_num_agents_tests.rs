@@ -7,17 +7,14 @@ use tokio::time::{sleep, Duration};
 
 /// Tests pagination with large dataset
 #[tokio::test]
-async fn test_large_dataset_pagination_real_contract() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn test_large_dataset_pagination_real_contract(
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let sandbox = near_sandbox::Sandbox::start_sandbox().await?;
     let network_config = create_network_config(&sandbox);
     let (genesis_account_id, genesis_signer) = setup_genesis_account().await;
 
-    let contract_id = deploy_contract_default(
-        &network_config,
-        &genesis_account_id,
-        &genesis_signer,
-    )
-    .await?;
+    let contract_id =
+        deploy_contract_default(&network_config, &genesis_account_id, &genesis_signer).await?;
 
     sleep(Duration::from_millis(200)).await;
 
@@ -77,7 +74,11 @@ async fn test_large_dataset_pagination_real_contract() -> Result<(), Box<dyn std
     )
     .await?;
 
-    assert_eq!(second_page.data.len(), 5, "Second page should have 5 agents");
+    assert_eq!(
+        second_page.data.len(),
+        5,
+        "Second page should have 5 agents"
+    );
 
     // Test pagination - get last 5 agents
     let last_page: Data<Vec<serde_json::Value>> = call_view(
@@ -119,7 +120,11 @@ async fn test_large_dataset_pagination_real_contract() -> Result<(), Box<dyn std
     )
     .await?;
 
-    assert_eq!(large_limit.data.len(), 20, "Should return all agents even with large limit");
+    assert_eq!(
+        large_limit.data.len(),
+        20,
+        "Should return all agents even with large limit"
+    );
 
     Ok(())
 }

@@ -12,23 +12,14 @@ async fn test_contract_initial_state() -> Result<(), Box<dyn std::error::Error +
     let network_config = create_network_config(&sandbox);
     let (genesis_account_id, genesis_signer) = setup_genesis_account().await;
 
-    let contract_id = deploy_contract_default(
-        &network_config,
-        &genesis_account_id,
-        &genesis_signer,
-    )
-    .await?;
+    let contract_id =
+        deploy_contract_default(&network_config, &genesis_account_id, &genesis_signer).await?;
 
     sleep(Duration::from_millis(200)).await;
 
     // Verify get_requires_tee returns correct value
-    let requires_tee: Data<bool> = call_view(
-        &contract_id,
-        "get_requires_tee",
-        json!({}),
-        &network_config,
-    )
-    .await?;
+    let requires_tee: Data<bool> =
+        call_view(&contract_id, "get_requires_tee", json!({}), &network_config).await?;
 
     assert_eq!(requires_tee.data, false);
 

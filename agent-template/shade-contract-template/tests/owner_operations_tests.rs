@@ -7,17 +7,14 @@ use tokio::time::{sleep, Duration};
 
 /// Tests owner transfer and new owner operations
 #[tokio::test]
-async fn test_owner_transfer_and_new_owner_operations() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn test_owner_transfer_and_new_owner_operations(
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let sandbox = near_sandbox::Sandbox::start_sandbox().await?;
     let network_config = create_network_config(&sandbox);
     let (genesis_account_id, genesis_signer) = setup_genesis_account().await;
 
-    let contract_id = deploy_contract_default(
-        &network_config,
-        &genesis_account_id,
-        &genesis_signer,
-    )
-    .await?;
+    let contract_id =
+        deploy_contract_default(&network_config, &genesis_account_id, &genesis_signer).await?;
 
     sleep(Duration::from_millis(200)).await;
 

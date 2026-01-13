@@ -32,10 +32,10 @@ impl Contract {
                 .map(|codehash| self.approved_codehashes.contains(codehash))
                 .unwrap_or(false);
             Agent {
-            account_id: account_id.clone(),
-            registered: codehash_opt.is_some(),
-            whitelisted: true,
-            codehash: codehash_opt.clone(),
+                account_id: account_id.clone(),
+                registered: codehash_opt.is_some(),
+                whitelisted: true,
+                codehash: codehash_opt.clone(),
                 codehash_is_approved,
             }
         })
@@ -56,10 +56,10 @@ impl Contract {
                     .map(|codehash| self.approved_codehashes.contains(codehash))
                     .unwrap_or(false);
                 Agent {
-                account_id: account_id.clone(),
-                registered: codehash_opt.is_some(),
-                whitelisted: true,
-                codehash: codehash_opt.clone(),
+                    account_id: account_id.clone(),
+                    registered: codehash_opt.is_some(),
+                    whitelisted: true,
+                    codehash: codehash_opt.clone(),
                     codehash_is_approved,
                 }
             })

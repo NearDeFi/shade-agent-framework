@@ -12,13 +12,9 @@ async fn test_cross_contract_call_to_mpc() -> Result<(), Box<dyn std::error::Err
     let (genesis_account_id, genesis_signer) = setup_genesis_account().await;
 
     // Deploy mock MPC contract
-    let mpc_contract_id = deploy_mock_mpc_contract(
-        &network_config,
-        &genesis_account_id,
-        &genesis_signer,
-        "mpc",
-    )
-    .await?;
+    let mpc_contract_id =
+        deploy_mock_mpc_contract(&network_config, &genesis_account_id, &genesis_signer, "mpc")
+            .await?;
 
     sleep(Duration::from_millis(200)).await;
 
@@ -164,7 +160,7 @@ async fn test_cross_contract_call_to_mpc() -> Result<(), Box<dyn std::error::Err
     .await?
     .into_result();
 
-    // Assert that the transaction failed with AccountDoesNotExist for mpc-contract not any other error 
+    // Assert that the transaction failed with AccountDoesNotExist for mpc-contract not any other error
     match result {
         Ok(_) => {
             panic!("Expected transaction to fail with AccountDoesNotExist for new-mpc-contract, but it succeeded");

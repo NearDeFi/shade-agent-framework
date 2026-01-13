@@ -4,7 +4,7 @@ use crate::*;
 impl Contract {
     // Function to update the contract code
     // Review https://docs.near.org/smart-contracts/release/upgrade for more details
-    pub fn update_contract(&mut self, migrate_gas: u8) -> Promise {
+    pub fn update_contract(&mut self) -> Promise {
         self.require_owner();
 
         let code = env::input().expect("Error: No input").to_vec();
@@ -15,7 +15,7 @@ impl Contract {
                 "migrate".to_string(),
                 b"".to_vec(),
                 NearToken::from_near(0),
-                Gas::from_tgas(migrate_gas.into()),
+                Gas::from_tgas(10),
             )
             .as_return()
     }
