@@ -1,20 +1,18 @@
 import { Provider } from "@near-js/providers";
-import { createDefaultProvider, internalFundAgent } from "./utils/near";
+import { internalFundAgent, createAccountObject } from "./utils/near";
 import {
   Attestation,
   getDstackClient,
   internalGetAttestation,
 } from "./utils/tee";
 import { DstackClient } from "@phala/dstack-sdk";
-import { manageKeySetup, generateAgent, getAgentSigner } from "./utils/agent";
-import { Account } from "@near-js/accounts";
+import { ensureKeysSetup, generateAgent, getAgentSigner } from "./utils/agent";
+import { validateShadeConfig } from "./utils/validation";
 import {
   SerializedReturnValue,
   TxExecutionStatus,
   BlockReference,
-} from "@near-js/types";
-import { KeyPairSigner } from "@near-js/signers";
-import { KeyPairString } from "@near-js/crypto";
+} from "@near-js/types"; 
 import { NEAR } from "@near-js/tokens";
 
 export interface AgentStatus {
@@ -87,57 +85,8 @@ export class ShadeClient {
    * @throws Error if configuration is invalid, network ID mismatch, or key generation fails
    */
   static async create(config: ShadeConfig): Promise<ShadeClient> {
-    // Set default networkId to 'testnet' if not provided
-    if (config.networkId === undefined) {
-      config.networkId = "testnet";
-    }
-
-    // Validate networkId
-    if (config.networkId !== "testnet" && config.networkId !== "mainnet") {
-      throw new Error("networkId must be either 'testnet' or 'mainnet'");
-    }
-
-    if (config.sponsor) {
-      if (!config.sponsor.accountId || config.sponsor.accountId.trim() === "") {
-        throw new Error(
-          "sponsor.accountId is required when sponsor is provided",
-        );
-      }
-      if (
-        !config.sponsor.privateKey ||
-        config.sponsor.privateKey.trim() === ""
-      ) {
-        throw new Error(
-          "sponsor.privateKey is required when sponsor is provided",
-        );
-      }
-    }
-
-    // Set default numKeys to 1 if undefined
-    if (config.numKeys === undefined) {
-      config.numKeys = 1;
-    }
-    // Validate numKeys
-    if (
-      !Number.isInteger(config.numKeys) ||
-      config.numKeys < 1 ||
-      config.numKeys > 100
-    ) {
-      throw new Error("numKeys must be an integer between 1 and 100");
-    }
-
-    // Create a default provider if one isn't provided
-    if (!config.rpc) {
-      config.rpc = createDefaultProvider(config.networkId);
-    }
-
-    // Validate that networkId matches the RPC provider's network
-    const rpcNetworkId = await config.rpc.getNetworkId();
-    if (rpcNetworkId !== config.networkId) {
-      throw new Error(
-        `Network ID mismatch: config.networkId is "${config.networkId}" but RPC provider is connected to "${rpcNetworkId}"`,
-      );
-    }
+    // Validate and normalize configuration
+    await validateShadeConfig(config);
 
     // Detect if running in a TEE
     const dstackClient = await getDstackClient();
@@ -168,13 +117,17 @@ export class ShadeClient {
     return this.agentAccountId;
   }
 
+
   /**
    * Gets the NEAR balance of the agent account in human readable format (e.g. 1 = one NEAR)
    * @returns Promise that resolves to the account balance in NEAR tokens, if the agent account does not exist, returns 0
    * @throws Error if network request fails
    */
   async balance(): Promise<number> {
-    const account = new Account(this.agentAccountId, this.config.rpc!);
+    const account = createAccountObject(
+      this.agentAccountId,
+      this.config.rpc!,
+    );
     try {
       const balance = await account.getBalance();
       return parseFloat(NEAR.toDecimal(balance));
@@ -298,29 +251,18 @@ export class ShadeClient {
     }
 
     // Check keys are the correct number and adjust if needed
-    if (!this.keysChecked) {
-      const signer = KeyPairSigner.fromSecretKey(
-        this.agentPrivateKeys[0] as KeyPairString,
-      );
-      const agentAccount = new Account(
-        this.agentAccountId,
-        this.config.rpc!,
-        signer,
-      );
-      const { keysToSave, allDerivedWithTEE } = await manageKeySetup(
-        agentAccount,
-        this.config.numKeys - 1,
-        this.dstackClient,
-        this.config.derivationPath,
-      );
-      this.agentPrivateKeys.push(...keysToSave);
-      if (!allDerivedWithTEE) {
-        if (this.keysDerivedWithTEE) {
-          throw new Error(
-            "First key was derived with TEE but additional keys were not. Something went wrong with the key derivation.",
-          );
-        }
-      }
+    const { keysToAdd, wasChecked } = await ensureKeysSetup(
+      this.agentAccountId,
+      this.agentPrivateKeys,
+      this.config.rpc!,
+      this.config.numKeys!,
+      this.dstackClient,
+      this.config.derivationPath,
+      this.keysDerivedWithTEE,
+      this.keysChecked,
+    );
+    this.agentPrivateKeys.push(...keysToAdd);
+    if (wasChecked) {
       this.keysChecked = true;
     }
 
@@ -330,7 +272,11 @@ export class ShadeClient {
       this.currentKeyIndex,
     );
     this.currentKeyIndex = keyIndex;
-    const account = new Account(this.agentAccountId, this.config.rpc!, signer);
+    const account = createAccountObject(
+      this.agentAccountId,
+      this.config.rpc!,
+      signer,
+    );
 
     // Call the function on the agent contract
     return await account.callFunction({

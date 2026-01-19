@@ -92,27 +92,6 @@ async function getAppNameFromDeployment() {
     return appName;
 }
 
-// Login to Phala Cloud
-async function loginToPhala() {
-    const config = await getConfig();
-    const phalaKey = config.phalaKey;
-
-    if (!phalaKey) {
-        console.log(chalk.red('Error: PHALA API key is required but not found.'));
-        console.log(chalk.yellow("Please run 'shade auth set' to store the PHALA API key."));
-        process.exit(1);
-    }
-
-    // Logs in to Phala Cloud
-    console.log('Logging in to Phala Cloud');
-    try {
-        execSync(`${PHALA_COMMAND} login ${phalaKey}`, { stdio: 'pipe' });
-    } catch (e) {
-        console.log(chalk.red(`Error authenticating with Phala Cloud: ${e.message}`));
-        process.exit(1);
-    }
-}
-
 // Deploy the app to Phala Cloud
 async function deployToPhala() {
     // Deploys the app to Phala Cloud using phala CLI
@@ -127,12 +106,13 @@ async function deployToPhala() {
     
     try {
         const config = await getConfig();
+        const phalaKey = config.phalaKey;
+
         const composePath = config.deployment.docker_compose_path;
         const envFilePath = config.deployment?.deploy_to_phala?.env_file_path;
 
-        // Need to deploy without kms, how?
         const result = execSync(
-            `${PHALA_COMMAND} deploy --name ${appName} --image dstack-0.5.4.1 --compose ${composePath} --env-file ${envFilePath}`,
+            `${PHALA_COMMAND} deploy --name ${appName} --api-token ${phalaKey} --compose ${composePath} --env-file ${envFilePath} --non-dev-os`,
             { encoding: 'utf-8', stdio: 'pipe' }
         );
 
@@ -223,9 +203,6 @@ export async function getAppUrl(appId) {
 
 // Deploy to phala and get the app URL
 export async function deployPhalaWorkflow() {
-    // Logs in to Phala Cloud
-    await loginToPhala();
-
     // Deploys the app to Phala Cloud
     const appId = await deployToPhala();
 

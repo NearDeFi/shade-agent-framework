@@ -5,6 +5,7 @@ import { PublicKey, KeyPairString } from "@near-js/crypto";
 import { KeyPairSigner } from "@near-js/signers";
 import { addKeysToAccount, removeKeysFromAccount } from "./near";
 import { Account } from "@near-js/accounts";
+import { Provider } from "@near-js/providers";
 
 // Generates an agent account ID and private key
 export async function generateAgent(
@@ -186,4 +187,41 @@ export function getAgentSigner(
     ),
     keyIndex: currentKeyIndex,
   };
+}
+
+// Ensures keys are set up correctly on the account, adding or removing keys as needed
+export async function ensureKeysSetup(
+  agentAccountId: string,
+  agentPrivateKeys: string[],
+  rpc: Provider,
+  numKeys: number,
+  dstackClient: DstackClient | undefined,
+  derivationPath: string | undefined,
+  keysDerivedWithTEE: boolean,
+  keysChecked: boolean,
+): Promise<{ keysToAdd: string[]; wasChecked: boolean }> {
+  if (keysChecked) {
+    return { keysToAdd: [], wasChecked: true };
+  }
+
+  const signer = KeyPairSigner.fromSecretKey(
+    agentPrivateKeys[0] as KeyPairString,
+  );
+  const agentAccount = new Account(agentAccountId, rpc, signer);
+  const { keysToSave, allDerivedWithTEE } = await manageKeySetup(
+    agentAccount,
+    numKeys - 1,
+    dstackClient,
+    derivationPath,
+  );
+
+  if (!allDerivedWithTEE) {
+    if (keysDerivedWithTEE) {
+      throw new Error(
+        "First key was derived with TEE but additional keys were not. Something went wrong with the key derivation.",
+      );
+    }
+  }
+
+  return { keysToAdd: keysToSave, wasChecked: true };
 }

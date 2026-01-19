@@ -24,6 +24,15 @@ export function createDefaultProvider(networkId: string): JsonRpcProvider {
   );
 }
 
+// Creates an Account instance
+export function createAccountObject(
+  accountId: string,
+  provider: Provider,
+  signer?: KeyPairSigner,
+): Account {
+  return new Account(accountId, provider, signer);
+}
+
 // Transfers NEAR tokens from sponsor account to agent account
 export async function internalFundAgent(
   agentAccountId: string,

@@ -1,5 +1,5 @@
 # environment: local | TEE
-environment: local
+environment: TEE
 
 # network: testnet | mainnet
 network: testnet
@@ -11,13 +11,13 @@ agent_contract:
   # NEAR Account Id of the contract
   # Fill this out with a unique contract id for your agent contract
   # For example: example-contract-123.testnet
-  contract_id: 
+  contract_id: ijsdfoijeqoifjewoijf.testnet
 
   # Optional, if not provided the contract will not be deployed
   # and it's assumed the agent contract is already deployed to the contract_id
   # and is initialized
   deploy_custom:
-    enabled: true
+    enabled: false
     # Amount to fund the agent contract with in NEAR
     funding_amount: 7
     # If true the key for contract account will be deleted after deployment locking it
@@ -55,9 +55,9 @@ agent_contract:
 # Optional, if not provided the current docker-compose.yaml file will be used
 # Only applicable if the environment is TEE
 build_docker_image:
-  enabled: true
-  # Fill this out with the docker tag you want to use. For example: pivortex/shade-agent-test
-  tag: 
+  enabled: false
+  # Fill this out with the docker tag you want to use. For example: pivortex/my-first-agent
+  tag: pivortex/my-first-agent
   cache: true
   dockerfile_path: ../Dockerfile
 
@@ -79,7 +79,7 @@ approve_codehash:
 # Only applicable if the environment is TEE
 deploy_to_phala:
   enabled: true
-  app_name: shade-agent-test
+  app_name: my-first-agent
   env_file_path: ./.env
 
 # Optional, if not provided the "shade-agent-cli whitelist" command will not be available
