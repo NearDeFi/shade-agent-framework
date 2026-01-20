@@ -9,8 +9,8 @@ import { createMockAccount, createMockProvider } from '../mocks';
 import { createMockDstackClient } from '../mocks/tee-mocks';
 import { addKeysToAccount, removeKeysFromAccount } from '../../src/utils/near';
 import { generateTestKey, createMockAccountWithKeys } from '../test-utils';
+import { Account } from '@near-js/accounts';
 
-// Mock near utils - needed to avoid real blockchain calls
 vi.mock('../../src/utils/near', () => ({
   addKeysToAccount: vi.fn(),
   removeKeysFromAccount: vi.fn(),
@@ -25,6 +25,7 @@ vi.mock('@near-js/accounts', () => {
     const mockAccount = globalMockAccount || createMockAccount();
     this.accountId = accountId;
     this.provider = provider;
+    this.signer = signer;
     this.getAccessKeyList = mockAccount.getAccessKeyList;
     this.getBalance = mockAccount.getBalance;
     this.callFunction = mockAccount.callFunction;
@@ -72,23 +73,6 @@ describe('agent utils', () => {
       expect(result.agentPrivateKey).toMatch(/^ed25519:/);
       expect(result).toHaveProperty('derivedWithTEE', true);
       expect(dstackClient.getKey).toHaveBeenCalled();
-    });
-
-    it('should generate deterministic account ID with same derivation path', async () => {
-      const derivationPath = 'deterministic-path';
-      
-      const result1 = await generateAgent(undefined, derivationPath);
-      const result2 = await generateAgent(undefined, derivationPath);
-      
-      expect(result1.accountId).toBe(result2.accountId);
-      expect(result1.agentPrivateKey).toBe(result2.agentPrivateKey);
-    });
-
-    it('should generate different account IDs with different derivation paths', async () => {
-      const result1 = await generateAgent(undefined, 'path1');
-      const result2 = await generateAgent(undefined, 'path2');
-      
-      expect(result1.accountId).not.toBe(result2.accountId);
     });
   });
 
@@ -144,80 +128,6 @@ describe('agent utils', () => {
       expect(dstackClient.getKey).toHaveBeenCalled();
     });
 
-    it('should use derivation path for additional keys', async () => {
-      const mockAccount = createMockAccountWithKeys([{ public_key: 'key1' }]);
-      const derivationPath = 'test-path';
-      
-      // First call with derivation path
-      await manageKeySetup(mockAccount as any, 2, undefined, derivationPath);
-      expect(addKeysToAccount).toHaveBeenCalled();
-      const firstCallKeys = vi.mocked(addKeysToAccount).mock.calls[0][1] as string[];
-      
-      // Reset mocks
-      vi.clearAllMocks();
-      (mockAccount.getAccessKeyList as ReturnType<typeof vi.fn>).mockResolvedValue({
-        keys: [{ public_key: 'key1' }],
-      });
-      
-      // Second call with same derivation path - should produce same keys (deterministic)
-      await manageKeySetup(mockAccount as any, 2, undefined, derivationPath);
-      const secondCallKeys = vi.mocked(addKeysToAccount).mock.calls[0][1] as string[];
-      
-      // Verify same derivation path produces same keys
-      expect(firstCallKeys).toEqual(secondCallKeys);
-      expect(firstCallKeys).toHaveLength(2); // 2 additional keys requested
-    });
-
-    it('should generate different keys each time when TEE is enabled', async () => {
-      const dstackClient = createMockDstackClient();
-      const mockAccount = createMockAccountWithKeys([{ public_key: 'key1' }]);
-      
-      // First call with TEE
-      await manageKeySetup(mockAccount as any, 1, dstackClient, undefined);
-      expect(addKeysToAccount).toHaveBeenCalled();
-      const firstCallKeys = vi.mocked(addKeysToAccount).mock.calls[0][1] as string[];
-      
-      // Reset mocks
-      vi.clearAllMocks();
-      (mockAccount.getAccessKeyList as ReturnType<typeof vi.fn>).mockResolvedValue({
-        keys: [{ public_key: 'key1' }],
-      });
-      
-      // Second call with TEE - should produce different keys (non-deterministic)
-      // Even though dstack returns same key, crypto.getRandomValues produces different randomness
-      await manageKeySetup(mockAccount as any, 1, dstackClient, undefined);
-      const secondCallKeys = vi.mocked(addKeysToAccount).mock.calls[0][1] as string[];
-      
-      // Verify TEE produces different keys each time
-      expect(firstCallKeys).not.toEqual(secondCallKeys);
-      expect(firstCallKeys).toHaveLength(1);
-      expect(secondCallKeys).toHaveLength(1);
-    });
-
-    it('should generate different keys each time when no derivation path is provided', async () => {
-      const mockAccount = createMockAccountWithKeys([{ public_key: 'key1' }]);
-      
-      // First call without derivation path
-      await manageKeySetup(mockAccount as any, 1, undefined, undefined);
-      expect(addKeysToAccount).toHaveBeenCalled();
-      const firstCallKeys = vi.mocked(addKeysToAccount).mock.calls[0][1] as string[];
-      
-      // Reset mocks
-      vi.clearAllMocks();
-      (mockAccount.getAccessKeyList as ReturnType<typeof vi.fn>).mockResolvedValue({
-        keys: [{ public_key: 'key1' }],
-      });
-      
-      // Second call without derivation path - should produce different keys (non-deterministic)
-      await manageKeySetup(mockAccount as any, 1, undefined, undefined);
-      const secondCallKeys = vi.mocked(addKeysToAccount).mock.calls[0][1] as string[];
-      
-      // Verify no derivation path produces different keys each time
-      expect(firstCallKeys).not.toEqual(secondCallKeys);
-      expect(firstCallKeys).toHaveLength(1);
-      expect(secondCallKeys).toHaveLength(1);
-    });
-
     it('should generate unique keys when adding multiple keys with TEE', async () => {
       const dstackClient = createMockDstackClient();
       const mockAccount = createMockAccountWithKeys([{ public_key: 'key1' }]);
@@ -264,61 +174,116 @@ describe('agent utils', () => {
   });
 
   describe('key determinism across different agents', () => {
-    it('should generate different keys for two different agents with TEE', async () => {
+    it('should generate different first keys and additional keys for two different agents with TEE', async () => {
       const dstackClient1 = createMockDstackClient();
       const dstackClient2 = createMockDstackClient();
+      
+      // Test first keys (from generateAgent)
+      const agent1 = await generateAgent(dstackClient1, undefined);
+      const agent2 = await generateAgent(dstackClient2, undefined);
+      
+      expect(agent1.accountId).not.toBe(agent2.accountId);
+      expect(agent1.agentPrivateKey).not.toBe(agent2.agentPrivateKey);
+      
+      // Test additional keys (from manageKeySetup)
       const mockAccount1 = createMockAccountWithKeys([{ public_key: 'key1' }]);
       const mockAccount2 = createMockAccountWithKeys([{ public_key: 'key1' }]);
       
       await manageKeySetup(mockAccount1 as any, 2, dstackClient1, undefined);
-      const keys1 = vi.mocked(addKeysToAccount).mock.calls[0][1] as string[];
+      const additionalKeys1 = vi.mocked(addKeysToAccount).mock.calls[0][1] as string[];
       
       vi.clearAllMocks();
       
       await manageKeySetup(mockAccount2 as any, 2, dstackClient2, undefined);
-      const keys2 = vi.mocked(addKeysToAccount).mock.calls[0][1] as string[];
+      const additionalKeys2 = vi.mocked(addKeysToAccount).mock.calls[0][1] as string[];
       
-      // Verify different agents with TEE produce different keys
-      expect(keys1).not.toEqual(keys2);
-      expect(keys1).toHaveLength(2);
-      expect(keys2).toHaveLength(2);
+      // Verify different agents with TEE produce different additional keys
+      expect(additionalKeys1).not.toEqual(additionalKeys2);
+      expect(additionalKeys1).toHaveLength(2);
+      expect(additionalKeys2).toHaveLength(2);
     });
 
-    it('should generate different keys for two different agents without TEE and without derivation path', async () => {
+    it('should generate different first keys and additional keys for two different agents without TEE and without derivation path', async () => {
+      // Test first keys (from generateAgent)
+      const agent1 = await generateAgent(undefined, undefined);
+      const agent2 = await generateAgent(undefined, undefined);
+      
+      expect(agent1.accountId).not.toBe(agent2.accountId);
+      expect(agent1.agentPrivateKey).not.toBe(agent2.agentPrivateKey);
+      
+      // Test additional keys (from manageKeySetup)
       const mockAccount1 = createMockAccountWithKeys([{ public_key: 'key1' }]);
       const mockAccount2 = createMockAccountWithKeys([{ public_key: 'key1' }]);
       
       await manageKeySetup(mockAccount1 as any, 2, undefined, undefined);
-      const keys1 = vi.mocked(addKeysToAccount).mock.calls[0][1] as string[];
+      const additionalKeys1 = vi.mocked(addKeysToAccount).mock.calls[0][1] as string[];
       
       vi.clearAllMocks();
       
       await manageKeySetup(mockAccount2 as any, 2, undefined, undefined);
-      const keys2 = vi.mocked(addKeysToAccount).mock.calls[0][1] as string[];
+      const additionalKeys2 = vi.mocked(addKeysToAccount).mock.calls[0][1] as string[];
       
-      // Verify different agents without derivation path produce different keys
-      expect(keys1).not.toEqual(keys2);
-      expect(keys1).toHaveLength(2);
-      expect(keys2).toHaveLength(2);
+      // Verify different agents without derivation path produce different additional keys
+      expect(additionalKeys1).not.toEqual(additionalKeys2);
+      expect(additionalKeys1).toHaveLength(2);
+      expect(additionalKeys2).toHaveLength(2);
     });
 
-    it('should generate identical keys for two different agents with same derivation path', async () => {
+    it('should generate identical first keys and additional keys for two different agents with same derivation path', async () => {
       const derivationPath = 'deterministic-path';
+      
+      // Test first keys (from generateAgent)
+      const agent1 = await generateAgent(undefined, derivationPath);
+      const agent2 = await generateAgent(undefined, derivationPath);
+      
+      expect(agent1.accountId).toBe(agent2.accountId);
+      expect(agent1.agentPrivateKey).toBe(agent2.agentPrivateKey);
+      
+      // Test additional keys (from manageKeySetup)
       const mockAccount1 = createMockAccountWithKeys([{ public_key: 'key1' }]);
       const mockAccount2 = createMockAccountWithKeys([{ public_key: 'key1' }]);
       
       await manageKeySetup(mockAccount1 as any, 2, undefined, derivationPath);
-      const keys1 = vi.mocked(addKeysToAccount).mock.calls[0][1] as string[];
+      const additionalKeys1 = vi.mocked(addKeysToAccount).mock.calls[0][1] as string[];
       
       vi.clearAllMocks();
       
       await manageKeySetup(mockAccount2 as any, 2, undefined, derivationPath);
-      const keys2 = vi.mocked(addKeysToAccount).mock.calls[0][1] as string[];
+      const additionalKeys2 = vi.mocked(addKeysToAccount).mock.calls[0][1] as string[];
       
-      // Verify same derivation path produces identical keys across different agents
-      expect(keys1).toEqual(keys2);
-      expect(keys1).toHaveLength(2);
-      expect(keys2).toHaveLength(2);
+      // Verify same derivation path produces identical additional keys across different agents
+      expect(additionalKeys1).toEqual(additionalKeys2);
+      expect(additionalKeys1).toHaveLength(2);
+      expect(additionalKeys2).toHaveLength(2);
+    });
+
+    it('should generate different first keys and additional keys for two different agents with different derivation paths', async () => {
+      const derivationPath1 = 'path-one';
+      const derivationPath2 = 'path-two';
+      
+      // Test first keys (from generateAgent)
+      const agent1 = await generateAgent(undefined, derivationPath1);
+      const agent2 = await generateAgent(undefined, derivationPath2);
+      
+      expect(agent1.accountId).not.toBe(agent2.accountId);
+      expect(agent1.agentPrivateKey).not.toBe(agent2.agentPrivateKey);
+      
+      // Test additional keys (from manageKeySetup)
+      const mockAccount1 = createMockAccountWithKeys([{ public_key: 'key1' }]);
+      const mockAccount2 = createMockAccountWithKeys([{ public_key: 'key1' }]);
+      
+      await manageKeySetup(mockAccount1 as any, 2, undefined, derivationPath1);
+      const additionalKeys1 = vi.mocked(addKeysToAccount).mock.calls[0][1] as string[];
+      
+      vi.clearAllMocks();
+      
+      await manageKeySetup(mockAccount2 as any, 2, undefined, derivationPath2);
+      const additionalKeys2 = vi.mocked(addKeysToAccount).mock.calls[0][1] as string[];
+      
+      // Verify different derivation paths produce different additional keys across different agents
+      expect(additionalKeys1).not.toEqual(additionalKeys2);
+      expect(additionalKeys1).toHaveLength(2);
+      expect(additionalKeys2).toHaveLength(2);
     });
   });
 
@@ -360,8 +325,6 @@ describe('agent utils', () => {
 
   describe('ensureKeysSetup', () => {
     it('should return early when keysChecked is true', async () => {
-      const { Account } = await import('@near-js/accounts');
-      
       // Generate a valid test key
       const testKey = generateTestKey('test-key');
       
@@ -384,7 +347,6 @@ describe('agent utils', () => {
     });
 
     it('should setup keys when keysChecked is false', async () => {
-      const { Account } = await import('@near-js/accounts');
       const mockProvider = createMockProvider();
       const mockAccount = createMockAccountWithKeys([{ public_key: 'key1' }]);
       

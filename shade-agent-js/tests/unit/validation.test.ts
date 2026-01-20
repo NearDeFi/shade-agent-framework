@@ -2,9 +2,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { validateShadeConfig } from '../../src/utils/validation';
 import type { ShadeConfig } from '../../src/api';
 import { createMockProvider } from '../mocks';
-import * as nearUtils from '../../src/utils/near';
+import { createDefaultProvider } from '../../src/utils/near';
 
-// Mock the near utils
 vi.mock('../../src/utils/near', () => ({
   createDefaultProvider: vi.fn(),
 }));
@@ -13,11 +12,9 @@ describe('validateShadeConfig', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     // Reset the mock to return a provider that matches the networkId
-    vi.mocked(nearUtils.createDefaultProvider).mockImplementation((networkId: string) => {
-      const provider = createMockProvider();
-      (provider.getNetworkId as ReturnType<typeof vi.fn>).mockResolvedValue(networkId);
-      return provider as any;
-    });
+    vi.mocked(createDefaultProvider).mockImplementation((networkId: string) => 
+      createMockProvider(networkId) as any
+    );
   });
 
   it('should set default networkId to testnet when not provided', async () => {
@@ -42,9 +39,7 @@ describe('validateShadeConfig', () => {
     const config: ShadeConfig = { networkId: 'testnet' };
     
     // Mock provider to return a different network ID
-    const mockProvider = createMockProvider();
-    (mockProvider.getNetworkId as ReturnType<typeof vi.fn>).mockResolvedValue('mainnet');
-    vi.mocked(nearUtils.createDefaultProvider).mockReturnValue(mockProvider as any);
+    vi.mocked(createDefaultProvider).mockReturnValue(createMockProvider('mainnet') as any);
     
     await expect(validateShadeConfig(config)).rejects.toThrow(
       'Network ID mismatch: config.networkId is "testnet" but RPC provider is connected to "mainnet"'
@@ -130,19 +125,16 @@ describe('validateShadeConfig', () => {
   });
 
   it('should use provided RPC provider without creating default', async () => {
-    const mockProvider = createMockProvider();
+    const mockProvider = createMockProvider('testnet');
     const config: ShadeConfig = {
       networkId: 'testnet',
       rpc: mockProvider,
     };
     
-    // Mock getNetworkId to return testnet to match
-    (mockProvider.getNetworkId as ReturnType<typeof vi.fn>).mockResolvedValue('testnet');
-    
     await validateShadeConfig(config);
     
     // Verify createDefaultProvider was NOT called
-    expect(nearUtils.createDefaultProvider).not.toHaveBeenCalled();
+    expect(createDefaultProvider).not.toHaveBeenCalled();
     expect(config.rpc).toBeDefined();
   });
 });

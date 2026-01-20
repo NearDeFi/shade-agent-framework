@@ -8,48 +8,38 @@ import {
 } from '../../src/utils/near';
 import { createMockProvider, createMockAccount, createMockSigner } from '../mocks';
 import { JsonRpcProvider } from '@near-js/providers';
-import {  } from '@near-js/signers';
 import { NEAR } from '@near-js/tokens';
 import { generateTestKey, createMockBehavior, setSendTransactionBehavior } from '../test-utils';
 
-// Mock NEAR SDK modules
-vi.mock('@near-js/providers', async () => {
-  const actual = await vi.importActual('@near-js/providers');
-  return {
-    ...actual,
-    JsonRpcProvider: vi.fn(),
-  };
-});
+vi.mock('@near-js/providers', () => ({
+  JsonRpcProvider: vi.fn(),
+}));
 
-// Store transfer mock globally so Account class can access it
-let globalTransferMock: any = null;
-let globalCreateSignedTransactionMock: any = null;
+// Store Account method mocks globally so they can be overridden per test
+const accountMockOverrides = {
+  transfer: null as any,
+  createSignedTransaction: null as any,
+};
 
 vi.mock('@near-js/accounts', () => {
-  class MockAccount {
-    accountId: string;
-    provider: any;
-    transfer: any;
-    createSignedTransaction: any;
-    
-    constructor(accountId: string, provider: any, signer?: any) {
-      const mockAccount = createMockAccount();
-      this.accountId = accountId;
-      this.provider = provider;
-      this.transfer = globalTransferMock || mockAccount.transfer;
-      this.createSignedTransaction = globalCreateSignedTransactionMock || mockAccount.createSignedTransaction;
-    }
-  }
+  const MockAccount = vi.fn(function(this: any, accountId: string, provider: any, signer?: any) {
+    const mockAccount = createMockAccount();
+    this.accountId = accountId;
+    this.provider = provider;
+    this.signer = signer;
+    // Use override if set, otherwise use default from mockAccount
+    this.transfer = accountMockOverrides.transfer || mockAccount.transfer;
+    this.createSignedTransaction = accountMockOverrides.createSignedTransaction || mockAccount.createSignedTransaction;
+    return this;
+  });
   return { Account: MockAccount };
 });
-
-// Use real implementations for KeyPairSigner, KeyPair, and actionCreators
 
 describe('near utils', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    globalTransferMock = null;
-    globalCreateSignedTransactionMock = null;
+    accountMockOverrides.transfer = null;
+    accountMockOverrides.createSignedTransaction = null;
   });
 
   // Helper function for internalFundAgent tests
@@ -57,19 +47,16 @@ describe('near utils', () => {
     const mockProvider = createMockProvider();
     const mockTransfer = createMockBehavior(transferBehavior);
     
-    globalTransferMock = mockTransfer;
-    // KeyPairSigner.fromSecretKey will use real implementation
-    
+    accountMockOverrides.transfer = mockTransfer;
+        
     return { mockProvider, mockTransfer };
   }
 
   // Helper function for key operation tests (add/remove keys)
-  function setupKeyOperationMocks(actionType: 'add' | 'delete') {
+  function setupKeyOperationMocks() {
     const mockAccount = createMockAccount();
     const mockTx = {};
-    
-    // Use real KeyPair, actionCreators implementations
-    // Only mock the Account methods and provider.sendTransaction
+
     
     (mockAccount.createSignedTransaction as ReturnType<typeof vi.fn>).mockResolvedValue(mockTx);
     
@@ -97,14 +84,6 @@ describe('near utils', () => {
         { retries: 3, backoff: 2, wait: 1000 }
       );
       expect(provider).toBeDefined();
-    });
-
-    it('should create provider with correct retry configuration', () => {
-      createDefaultProvider('testnet');
-      expect(JsonRpcProvider).toHaveBeenCalledWith(
-        expect.any(Object),
-        { retries: 3, backoff: 2, wait: 1000 }
-      );
     });
   });
 
@@ -142,7 +121,6 @@ describe('near utils', () => {
         mockProvider
       );
 
-      // KeyPairSigner.fromSecretKey uses real implementation
       expect(mockTransfer).toHaveBeenCalledWith({
         token: NEAR,
         amount: NEAR.toUnits(1.5),
@@ -228,7 +206,7 @@ describe('near utils', () => {
 
   describe('addKeysToAccount', () => {
     it('should successfully add keys on first attempt', async () => {
-      const { mockAccount, mockTx, setSendTransactionBehavior } = setupKeyOperationMocks('add');
+      const { mockAccount, mockTx, setSendTransactionBehavior } = setupKeyOperationMocks();
       
       setSendTransactionBehavior({
         status: { SuccessValue: '' },
@@ -238,11 +216,10 @@ describe('near utils', () => {
       const key2 = generateTestKey('key2');
       await addKeysToAccount(mockAccount, [key1, key2]);
 
-      // Verify real implementations were used
       expect(mockAccount.createSignedTransaction).toHaveBeenCalledWith(
         mockAccount.accountId,
         expect.arrayContaining([
-          expect.any(Object), // Real action objects from actionCreators
+          expect.any(Object), 
           expect.any(Object),
         ])
       );
@@ -250,7 +227,7 @@ describe('near utils', () => {
     });
 
     it('should retry on failure and succeed on second attempt', async () => {
-      const { mockAccount, setSendTransactionBehavior } = setupKeyOperationMocks('add');
+      const { mockAccount, setSendTransactionBehavior } = setupKeyOperationMocks();
       
       setSendTransactionBehavior(() =>
         vi.fn()
@@ -265,7 +242,7 @@ describe('near utils', () => {
     });
 
     it('should throw error after all retries exhausted', async () => {
-      const { mockAccount, setSendTransactionBehavior } = setupKeyOperationMocks('add');
+      const { mockAccount, setSendTransactionBehavior } = setupKeyOperationMocks();
       
       setSendTransactionBehavior(() =>
         vi.fn().mockRejectedValue(new Error('Network error'))
@@ -279,7 +256,7 @@ describe('near utils', () => {
     });
 
     it('should handle non-Error exceptions when adding keys', async () => {
-      const { mockAccount, setSendTransactionBehavior } = setupKeyOperationMocks('add');
+      const { mockAccount, setSendTransactionBehavior } = setupKeyOperationMocks();
       
       setSendTransactionBehavior(() =>
         vi.fn().mockRejectedValue('String error')
@@ -293,7 +270,7 @@ describe('near utils', () => {
     });
 
     it('should retry on transaction failure status', async () => {
-      const { mockAccount, setSendTransactionBehavior } = setupKeyOperationMocks('add');
+      const { mockAccount, setSendTransactionBehavior } = setupKeyOperationMocks();
       
       setSendTransactionBehavior(() =>
         vi.fn()
@@ -310,7 +287,7 @@ describe('near utils', () => {
     });
 
     it('should throw error with error_type when add keys fails after retries', async () => {
-      const { mockAccount, setSendTransactionBehavior } = setupKeyOperationMocks('add');
+      const { mockAccount, setSendTransactionBehavior } = setupKeyOperationMocks();
       
       setSendTransactionBehavior({
         status: { Failure: { error_type: 'TxnError' } },
@@ -326,7 +303,7 @@ describe('near utils', () => {
 
   describe('removeKeysFromAccount', () => {
     it('should successfully remove keys on first attempt', async () => {
-      const { mockAccount, mockTx, setSendTransactionBehavior } = setupKeyOperationMocks('delete');
+      const { mockAccount, mockTx, setSendTransactionBehavior } = setupKeyOperationMocks();
       
       setSendTransactionBehavior({
         status: { SuccessValue: '' },
@@ -336,11 +313,10 @@ describe('near utils', () => {
       const key2 = generateTestKey('key2');
       await removeKeysFromAccount(mockAccount, [key1, key2]);
 
-      // Verify real implementations were used
       expect(mockAccount.createSignedTransaction).toHaveBeenCalledWith(
         mockAccount.accountId,
         expect.arrayContaining([
-          expect.any(Object), // Real action objects from actionCreators
+          expect.any(Object),
           expect.any(Object),
         ])
       );
@@ -348,7 +324,7 @@ describe('near utils', () => {
     });
 
     it('should retry on failure and succeed on second attempt', async () => {
-      const { mockAccount, setSendTransactionBehavior } = setupKeyOperationMocks('delete');
+      const { mockAccount, setSendTransactionBehavior } = setupKeyOperationMocks();
       
       setSendTransactionBehavior(() =>
         vi.fn()
@@ -363,7 +339,7 @@ describe('near utils', () => {
     });
 
     it('should throw error after all retries exhausted', async () => {
-      const { mockAccount, setSendTransactionBehavior } = setupKeyOperationMocks('delete');
+      const { mockAccount, setSendTransactionBehavior } = setupKeyOperationMocks();
       
       setSendTransactionBehavior(() =>
         vi.fn().mockRejectedValue(new Error('Network error'))
@@ -377,7 +353,7 @@ describe('near utils', () => {
     });
 
     it('should handle non-Error exceptions when removing keys', async () => {
-      const { mockAccount, setSendTransactionBehavior } = setupKeyOperationMocks('delete');
+      const { mockAccount, setSendTransactionBehavior } = setupKeyOperationMocks();
       
       setSendTransactionBehavior(() =>
         vi.fn().mockRejectedValue('String error')
@@ -391,7 +367,7 @@ describe('near utils', () => {
     });
 
     it('should retry on transaction failure status', async () => {
-      const { mockAccount, setSendTransactionBehavior } = setupKeyOperationMocks('delete');
+      const { mockAccount, setSendTransactionBehavior } = setupKeyOperationMocks();
       
       setSendTransactionBehavior(() =>
         vi.fn()
@@ -408,7 +384,7 @@ describe('near utils', () => {
     });
 
     it('should throw error with error_type when remove keys fails after retries', async () => {
-      const { mockAccount, setSendTransactionBehavior } = setupKeyOperationMocks('delete');
+      const { mockAccount, setSendTransactionBehavior } = setupKeyOperationMocks();
       
       setSendTransactionBehavior({
         status: { Failure: { error_type: 'TxnError' } },

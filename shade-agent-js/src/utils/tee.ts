@@ -24,7 +24,7 @@ export async function getDstackClient(): Promise<DstackClient | undefined> {
     const client = new DstackClient();
     await client.info();
     return client;
-  } catch (error) {
+  } catch {
     return undefined;
   }
 }
