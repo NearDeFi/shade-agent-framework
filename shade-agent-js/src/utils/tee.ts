@@ -101,7 +101,14 @@ export async function internalGetAttestation(
   const dstackTcbInfo = info.tcb_info;
 
   // Get quote - include the agent's account id as the report data
-  const reportData = Buffer.from(agentAccountId, "utf-8");
+  // Transform account ID the same way as the contract:
+  // 1. Decode hex string to bytes (32 bytes for implicit account)
+  // 2. Pad to 64 bytes by appending 32 zero bytes
+  const accountIdBytes = Buffer.from(agentAccountId, "hex");
+  const reportData = Buffer.alloc(64);
+  accountIdBytes.copy(reportData, 0);
+  // Remaining 32 bytes are already zero-filled by Buffer.alloc
+
   const quoteResponse = await dstackClient.getQuote(reportData);
   const quote_hex = quoteResponse.quote;
 
