@@ -15,13 +15,13 @@ impl Contract {
         let agent = self
             .get_agent(env::predecessor_account_id())
             .expect("Agent not whitelisted");
-        let codehash = agent.codehash.unwrap_or_else(|| {
+        let measurements = agent.measurements.unwrap_or_else(|| {
             panic!("Agent not registered");
         });
-        // Check the agent is registered with an approved codehash
+        // Check the agent is registered with an approved measurements
         require!(
-            self.approved_codehashes.contains(&codehash),
-            "Agent not registered with approved codehash"
+            self.approved_measurements.contains(&measurements),
+            "Agent not registered with approved measurements"
         );
     }
 }

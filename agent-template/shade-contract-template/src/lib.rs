@@ -1,14 +1,17 @@
-use dcap_qvl::{verify, QuoteCollateralV3};
-use hex::{decode, encode};
 use near_sdk::{
-    env::{self, block_timestamp},
-    near, require,
+    env::{self, block_timestamp_ms},
+    near, require, log,
     store::{IterableMap, IterableSet},
     AccountId, BorshStorageKey, Gas, NearToken, PanicOnDefault, Promise,
 };
+use shade_attestation::{
+    attestation::DstackAttestation,
+    measurements::FullMeasurements,
+    report_data::ReportData,
+};
+use hex;
 
 mod chainsig;
-mod collateral;
 mod helpers;
 mod update_contract;
 mod views;
@@ -16,24 +19,14 @@ mod views;
 #[cfg(test)]
 mod unit_tests;
 
-pub type Codehash = String;
-
 #[near(contract_state)]
 #[derive(PanicOnDefault)]
 pub struct Contract {
     pub owner_id: AccountId,
-    pub approved_codehashes: IterableSet<Codehash>,
-    pub agents: IterableMap<AccountId, Option<Codehash>>,
+    pub approved_measurements: IterableSet<FullMeasurements>,
+    pub agents: IterableMap<AccountId, Option<FullMeasurements>>,
     pub requires_tee: bool,
     pub mpc_contract_id: AccountId,
-}
-
-#[near(serializers = [json])]
-pub struct Attestation {
-    pub quote_hex: String,
-    pub collateral: String,
-    pub checksum: String,
-    pub tcb_info: String,
 }
 
 #[near(serializers = [json])]
@@ -42,14 +35,14 @@ pub struct Agent {
     account_id: AccountId,
     registered: bool,
     whitelisted: bool,
-    codehash: Option<Codehash>,
-    codehash_is_approved: bool,
+    measurements: Option<FullMeasurements>,
+    measurements_are_approved: bool,
 }
 
 #[derive(BorshStorageKey)]
 #[near]
 pub enum StorageKey {
-    ApprovedCodehashes,
+    ApprovedMeasurements,
     Agents,
 }
 
@@ -62,35 +55,70 @@ impl Contract {
             owner_id,
             mpc_contract_id, // Set to v1.signer-prod.testnet for testnet, v1.signer for mainnet
             requires_tee,
-            approved_codehashes: IterableSet::new(StorageKey::ApprovedCodehashes),
+            approved_measurements: IterableSet::new(StorageKey::ApprovedMeasurements),
             agents: IterableMap::new(StorageKey::Agents),
         }
     }
 
     // Register an agent, this needs to be called by the agent itself
-    pub fn register_agent(&mut self, attestation: Attestation) -> bool {
+    pub fn register_agent(&mut self, attestation: DstackAttestation) -> bool {
         // Check that the agent is whitelisted
         self.agents
             .get(&env::predecessor_account_id())
             .expect("Agent needs to be whitelisted first");
 
-        let codehash = match self.requires_tee {
+        let measurements: FullMeasurements = match self.requires_tee {
             true => {
-                // Verify the attestation and get the codehash from the agent
-                collateral::verify_attestation(attestation)
+                // Get the current time 
+                let current_time_seconds = block_timestamp_ms() / 1000;
+
+                let account_id_str = env::predecessor_account_id().to_string();
+                
+                // Verify account_id is implicit account
+                require!(
+                    account_id_str.len() == 64 && account_id_str.chars().all(|c| c.is_ascii_hexdigit() && !c.is_uppercase()),
+                    "Account ID must be implicit account"
+                );
+                
+                // Decode hex string to bytes
+                let account_id_bytes = hex::decode(&account_id_str)
+                    .expect("Failed to decode account ID");
+                
+                // Create report data by padding account ID to 64 bytes by appending 32 zero bytes
+                let mut report_data_bytes = [0u8; 64];
+                report_data_bytes[..32].copy_from_slice(&account_id_bytes);
+                let expected_report_data = ReportData::from(report_data_bytes);
+
+                // Convert IterableSet to Vec for the verify method
+                let expected_measurements: Vec<FullMeasurements> = self.approved_measurements
+                    .iter()
+                    .cloned()
+                    .collect();
+
+                match attestation.verify(expected_report_data, current_time_seconds, &expected_measurements) {
+                    Ok(verified_measurements) => {
+                        log!("Attestation verified successfully");
+                        verified_measurements
+                    }
+                    Err(e) => {
+                        panic!("Attestation verification failed: {}", e);
+                    }
+                }
             }
             false => {
-                // Register the agent without TEE verification
-                "not-in-a-tee".to_string()
+                // All zeros for non-TEE
+                let default_measurements = FullMeasurements::default();
+                require!(
+                    self.approved_measurements.contains(&default_measurements),
+                    "Default measurements must be approved for non-TEE mode"
+                );
+                default_measurements
             }
         };
 
-        // Verify the codehash is approved
-        require!(self.approved_codehashes.contains(&codehash));
-
-        // Register the agent with the codehash
+        // Register the agent with the measurements
         self.agents
-            .insert(env::predecessor_account_id(), Some(codehash));
+            .insert(env::predecessor_account_id(), Some(measurements));
 
         true
     }
@@ -110,16 +138,16 @@ impl Contract {
 
     // Owner methods
 
-    // Add a new codehash to the approved list
-    pub fn approve_codehash(&mut self, codehash: String) {
+    // Add a new measurements to the approved list
+    pub fn approve_measurements(&mut self, measurements: FullMeasurements) {
         self.require_owner();
-        self.approved_codehashes.insert(codehash);
+        self.approved_measurements.insert(measurements);
     }
 
-    // Remove a codehash from the approved list
-    pub fn remove_codehash(&mut self, codehash: String) {
+    // Remove a measurements from the approved list
+    pub fn remove_measurements(&mut self, measurements: FullMeasurements) {
         self.require_owner();
-        self.approved_codehashes.remove(&codehash);
+        self.approved_measurements.remove(&measurements);
     }
 
     // Whitelist an agent, it will still need to register

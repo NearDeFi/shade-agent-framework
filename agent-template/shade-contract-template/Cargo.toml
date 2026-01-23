@@ -8,15 +8,16 @@ edition = "2021"
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+shade-attestation = { path = "../../shade-attestation" }
 near-sdk = "5.21.0"
 schemars = { version = "0.8" }
 serde_json = "1.0.135"
 base64 = "0.22.1"
 hex = { version = "0.4", default-features = false, features = ["alloc"] }
-dcap-qvl = { git = "https://github.com/mattlockyer/dcap-qvl" }
 sha2 = "0.10.8"
 serde = "1.0.217"
 near-api-types = "0.8.2"
+dcap-qvl = { version = "0.3.2", default-features = false, features = ["contract", "borsh", "std"] }
 
 # rustls-webpki = {git = "https://github.com/mattlockyer/webpki", default-features = false, features=[
 #    "near-wasm",

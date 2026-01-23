@@ -12,31 +12,31 @@ impl Contract {
         &self,
         from_index: &Option<u32>,
         limit: &Option<u32>,
-    ) -> Vec<String> {
+    ) -> Vec<FullMeasurements> {
         let from = from_index.unwrap_or(0);
-        let limit = limit.unwrap_or(self.approved_codehashes.len() as u32);
+        let limit = limit.unwrap_or(self.approved_measurements.len() as u32);
 
-        self.approved_codehashes
+        self.approved_measurements
             .iter()
             .skip(from as usize)
             .take(limit as usize)
-            .map(|codehash| codehash.clone())
+            .map(|measurements| measurements.clone())
             .collect()
     }
 
     // Get the details of a whitelisted agent
     pub fn get_agent(&self, account_id: AccountId) -> Option<Agent> {
-        self.agents.get(&account_id).map(|codehash_opt| {
-            let codehash_is_approved = codehash_opt
+        self.agents.get(&account_id).map(|measurements_opt| {
+            let measurements_are_approved = measurements_opt
                 .as_ref()
-                .map(|codehash| self.approved_codehashes.contains(codehash))
+                .map(|measurements| self.approved_measurements.contains(measurements))
                 .unwrap_or(false);
             Agent {
                 account_id: account_id.clone(),
-                registered: codehash_opt.is_some(),
+                registered: measurements_opt.is_some(),
                 whitelisted: true,
-                codehash: codehash_opt.clone(),
-                codehash_is_approved,
+                measurements: measurements_opt.clone(),
+                measurements_are_approved,
             }
         })
     }
@@ -50,17 +50,17 @@ impl Contract {
             .iter()
             .skip(from as usize)
             .take(limit as usize)
-            .map(|(account_id, codehash_opt)| {
-                let codehash_is_approved = codehash_opt
-                    .as_ref()
-                    .map(|codehash| self.approved_codehashes.contains(codehash))
-                    .unwrap_or(false);
-                Agent {
-                    account_id: account_id.clone(),
-                    registered: codehash_opt.is_some(),
-                    whitelisted: true,
-                    codehash: codehash_opt.clone(),
-                    codehash_is_approved,
+            .map(|(account_id, measurements_opt)| {
+                let measurements_are_approved = measurements_opt
+                .as_ref()
+                .map(|measurements| self.approved_measurements.contains(measurements))
+                .unwrap_or(false);
+            Agent {
+                account_id: account_id.clone(),
+                registered: measurements_opt.is_some(),
+                whitelisted: true,
+                measurements: measurements_opt.clone(),
+                measurements_are_approved,
                 }
             })
             .collect()
