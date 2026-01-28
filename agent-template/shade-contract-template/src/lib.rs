@@ -1,13 +1,14 @@
 use near_sdk::{
     env::{self, block_timestamp_ms},
     near, require, log,
-    store::{IterableMap, IterableSet},
+    store::{IterableMap, IterableSet, Vector},
     AccountId, BorshStorageKey, Gas, NearToken, PanicOnDefault, Promise,
 };
 use shade_attestation::{
     attestation::DstackAttestation,
     measurements::{FullMeasurements, FullMeasurementsHex},
     report_data::ReportData,
+    tcb_info::HexBytes,
 };
 use hex;
 
@@ -27,6 +28,7 @@ pub struct Contract {
     pub agents: IterableMap<AccountId, Option<FullMeasurementsHex>>,
     pub requires_tee: bool,
     pub mpc_contract_id: AccountId,
+    pub approved_device_ids: Vec<HexBytes<32>>,
 }
 
 #[near(serializers = [json])]
@@ -44,6 +46,7 @@ pub struct Agent {
 pub enum StorageKey {
     ApprovedMeasurements,
     Agents,
+    ApprovedDeviceIds,
 }
 
 #[near]
@@ -57,6 +60,7 @@ impl Contract {
             requires_tee,
             approved_measurements: IterableSet::new(StorageKey::ApprovedMeasurements),
             agents: IterableMap::new(StorageKey::Agents),
+            approved_device_ids: vec![],
         }
     }
 
@@ -96,7 +100,7 @@ impl Contract {
                     .map(Into::into)
                     .collect();
                 
-                match attestation.verify(expected_report_data, current_time_seconds, &expected_measurements) {
+                match attestation.verify(expected_report_data, current_time_seconds, &expected_measurements, &self.approved_device_ids) {
                     Ok(verified_measurements) => {
                         log!("Attestation verified successfully");
                         verified_measurements.into()
@@ -176,5 +180,26 @@ impl Contract {
     pub fn update_mpc_contract_id(&mut self, mpc_contract_id: AccountId) {
         self.require_owner();
         self.mpc_contract_id = mpc_contract_id;
+    }
+
+
+
+
+    // Maybe it is best as a set? lets think about what we should be storing stuff as in general
+    // remember to require owner
+
+    // Add a new device ID to the approved list
+    pub fn approve_device_id(&mut self, device_id: HexBytes<32>) {
+        self.approved_device_ids.push(device_id);
+    }
+
+    // Remove a device ID from the approved list
+    pub fn remove_device_id(&mut self, device_id: HexBytes<32>) {
+        // Find the index of the device_id
+        if let Some(index) = self.approved_device_ids
+            .iter()
+            .position(|id| *id == device_id) {
+            self.approved_device_ids.remove(index);
+        }
     }
 }

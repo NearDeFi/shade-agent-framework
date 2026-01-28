@@ -10,6 +10,7 @@ use crate::{
 use alloc::{
     format,
     string::{String, ToString},
+    vec::Vec,
 };
 use borsh::{BorshDeserialize, BorshSerialize};
 use core::fmt;
@@ -17,6 +18,7 @@ use dcap_qvl::verify::VerifiedReport;
 use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256, Sha384};
+use crate::tcb_info::HexBytes;
 
 /// Expected TCB status for a successfully verified TEE quote.
 const EXPECTED_QUOTE_STATUS: &str = "UpToDate";
@@ -124,6 +126,7 @@ impl DstackAttestation {
         expected_report_data: ReportData,
         timestamp_seconds: u64,
         accepted_measurements: &[FullMeasurements],
+        accepted_device_ids: &[HexBytes<32>],
     ) -> Result<FullMeasurements, VerificationError> {
         let verification_result =
             dcap_qvl::verify::verify(&self.quote, &self.collateral, timestamp_seconds)
@@ -137,6 +140,7 @@ impl DstackAttestation {
         // Verify all attestation components
         self.verify_tcb_status(&verification_result)?;
         self.verify_report_data(&expected_report_data, report_data)?;
+        self.verify_device_id(verification_result.ppid, &self.tcb_info.device_id, accepted_device_ids)?;
 
         self.verify_rtmr3(report_data, &self.tcb_info)?;
         self.verify_app_compose(&self.tcb_info)?;
@@ -244,6 +248,31 @@ impl DstackAttestation {
         // proves that tls_public_key was included in the quote's report_data by an app running
         // inside a TDX enclave.
         compare_hashes("report_data", &actual.report_data, &expected.to_bytes())
+    }
+
+    fn verify_device_id(
+        &self,
+        ppid: Vec<u8>,
+        device_id: &HexBytes<32>,
+        accepted_device_ids: &[HexBytes<32>],
+    ) -> Result<(), VerificationError> {
+
+        // Check device ID from tcb info matches the PPID from the verified report
+        // Device ID is a hash of the PPID
+        let ppid_hash: [u8; 32] = Sha256::digest(ppid.as_slice()).into();
+        compare_hashes("device_id", ppid_hash.as_slice(), device_id.as_slice())?;
+
+        // Check if the device ID is in the list of accepted device IDs
+        if !accepted_device_ids.contains(device_id) {
+            return Err(VerificationError::WrongHash {
+                name: "device_id",
+                found: hex::encode(device_id.as_slice()),
+                expected: "one of accepted_device_ids".into(),
+                // Probably create a new error for this
+            });
+        }
+    
+        Ok(())
     }
 
     /// Try to verify static RTMRs and key_provider_digest against multiple expected measurement sets.

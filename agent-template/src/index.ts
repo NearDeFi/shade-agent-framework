@@ -50,19 +50,24 @@ console.log("Waiting for agent to be whitelisted...");
 
 // Wait until the agent is whitelisted to register
 while (true) {
-  // Check if the agent is whitelisted
-  const status = await agent.registrationStatus();
-  if (status.whitelisted) {
-    // If the agent has low balance, fund it
-    if ((await agent.balance()) < 0.2) {
-      await agent.fundAgent(0.3);
+  try {
+    // Check if the agent is whitelisted
+    const status = await agent.registrationStatus();
+    if (status.whitelisted) {
+      // If the agent has low balance, fund it
+      const balance = await agent.balance();
+      if (balance < 0.2) {
+        await agent.fundAgent(0.3);
+      }
+      // Register the agent
+      const registered = await agent.register();
+      console.log("Agent registered");
+      if (registered) {
+        break;
+      }
     }
-    // Register the agent
-    const registered = await agent.register();
-    console.log("Agent registered");
-    if (registered) {
-      break;
-    }
+  } catch (error) {
+    console.error("Error:", error);
   }
   await new Promise((resolve) => setTimeout(resolve, 10000));
 }
