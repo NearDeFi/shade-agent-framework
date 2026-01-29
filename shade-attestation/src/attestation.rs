@@ -4,7 +4,7 @@ use crate::{
     measurements::{FullMeasurements, MeasurementsError},
     quote::QuoteBytes,
     report_data::ReportData,
-    tcb_info::{EventLog, TcbInfo},
+    tcb_info::{EventLog, HexBytes, TcbInfo},
 };
 
 use alloc::{
@@ -18,7 +18,6 @@ use dcap_qvl::verify::VerifiedReport;
 use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
 use sha2::{Digest as _, Sha256, Sha384};
-use crate::tcb_info::HexBytes;
 
 /// Expected TCB status for a successfully verified TEE quote.
 const EXPECTED_QUOTE_STATUS: &str = "UpToDate";
@@ -80,6 +79,8 @@ pub enum VerificationError {
         attestation_time: u64,
         expiry_time: u64,
     },
+    #[error("PPID must be 32 bytes, got {0}")]
+    PpidWrongSize(usize),
     #[error("the mock attestation is invalid per definition")]
     InvalidMockAttestation,
     #[error("custom error: `{0}`")]
@@ -126,7 +127,7 @@ impl DstackAttestation {
         expected_report_data: ReportData,
         timestamp_seconds: u64,
         accepted_measurements: &[FullMeasurements],
-        accepted_device_ids: &[HexBytes<32>],
+        accepted_ppids: &[HexBytes<16>],
     ) -> Result<FullMeasurements, VerificationError> {
         let verification_result =
             dcap_qvl::verify::verify(&self.quote, &self.collateral, timestamp_seconds)
@@ -140,7 +141,7 @@ impl DstackAttestation {
         // Verify all attestation components
         self.verify_tcb_status(&verification_result)?;
         self.verify_report_data(&expected_report_data, report_data)?;
-        self.verify_device_id(verification_result.ppid, &self.tcb_info.device_id, accepted_device_ids)?;
+        self.verify_ppid(verification_result.ppid, accepted_ppids)?;
 
         self.verify_rtmr3(report_data, &self.tcb_info)?;
         self.verify_app_compose(&self.tcb_info)?;
@@ -250,28 +251,27 @@ impl DstackAttestation {
         compare_hashes("report_data", &actual.report_data, &expected.to_bytes())
     }
 
-    fn verify_device_id(
+    /// Verifies PPID is in the allowed PPIDs list.
+    fn verify_ppid(
         &self,
         ppid: Vec<u8>,
-        device_id: &HexBytes<32>,
-        accepted_device_ids: &[HexBytes<32>],
+        accepted_ppids: &[HexBytes<16>],
     ) -> Result<(), VerificationError> {
+        // In the future we'll change this to checking device_id inside of PPID
 
-        // Check device ID from tcb info matches the PPID from the verified report
-        // Device ID is a hash of the PPID
-        let ppid_hash: [u8; 32] = Sha256::digest(ppid.as_slice()).into();
-        compare_hashes("device_id", ppid_hash.as_slice(), device_id.as_slice())?;
-
-        // Check if the device ID is in the list of accepted device IDs
-        if !accepted_device_ids.contains(device_id) {
-            return Err(VerificationError::WrongHash {
-                name: "device_id",
-                found: hex::encode(device_id.as_slice()),
-                expected: "one of accepted_device_ids".into(),
-                // Probably create a new error for this
-            });
+        let ppid_array = match <[u8; 16]>::try_from(ppid.as_slice()) {
+            Ok(array) => array,
+            Err(_) => {
+                return Err(VerificationError::PpidWrongSize(ppid.len()));
+            }
+        };
+        let ppid_hex_bytes = HexBytes::from(ppid_array);
+        if !accepted_ppids.contains(&ppid_hex_bytes) {
+            return Err(VerificationError::Custom(format!(
+                "PPID {} is not in the allowed PPIDs list",
+                hex::encode(ppid_hex_bytes.as_ref())
+            )));
         }
-    
         Ok(())
     }
 
