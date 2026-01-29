@@ -1,4 +1,4 @@
-export type { ShadeConfig, AgentStatus, Measurements, FullMeasurements } from "./api";
+export type { ShadeConfig, Measurements, FullMeasurements } from "./api";
 
 export { ShadeClient } from "./api";
 

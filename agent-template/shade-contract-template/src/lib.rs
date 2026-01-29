@@ -16,29 +16,39 @@ mod chainsig;
 mod helpers;
 mod update_contract;
 mod views;
+mod attestation;
 
 #[cfg(test)]
 mod unit_tests;
+
+type Ppid = HexBytes<16>;
 
 #[near(contract_state)]
 #[derive(PanicOnDefault)]
 pub struct Contract {
     pub owner_id: AccountId,
     pub approved_measurements: IterableSet<FullMeasurementsHex>,
-    pub agents: IterableMap<AccountId, Option<FullMeasurementsHex>>,
+    pub agents: IterableMap<AccountId, Agent>,
     pub requires_tee: bool,
     pub mpc_contract_id: AccountId,
-    pub approved_ppids: IterableSet<HexBytes<16>>,
+    pub approved_ppids: IterableSet<Ppid>,
+    pub whitelisted_agents_for_local: IterableSet<AccountId>,
+}
+
+#[near(serializers = [borsh])]
+pub struct Agent {
+    pub measurements: FullMeasurementsHex,
+    pub ppid: Ppid,
 }
 
 #[near(serializers = [json])]
 #[derive(Clone)]
-pub struct Agent {
-    account_id: AccountId,
-    registered: bool,
-    whitelisted: bool,
-    measurements: Option<FullMeasurementsHex>,
-    measurements_are_approved: bool,
+pub struct AgentView {
+    pub account_id: AccountId,
+    pub measurements: FullMeasurementsHex,
+    pub measurements_are_approved: bool,
+    pub ppid: Ppid,
+    pub ppid_is_approved: bool,
 }
 
 #[derive(BorshStorageKey)]
@@ -47,6 +57,7 @@ pub enum StorageKey {
     ApprovedMeasurements,
     Agents,
     ApprovedPpids,
+    WhitelistedAgentsForLocal,
 }
 
 #[near]
@@ -61,71 +72,22 @@ impl Contract {
             approved_measurements: IterableSet::new(StorageKey::ApprovedMeasurements),
             agents: IterableMap::new(StorageKey::Agents),
             approved_ppids: IterableSet::new(StorageKey::ApprovedPpids),
+            whitelisted_agents_for_local: IterableSet::new(StorageKey::WhitelistedAgentsForLocal),
         }
     }
 
     // Register an agent, this needs to be called by the agent itself
+    // Note agent registration does not implement storage management, you should implement this
     pub fn register_agent(&mut self, attestation: DstackAttestation) -> bool {
-        // Check that the agent is whitelisted
-        self.agents
-            .get(&env::predecessor_account_id())
-            .expect("Agent needs to be whitelisted first");
-
-        let measurements: FullMeasurementsHex = match self.requires_tee {
-            true => {
-                // Get the current time 
-                let current_time_seconds = block_timestamp_ms() / 1000;
-
-                let account_id_str = env::predecessor_account_id().to_string();
-                
-                // Verify account_id is implicit account
-                require!(
-                    account_id_str.len() == 64 && account_id_str.chars().all(|c| c.is_ascii_hexdigit() && !c.is_uppercase()),
-                    "Account ID must be implicit account"
-                );
-                
-                // Decode hex string to bytes
-                let account_id_bytes = hex::decode(&account_id_str)
-                    .expect("Failed to decode account ID");
-                
-                // Create report data by padding account ID to 64 bytes by appending 32 zero bytes
-                let mut report_data_bytes = [0u8; 64];
-                report_data_bytes[..32].copy_from_slice(&account_id_bytes);
-                let expected_report_data = ReportData::from(report_data_bytes);
-
-                // Convert IterableSet to Vec and convert to FullMeasurements for the verify method
-                let expected_measurements: Vec<FullMeasurements> = self.approved_measurements
-                    .iter()
-                    .cloned()
-                    .map(Into::into)
-                    .collect();
-
-                let approved_ppids: Vec<HexBytes<16>> = self.approved_ppids.iter().cloned().collect();
-
-                match attestation.verify(expected_report_data, current_time_seconds, &expected_measurements, &approved_ppids) {
-                    Ok(verified_measurements) => {
-                        log!("Attestation verified successfully");
-                        verified_measurements.into()
-                    }
-                    Err(e) => {
-                        panic!("Attestation verification failed: {}", e);
-                    }
-                }
-            }
-            false => {
-                // All zeros for non-TEE
-                let default_measurements = FullMeasurementsHex::default();
-                require!(
-                    self.approved_measurements.contains(&default_measurements),
-                    "Default measurements must be approved for non-TEE mode"
-                );
-                default_measurements
-            }
-        };
+        // Verify the attestation and get the measurements (and verified PPID; we only store measurements)
+        let (measurements, verified_ppid) = self.verify_attestation(attestation);
 
         // Register the agent with the measurements
         self.agents
-            .insert(env::predecessor_account_id(), Some(measurements));
+            .insert(env::predecessor_account_id(), Agent {
+                measurements,
+                ppid: verified_ppid,
+            });
 
         true
     }
@@ -138,7 +100,7 @@ impl Contract {
         key_type: String,
     ) -> Promise {
         // Require the caller to be a registered agent
-        self.require_registered_agent();
+        self.require_valid_agent();
 
         self.internal_request_signature(path, payload, key_type)
     }
@@ -157,21 +119,6 @@ impl Contract {
         self.approved_measurements.remove(&measurements);
     }
 
-    // Whitelist an agent, it will still need to register
-    pub fn whitelist_agent(&mut self, account_id: AccountId) {
-        self.require_owner();
-        // Only insert if not already whitelisted
-        if !self.agents.contains_key(&account_id) {
-            self.agents.insert(account_id, None);
-        }
-    }
-
-    // Remove an agent from the list of agents
-    pub fn remove_agent(&mut self, account_id: AccountId) {
-        self.require_owner();
-        self.agents.remove(&account_id);
-    }
-
     // Update owner ID
     pub fn update_owner_id(&mut self, owner_id: AccountId) {
         self.require_owner();
@@ -186,7 +133,7 @@ impl Contract {
 
     // Add one or more PPIDs to the approved list.
     pub fn approve_ppids(&mut self, ppids: Vec<HexBytes<16>>) {
-        // self.require_owner();
+        self.require_owner();
         for id in ppids {
             self.approved_ppids.insert(id);
         }
@@ -194,9 +141,30 @@ impl Contract {
 
     // Remove one or more PPIDs from the approved list.
     pub fn remove_ppids(&mut self, ppids: Vec<HexBytes<16>>) {
-        // self.require_owner();
+        self.require_owner();
         for id in ppids {
             self.approved_ppids.remove(&id);
         }
+    }
+
+    // Local only functions
+
+    // Whitelist an agent, it will still need to register
+    pub fn whitelist_agent_for_local(&mut self, account_id: AccountId) {
+        if self.requires_tee {
+            panic!("Whitelisting agents is not supported for TEE");
+        }
+        self.require_owner();
+        // Only insert if not already whitelisted
+        self.whitelisted_agents_for_local.insert(account_id);
+    }
+
+    // Remove an agent from the list of agents
+    pub fn remove_agent_for_local(&mut self, account_id: AccountId) {
+        if self.requires_tee {
+            panic!("Removing agents is not supported for TEE");
+        }
+        self.require_owner();
+        self.whitelisted_agents_for_local.remove(&account_id);
     }
 }

@@ -73,7 +73,7 @@ const firstArg = args[0];
 const commandOptions = [
     { value: 'deploy', description: 'Deploy the Shade Agent' },
     { value: 'plan', description: 'Show the deployment plan' },
-    { value: 'whitelist', description: 'Whitelist an agent account in the agent contract' },
+    { value: 'whitelist', description: 'Whitelist an agent for local environment (whitelist_agent_for_local)' },
     { value: 'auth', description: 'Manage Shade Agent CLI credentials' }
 ];
 

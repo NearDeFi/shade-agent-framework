@@ -33,8 +33,9 @@ export function parseDeploymentConfig(deploymentPath) {
         agent_contract,
         build_docker_image,
         approve_measurements,
+        approve_ppids,
         deploy_to_phala,
-        whitelist_agent,
+        whitelist_agent_for_local,
     } = doc;
 
     // Validation helpers
@@ -145,6 +146,13 @@ export function parseDeploymentConfig(deploymentPath) {
         mustBeMultilineString(approve_measurements.args, 'approve_measurements.args');
     }
 
+    // approve_ppids validations
+    if (approve_ppids && approve_ppids.enabled !== false) {
+        requireField(!!approve_ppids.method_name, 'approve_ppids.method_name is required');
+        requireField(approve_ppids.args !== undefined, 'approve_ppids.args is required');
+        mustBeMultilineString(approve_ppids.args, 'approve_ppids.args');
+    }
+
     // deploy_to_phala validations
     if (deploy_to_phala && deploy_to_phala.enabled !== false) {
         requireField(!!deploy_to_phala.env_file_path, 'deploy_to_phala.env_file_path is required');
@@ -195,17 +203,24 @@ export function parseDeploymentConfig(deploymentPath) {
                 tgas: approve_measurements.tgas ?? 30,
             }
             : undefined,
+        approve_ppids: approve_ppids && approve_ppids.enabled !== false
+            ? {
+                method_name: approve_ppids.method_name,
+                args: approve_ppids.args,
+                tgas: approve_ppids.tgas ?? 30,
+            }
+            : undefined,
         deploy_to_phala: deploy_to_phala && deploy_to_phala.enabled !== false
             ? {
                 env_file_path: deploy_to_phala.env_file_path,
                 app_name: deploy_to_phala.app_name,
             }
             : undefined,
-        whitelist_agent: whitelist_agent
+        whitelist_agent_for_local: whitelist_agent_for_local
             ? {
-                method_name: whitelist_agent.method_name,
-                args: whitelist_agent.args,
-                tgas: whitelist_agent.tgas ?? 30,
+                method_name: whitelist_agent_for_local.method_name,
+                args: whitelist_agent_for_local.args,
+                tgas: whitelist_agent_for_local.tgas ?? 30,
             }
             : undefined,
     };

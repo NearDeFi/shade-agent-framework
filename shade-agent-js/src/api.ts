@@ -36,20 +36,6 @@ export interface FullMeasurements {
   app_compose_hash_payload: string;
 }
 
-export interface AgentStatus {
-  registered: boolean;
-  whitelisted: boolean;
-  measurements_are_approved: boolean;
-}
-
-interface GetAgentResponse {
-  account_id: string;
-  registered: boolean;
-  whitelisted: boolean;
-  measurements?: FullMeasurements | null;
-  measurements_are_approved: boolean;
-}
-
 /**
  * Configuration object for creating a ShadeClient instance
  */
@@ -159,40 +145,6 @@ export class ShadeClient {
       // Re-throw other errors
       throw error;
     }
-  }
-
-  /**
-   * Checks the agent's registration status on the agent contract
-   * @returns Promise that resolves to an AgentStatus object containing registered, whitelisted, and measurements_are_approved booleans
-   * @throws Error if agentContractId is not configured or if view call fails
-   */
-  async registrationStatus(): Promise<AgentStatus> {
-    if (!this.config.agentContractId) {
-      throw new Error(
-        "agentContractId is required for checking registration status",
-      );
-    }
-
-    const res = await this.view<GetAgentResponse | null>({
-      methodName: "get_agent",
-      args: {
-        account_id: this.agentAccountId,
-      },
-    });
-
-    if (res === null) {
-      return {
-        registered: false,
-        whitelisted: false,
-        measurements_are_approved: false,
-      };
-    }
-
-    return {
-      registered: res.registered,
-      whitelisted: res.whitelisted,
-      measurements_are_approved: res.measurements_are_approved,
-    };
   }
 
   /**
@@ -331,7 +283,7 @@ export class ShadeClient {
    * @returns Promise that resolves when funding is complete
    * @throws Error if sponsor is not configured or if transfer fails after retries
    */
-  async fundAgent(fundAmount: number): Promise<void> {
+  async fund(fundAmount: number): Promise<void> {
     if (!this.config.sponsor) {
       throw new Error("sponsor is required for funding the agent account");
     }
@@ -351,7 +303,7 @@ export class ShadeClient {
    * @returns Array of private key strings
    * @throws Error if acknowledgeRisk is not set to true
    */
-  getAgentPrivateKeys(acknowledgeRisk: boolean = false): string[] {
+  getPrivateKeys(acknowledgeRisk: boolean = false): string[] {
     if (!acknowledgeRisk) {
       throw new Error(
         "WARNING: Exporting private keys from the library is a risky operation, you may accidentally leak them from the TEE. Do not use the keys to sign transactions other than to the agent contract. Please acknowledge the risk by setting acknowledgeRisk to true.",
@@ -362,5 +314,33 @@ export class ShadeClient {
     );
 
     return this.agentPrivateKeys;
+  }
+
+  /**
+   * Checks if the agent is whitelisted for local mode
+   * @returns Promise that resolves to true if the agent is whitelisted, false if the agent is not whitelisted, or null if the agent contract requires TEE
+   * @throws Error if agentContractId is not configured or if view call fails
+   */
+  async isWhitelisted(): Promise<boolean | null> {
+    if (!this.config.agentContractId) {
+      throw new Error("agentContractId is required for checking if the agent is whitelisted");
+    }
+
+    const res = await this.view<boolean>({
+      methodName: "get_requires_tee",
+      args: {},
+    });
+
+    // If the agent contract requires TEE return null
+    if (res === true) {
+      return null;
+    }
+
+    const whitelisted_agents = await this.view<string[]>({
+        methodName: "get_whitelisted_agents_for_local",
+        args: {},
+      });
+
+    return whitelisted_agents.includes(this.agentAccountId);
   }
 }

@@ -121,14 +121,14 @@ impl DstackAttestation {
     ///   If any element in the set is valid, the function accepts the attestation as
     ///   valid.
     /// 
-    /// Returns the `ExpectedMeasurements` that matched if verification succeeds.
+    /// Returns the `FullMeasurements` that matched and the verified PPID if verification succeeds.
     pub fn verify(
         &self,
         expected_report_data: ReportData,
         timestamp_seconds: u64,
         accepted_measurements: &[FullMeasurements],
         accepted_ppids: &[HexBytes<16>],
-    ) -> Result<FullMeasurements, VerificationError> {
+    ) -> Result<(FullMeasurements, HexBytes<16>), VerificationError> {
         let verification_result =
             dcap_qvl::verify::verify(&self.quote, &self.collateral, timestamp_seconds)
                 .map_err(|e| VerificationError::DcapVerification(e.to_string()))?;
@@ -141,12 +141,13 @@ impl DstackAttestation {
         // Verify all attestation components
         self.verify_tcb_status(&verification_result)?;
         self.verify_report_data(&expected_report_data, report_data)?;
-        self.verify_ppid(verification_result.ppid, accepted_ppids)?;
+        let ppid = self.verify_ppid(verification_result.ppid, accepted_ppids)?;
 
         self.verify_rtmr3(report_data, &self.tcb_info)?;
         self.verify_app_compose(&self.tcb_info)?;
 
-        self.verify_any_measurements(report_data, &self.tcb_info, accepted_measurements)
+        let measurements = self.verify_any_measurements(report_data, &self.tcb_info, accepted_measurements)?;
+        Ok((measurements, ppid))
     }
 
     /// Replays RTMR3 from the event log by hashing all relevant events together and verifies all
@@ -251,12 +252,12 @@ impl DstackAttestation {
         compare_hashes("report_data", &actual.report_data, &expected.to_bytes())
     }
 
-    /// Verifies PPID is in the allowed PPIDs list.
+    /// Verifies PPID is in the allowed PPIDs list. Returns the matched PPID on success.
     fn verify_ppid(
         &self,
         ppid: Vec<u8>,
         accepted_ppids: &[HexBytes<16>],
-    ) -> Result<(), VerificationError> {
+    ) -> Result<HexBytes<16>, VerificationError> {
         // In the future we'll change this to checking device_id inside of PPID
 
         let ppid_array = match <[u8; 16]>::try_from(ppid.as_slice()) {
@@ -272,7 +273,7 @@ impl DstackAttestation {
                 hex::encode(ppid_hex_bytes.as_ref())
             )));
         }
-        Ok(())
+        Ok(ppid_hex_bytes)
     }
 
     /// Try to verify static RTMRs and key_provider_digest against multiple expected measurement sets.

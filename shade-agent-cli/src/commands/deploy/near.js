@@ -10,6 +10,7 @@ import { tgasToGas } from '../../utils/near.js';
 import { checkTransactionOutcome } from '../../utils/transaction-outcome.js';
 import { getSudoPrefix } from '../../utils/docker-utils.js';
 import { getMeasurements } from '../../utils/measurements.js';
+import { getPpids } from '../../utils/ppids.js';
 
 // Sleep for the specified number of milliseconds for nonce problems
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -329,6 +330,43 @@ export async function approveMeasurements() {
         await sleep(1000);
     } catch (e) {
         console.log(chalk.red(`Error approving the measurements: ${e.message}`));
+        process.exit(1);
+    }
+}
+
+// Approve the specified PPIDs based on deployment config
+export async function approvePpids() {
+    const config = await getConfig();
+    const masterAccount = config.masterAccount;
+    const contractId = config.deployment.agent_contract.contract_id;
+    console.log('Approving the PPIDs');
+    try {
+        const approveCfg = config.deployment.approve_ppids;
+
+        const replacements = {};
+        const ppids = await getPpids(config.deployment.environment === 'TEE');
+        replacements['<PPIDS>'] = ppids;
+
+        const args = replacePlaceholders(approveCfg.args, replacements);
+
+        const result = await masterAccount.callFunctionRaw({
+            contractId,
+            methodName: approveCfg.method_name,
+            args,
+            gas: tgasToGas(approveCfg.tgas),
+        });
+
+        if (result && result.final_execution_outcome) {
+            const success = checkTransactionOutcome(result.final_execution_outcome);
+            if (!success) {
+                console.log(chalk.red('✗ Failed to approve PPIDs'));
+                process.exit(1);
+            }
+        }
+
+        await sleep(1000);
+    } catch (e) {
+        console.log(chalk.red(`Error approving the PPIDs: ${e.message}`));
         process.exit(1);
     }
 }

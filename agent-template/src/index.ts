@@ -46,23 +46,21 @@ app.route("/api/agent-account", agentAccount);
 app.route("/api/transaction", transaction);
 
 console.log("Agent account ID:", agent.accountId());
-console.log("Waiting for agent to be whitelisted...");
 
-// Wait until the agent is whitelisted to register
+// If the agent has low balance, fund it
+const balance = await agent.balance();
+if (balance < 0.2) {
+  await agent.fund(0.3);
+}
+
 while (true) {
   try {
-    // Check if the agent is whitelisted
-    const status = await agent.registrationStatus();
-    if (status.whitelisted) {
-      // If the agent has low balance, fund it
-      const balance = await agent.balance();
-      if (balance < 0.2) {
-        await agent.fundAgent(0.3);
-      }
-      // Register the agent
+    // Register the agent if whitelisted or if the agent contract requires TEE
+    const isWhitelisted = await agent.isWhitelisted();
+    if (isWhitelisted === null || isWhitelisted) {
       const registered = await agent.register();
-      console.log("Agent registered");
       if (registered) {
+        console.log("Agent registered");
         break;
       }
     }

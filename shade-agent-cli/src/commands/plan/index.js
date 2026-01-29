@@ -4,6 +4,7 @@ import { getDeploymentConfig, getNearCredentialsOptional, getPhalaKeyOptional } 
 import { replacePlaceholders } from '../../utils/placeholders.js';
 import { createCommandErrorHandler } from '../../utils/error-handler.js';
 import { getMeasurements } from '../../utils/measurements.js';
+import { getPpids } from '../../utils/ppids.js';
 
 // Format JSON args nicely
 function formatArgs(args) {
@@ -223,6 +224,35 @@ export function planCommand() {
                 console.log(chalk.gray('─'.repeat(70)));
                 console.log('');
                     logWrapped(chalk.gray('• The measurements won\'t be approved.'), 70, 2);
+                console.log('');
+                console.log('');
+            }
+
+            // 3b. Approve PPIDs
+            if (deployment.approve_ppids) {
+                console.log(chalk.cyan.bold('✓ PPIDs Approval'));
+                console.log(chalk.gray('─'.repeat(70)));
+                console.log('');
+
+                const approveCfg = deployment.approve_ppids;
+
+                logWrapped(`• The '${chalk.yellow(approveCfg.method_name)}' method will be called on the agent contract with ppids:`, 70, 2);
+
+                const ppids = await getPpids(deployment.environment === 'TEE');
+                const replacements = { '<PPIDS>': ppids };
+                const args = replacePlaceholders(approveCfg.args, replacements);
+
+                const jsonLines = formatArgs(args).split('\n');
+                jsonLines.forEach(line => {
+                    console.log('  ' + chalk.magenta(line));
+                });
+                console.log('');
+                console.log('');
+            } else {
+                console.log(chalk.cyan.bold('✓ PPIDs Approval'));
+                console.log(chalk.gray('─'.repeat(70)));
+                console.log('');
+                logWrapped(chalk.gray('• The PPIDs won\'t be approved.'), 70, 2);
                 console.log('');
                 console.log('');
             }

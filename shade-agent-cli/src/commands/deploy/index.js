@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import chalk from 'chalk';
 import { dockerImage } from './docker.js';
-import { createAccount, deployCustomContractFromSource, deployCustomContractFromWasm, deployCustomContractFromGlobalHash, initContract, approveMeasurements, deleteContractKey } from './near.js';
+import { createAccount, deployCustomContractFromSource, deployCustomContractFromWasm, deployCustomContractFromGlobalHash, initContract, approveMeasurements, approvePpids, deleteContractKey } from './near.js';
 import { deployPhalaWorkflow } from './phala.js';
 import { getConfig } from '../../utils/config.js';
 import { createCommandErrorHandler } from '../../utils/error-handler.js';
@@ -47,6 +47,10 @@ export function deployCommand() {
 
         if (config.deployment.approve_measurements) {
             await approveMeasurements();
+        }
+
+        if (config.deployment.approve_ppids) {
+            await approvePpids();
         }
 
         if (config.deployment.deploy_to_phala && config.deployment.environment === 'TEE') {

@@ -86,6 +86,12 @@ impl<const N: usize> From<Option<HexBytes<N>>> for HexBytesOrEmpty<N> {
     }
 }
 
+impl<const N: usize> Default for HexBytes<N> {
+    fn default() -> Self {
+        HexBytes([0u8; N])
+    }
+}
+
 impl<const N: usize> TryFrom<String> for HexBytes<N> {
     type Error = ParsingError;
 

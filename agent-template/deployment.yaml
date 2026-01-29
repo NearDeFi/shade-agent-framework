@@ -55,7 +55,7 @@ agent_contract:
 # Optional, if not provided the current docker-compose.yaml file will be used
 # Only applicable if the environment is TEE
 build_docker_image:
-  enabled: false
+  enabled: true
   # Fill this out with the docker tag you want to use. For example: pivortex/my-first-agent
   tag: pivortex/my-first-agent
   cache: true
@@ -66,12 +66,25 @@ approve_measurements:
   enabled: true
   method_name: approve_measurements
   # The <MEASUREMENTS> tag will automatically be replaced with calculated measurements
-  # for local it will be set to all zeros
+  # for local it will be set to default measurements (all zeros)
   # for TEE and docker disabled it will be set to the measurements based on the current docker-compose file
   # for TEE and docker enabled it will be set to the measurements based on the docker-compose file once it has been updated
   args: |
     {
       "measurements": <MEASUREMENTS>
+    }
+  # tgas: 30
+
+# Optional, if not provided the PPIDs will not be approved
+approve_ppids:
+  enabled: true
+  method_name: approve_ppids
+  # The <PPIDS> tag will automatically be replaced with the PPIDs
+  # for local it will be set to a default PPID (all zeros)
+  # for TEE it will approve PPIDs on Phala Cloud
+  args: |
+    {
+      "ppids": <PPIDS>
     }
   # tgas: 30
 
@@ -82,11 +95,11 @@ deploy_to_phala:
   app_name: my-first-agent
   env_file_path: ./.env
 
-# Optional, if not provided the "shade-agent-cli whitelist" command will not be available
-whitelist_agent:
-  method_name: whitelist_agent
+# Helper command to whitelist an agent for local mode
+whitelist_agent_for_local:
+  method_name: whitelist_agent_for_local
   # The <AGENT_ACCOUNT_ID> will automatically be replaced with the agent account id
-  # specified when running the "shade-agent-cli whitelist" command
+  # specified when running the "shade-agent-cli whitelist_agent_for_local" command
   args: |
     {
       "account_id": <AGENT_ACCOUNT_ID>
