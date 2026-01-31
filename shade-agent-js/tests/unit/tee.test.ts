@@ -2,7 +2,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { existsSync } from 'fs';
 import { DstackClient } from '@phala/dstack-sdk';
 import { getDstackClient, internalGetAttestation } from '../../src/utils/tee';
-import { createMockDstackClient, mockAttestationResponse } from '../mocks/tee-mocks';
+import {
+  createMockDstackClient,
+  mockAttestationResponse,
+  createMockDstackTcbInfo,
+  createMockQuoteCollateral,
+  createMockAttestationResponse,
+} from '../mocks/tee-mocks';
+import { getFakeAttestation } from '../../src/utils/attestation-transform';
 
 // Mock fs module
 vi.mock('fs', () => ({
@@ -77,24 +84,14 @@ describe('tee utils', () => {
     it('should return dummy attestation when no dstackClient', async () => {
       const result = await internalGetAttestation(undefined, 'agent.testnet', false);
       
-      expect(result).toEqual({
-        quote_hex: 'not-in-a-tee',
-        collateral: 'not-in-a-tee',
-        checksum: 'not-in-a-tee',
-        tcb_info: 'not-in-a-tee',
-      });
+      expect(result).toEqual(getFakeAttestation());
     });
 
     it('should return dummy attestation when keysDerivedWithTEE is false', async () => {
       const mockClient = createMockDstackClient();
       const result = await internalGetAttestation(mockClient, 'agent.testnet', false);
       
-      expect(result).toEqual({
-        quote_hex: 'not-in-a-tee',
-        collateral: 'not-in-a-tee',
-        checksum: 'not-in-a-tee',
-        tcb_info: 'not-in-a-tee',
-      });
+      expect(result).toEqual(getFakeAttestation());
       expect(mockClient.info).not.toHaveBeenCalled();
       expect(mockClient.getQuote).not.toHaveBeenCalled();
     });
@@ -117,14 +114,18 @@ describe('tee utils', () => {
         expect.any(Buffer)
       );
       
-      // Verify the report data contains the agent account ID
+      // Verify the report data contains the agent account ID as bytes padded to 64 bytes
       const getQuoteCall = vi.mocked(mockClient.getQuote).mock.calls[0];
       const reportData = getQuoteCall[0] as Buffer;
-      expect(reportData.toString('utf-8')).toBe(agentAccountId);
+      expect(reportData.length).toBe(64);
+      const accountIdBytes = Buffer.from(agentAccountId, 'hex');
+      expect(reportData.subarray(0, accountIdBytes.length)).toEqual(accountIdBytes);
+      // Remaining bytes should be zero
+      expect(reportData.subarray(accountIdBytes.length)).toEqual(Buffer.alloc(64 - accountIdBytes.length));
 
       // Verify fetch was called with correct parameters
       expect(mockFetch).toHaveBeenCalledWith(
-        'https://proof.t16z.com/api/upload',
+        'https://cloud-api.phala.network/api/v1/attestations/verify',
         expect.objectContaining({
           method: 'POST',
           body: expect.any(FormData),
@@ -139,10 +140,9 @@ describe('tee utils', () => {
       expect(formDataEntries.length).toBe(1);
       expect(formDataEntries[0][0]).toBe('hex');
 
-      expect(result.quote_hex).toBeDefined();
-      expect(result.quote_hex).not.toMatch(/^0x/); // Should have 0x prefix removed
-      expect(result.collateral).toBe(JSON.stringify(mockAttestationResponse.quote_collateral));
-      expect(result.checksum).toBe(mockAttestationResponse.checksum);
+      expect(result.quote).toBeDefined();
+      expect(Array.isArray(result.quote)).toBe(true);
+      expect(result.collateral).toBeDefined();
       expect(result.tcb_info).toBeDefined();
     });
 
@@ -299,11 +299,22 @@ describe('tee utils', () => {
       clearTimeoutSpy.mockRestore();
     });
 
-    it('should stringify tcb_info correctly', async () => {
+    it('should transform tcb_info correctly', async () => {
       const mockClient = createMockDstackClient();
-      const tcbInfo = { version: '2.0', platform: 'test-platform' };
+      const dstackTcbInfo = createMockDstackTcbInfo({
+        mrtd: 'mrtd_val',
+        rtmr0: 'rtmr0_val',
+        rtmr1: 'rtmr1_val',
+        rtmr2: 'rtmr2_val',
+        rtmr3: 'rtmr3_val',
+        mr_aggregated: 'mr_agg',
+        os_image_hash: 'os_hash',
+        compose_hash: 'compose_hash',
+        device_id: 'device_id',
+        app_compose: 'app_compose',
+      });
       (mockClient.info as ReturnType<typeof vi.fn>).mockResolvedValue({
-        tcb_info: tcbInfo,
+        tcb_info: dstackTcbInfo,
       });
 
       const mockResponse = {
@@ -314,16 +325,37 @@ describe('tee utils', () => {
 
       const result = await internalGetAttestation(mockClient, 'agent.testnet', true);
 
-      expect(result.tcb_info).toBe(JSON.stringify(tcbInfo));
+      expect(result.tcb_info).toEqual({
+        mrtd: 'mrtd_val',
+        rtmr0: 'rtmr0_val',
+        rtmr1: 'rtmr1_val',
+        rtmr2: 'rtmr2_val',
+        rtmr3: 'rtmr3_val',
+        os_image_hash: 'os_hash',
+        compose_hash: 'compose_hash',
+        device_id: 'device_id',
+        app_compose: 'app_compose',
+        event_log: [],
+      });
     });
 
-    it('should stringify quote_collateral correctly', async () => {
+    it('should transform quote_collateral correctly', async () => {
       const mockClient = createMockDstackClient();
-      const quoteCollateral = { version: '1.0', platform: 'test' };
-      const customResponse = {
+      const quoteCollateral = createMockQuoteCollateral({
+        tcb_info_issuer_chain: 'chain1',
+        tcb_info: 'tcb_info_json',
+        tcb_info_signature: 'deadbeef',
+        qe_identity_issuer_chain: 'chain2',
+        qe_identity: 'qe_identity_json',
+        qe_identity_signature: 'cafebabe',
+        pck_crl_issuer_chain: 'chain3',
+        root_ca_crl: '12345678',
+        pck_crl: '87654321',
+      });
+      const customResponse = createMockAttestationResponse({
         checksum: 'custom-checksum',
         quote_collateral: quoteCollateral,
-      };
+      });
 
       const mockResponse = {
         ok: true,
@@ -333,8 +365,17 @@ describe('tee utils', () => {
 
       const result = await internalGetAttestation(mockClient, 'agent.testnet', true);
 
-      expect(result.collateral).toBe(JSON.stringify(quoteCollateral));
-      expect(result.checksum).toBe('custom-checksum');
+      expect(result.collateral).toEqual({
+        pck_crl_issuer_chain: 'chain3',
+        root_ca_crl: [18, 52, 86, 120], // hex decoded
+        pck_crl: [135, 101, 67, 33], // hex decoded
+        tcb_info_issuer_chain: 'chain1',
+        tcb_info: 'tcb_info_json',
+        tcb_info_signature: [222, 173, 190, 239], // hex decoded
+        qe_identity_issuer_chain: 'chain2',
+        qe_identity: 'qe_identity_json',
+        qe_identity_signature: [202, 254, 186, 190], // hex decoded
+      });
     });
   });
 });

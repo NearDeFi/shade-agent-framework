@@ -4,7 +4,7 @@ import type {
   EventLog as DstackEventLog,
 } from "@phala/dstack-sdk";
 
-// Raw collateral response from the endpoint (hex strings for binary fields)
+// Raw collateral response from the endpoint
 interface RawCollateral {
   pck_crl_issuer_chain?: string;
   root_ca_crl?: string; // hex string
@@ -17,12 +17,8 @@ interface RawCollateral {
   qe_identity_signature?: string; // hex string
 }
 
-/**
- * Safely decodes a hex string to a byte array
- * @param hexStr - Hex string to decode
- * @returns Byte array as number[]
- * @throws Error if hex string is invalid
- */
+
+// Decodes a hex string to a byte array
 function hexToBytes(hexStr: string | undefined): number[] {
   if (!hexStr || hexStr === "") {
     return [];
@@ -36,11 +32,7 @@ function hexToBytes(hexStr: string | undefined): number[] {
   }
 }
 
-/**
- * Converts a byte array to a hex string
- * @param bytes - Byte array to convert
- * @returns Hex string
- */
+// Converts a byte array to a hex string
 function bytesToHex(bytes: number[]): string {
   if (bytes.length === 0) {
     return "";
@@ -48,21 +40,13 @@ function bytesToHex(bytes: number[]): string {
   return Buffer.from(bytes).toString("hex");
 }
 
-/**
- * Transforms a quote from hex string to bytes array
- * @param quoteHex - Quote as hex string (may have 0x prefix)
- * @returns Quote as bytes array
- */
+// Transforms a quote from hex string to bytes array
 export function transformQuote(quoteHex: string): number[] {
   const cleanedHex = quoteHex.replace(/^0x/, "");
   return Array.from(Buffer.from(cleanedHex, "hex"));
 }
 
-/**
- * Transforms raw collateral response from the endpoint to Collateral structure
- * @param rawCollateral - Raw collateral from the endpoint (hex strings for binary fields)
- * @returns Collateral structure matching the contract interface
- */
+// Transforms raw collateral response from the endpoint to Collateral structure
 export function transformCollateral(rawCollateral: RawCollateral): Collateral {
   return {
     pck_crl_issuer_chain: rawCollateral.pck_crl_issuer_chain || "",
@@ -77,11 +61,7 @@ export function transformCollateral(rawCollateral: RawCollateral): Collateral {
   };
 }
 
-/**
- * Transforms dstack TcbInfo to contract interface TcbInfo structure
- * @param dstackTcbInfo - TcbInfo from dstack SDK
- * @returns TcbInfo structure matching the contract interface
- */
+// Transforms dstack TcbInfo to contract interface TcbInfo structure
 export function transformTcbInfo(dstackTcbInfo: DstackTcbInfo): TcbInfo {
   return {
     mrtd: dstackTcbInfo.mrtd || "",
@@ -105,12 +85,7 @@ export function transformTcbInfo(dstackTcbInfo: DstackTcbInfo): TcbInfo {
   };
 }
 
-/**
- * Converts DstackAttestation to a format suitable for JSON serialization to the contract.
- * Converts byte arrays to hex strings for collateral fields that the contract expects as hex.
- * @param attestation - Attestation with arrays
- * @returns Attestation with hex strings for collateral byte arrays
- */
+// Converts DstackAttestation to a format suitable for JSON serialization to the contract
 export function attestationForContract(
   attestation: DstackAttestation,
 ): {
@@ -147,12 +122,7 @@ export function attestationForContract(
   };
 }
 
-/**
- * Creates a fake/empty DstackAttestation structure for non-TEE (requires_tee = false).
- * Collateral and quote are empty; TcbInfo uses zero-filled hex so the contract can deserialize
- * (HexBytes<N> requires exactly 2*N hex chars).
- * @returns DstackAttestation acceptable by the contract when requires_tee is false
- */
+// Creates a fake/empty DstackAttestation structure for non-TEE (requires_tee = false)
 export function getFakeAttestation(): DstackAttestation {
   // TcbInfo fixed-size fields must be valid hex of the right length for contract deserialization
   const ZERO_48_HEX = "0".repeat(96); // 48 bytes
