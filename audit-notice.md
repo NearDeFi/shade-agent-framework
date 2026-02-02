@@ -8,7 +8,9 @@ The main things to check for is that:
 - Think about can someone deploy the smart contract on top of the account with existing state to have an agent registered that did not pass the attestations. Do we put restrictions in place for this or it is sufficient for a contract to be verified by checking the accounts past history (one could do something similar with contract migrations)?
 
 [Contract](./agent-template/shade-contract-template/)
+
 [attestation crate](./shade-attestation/)
+
 [Attestation crate diff from near one implementation](https://github.com/PiVortex/mpc/commit/91ccef64aef738fddebc1a62fab64f55092e0486)
 
 Known vulnerability: No storage management for register_agent, one could set up a tee with correct measurements and keep having it register draining contract storage
