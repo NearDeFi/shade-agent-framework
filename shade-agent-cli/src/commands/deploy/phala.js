@@ -112,7 +112,7 @@ async function deployToPhala() {
         const envFilePath = config.deployment?.deploy_to_phala?.env_file_path;
 
         const result = execSync(
-            `${PHALA_COMMAND} deploy --name ${appName} --api-token ${phalaKey} --compose ${composePath} --env-file ${envFilePath} --non-dev-os`,
+            `${PHALA_COMMAND} deploy --name ${appName} --api-token ${phalaKey} --compose ${composePath} --env-file ${envFilePath} --image dstack-0.5.5`,
             { encoding: 'utf-8', stdio: 'pipe' }
         );
 

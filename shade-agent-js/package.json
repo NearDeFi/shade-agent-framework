@@ -7,7 +7,7 @@
   "files": [
     "dist"
   ],
-  "author": "Owen Hassall <github.com/pivortex>",
+  "author": "",
   "license": "",
   "scripts": {
     "build:proxy": "cd ./contracts/proxy && cargo near build non-reproducible-wasm",

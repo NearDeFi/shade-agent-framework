@@ -32,9 +32,10 @@ export function parseDeploymentConfig(deploymentPath) {
         docker_compose_path,
         agent_contract,
         build_docker_image,
-        approve_codehash,
+        approve_measurements,
+        approve_ppids,
         deploy_to_phala,
-        whitelist_agent,
+        whitelist_agent_for_local,
     } = doc;
 
     // Validation helpers
@@ -138,11 +139,18 @@ export function parseDeploymentConfig(deploymentPath) {
         requireField(!!build_docker_image.dockerfile_path, 'build_docker_image.dockerfile_path is required when environment is TEE');
     }
 
-    // approve_codehash validations
-    if (approve_codehash && approve_codehash.enabled !== false) {
-        requireField(!!approve_codehash.method_name, 'approve_codehash.method_name is required');
-        requireField(approve_codehash.args !== undefined, 'approve_codehash.args is required');
-        mustBeMultilineString(approve_codehash.args, 'approve_codehash.args');
+    // approve_measurements validations
+    if (approve_measurements && approve_measurements.enabled !== false) {
+        requireField(!!approve_measurements.method_name, 'approve_measurements.method_name is required');
+        requireField(approve_measurements.args !== undefined, 'approve_measurements.args is required');
+        mustBeMultilineString(approve_measurements.args, 'approve_measurements.args');
+    }
+
+    // approve_ppids validations
+    if (approve_ppids && approve_ppids.enabled !== false) {
+        requireField(!!approve_ppids.method_name, 'approve_ppids.method_name is required');
+        requireField(approve_ppids.args !== undefined, 'approve_ppids.args is required');
+        mustBeMultilineString(approve_ppids.args, 'approve_ppids.args');
     }
 
     // deploy_to_phala validations
@@ -188,11 +196,18 @@ export function parseDeploymentConfig(deploymentPath) {
                 dockerfile_path: build_docker_image.dockerfile_path,
             }
             : undefined,
-        approve_codehash: approve_codehash && approve_codehash.enabled !== false
+        approve_measurements: approve_measurements && approve_measurements.enabled !== false
             ? {
-                method_name: approve_codehash.method_name,
-                args: approve_codehash.args,
-                tgas: approve_codehash.tgas ?? 30,
+                method_name: approve_measurements.method_name,
+                args: approve_measurements.args,
+                tgas: approve_measurements.tgas ?? 30,
+            }
+            : undefined,
+        approve_ppids: approve_ppids && approve_ppids.enabled !== false
+            ? {
+                method_name: approve_ppids.method_name,
+                args: approve_ppids.args,
+                tgas: approve_ppids.tgas ?? 30,
             }
             : undefined,
         deploy_to_phala: deploy_to_phala && deploy_to_phala.enabled !== false
@@ -201,11 +216,11 @@ export function parseDeploymentConfig(deploymentPath) {
                 app_name: deploy_to_phala.app_name,
             }
             : undefined,
-        whitelist_agent: whitelist_agent
+        whitelist_agent_for_local: whitelist_agent_for_local
             ? {
-                method_name: whitelist_agent.method_name,
-                args: whitelist_agent.args,
-                tgas: whitelist_agent.tgas ?? 30,
+                method_name: whitelist_agent_for_local.method_name,
+                args: whitelist_agent_for_local.args,
+                tgas: whitelist_agent_for_local.tgas ?? 30,
             }
             : undefined,
     };

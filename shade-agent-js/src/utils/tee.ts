@@ -1,16 +1,67 @@
 import { existsSync } from "fs";
 import { DstackClient } from "@phala/dstack-sdk";
+import {
+  transformQuote,
+  transformCollateral,
+  transformTcbInfo,
+  getFakeAttestation,
+} from "./attestation-transform";
 
-export interface Attestation {
-  quote_hex: string;
-  collateral: string;
-  checksum: string;
+// DstackAttestation structure matching the contract interface
+export interface DstackAttestation {
+  quote: number[]; // Vec<u8> - quote as bytes array
+  collateral: Collateral;
+  tcb_info: TcbInfo;
+}
+
+// Collateral structure matching the contract interface
+export interface Collateral {
+  pck_crl_issuer_chain: string;
+  root_ca_crl: number[]; // Vec<u8>
+  pck_crl: number[]; // Vec<u8>
+  tcb_info_issuer_chain: string;
   tcb_info: string;
+  tcb_info_signature: number[]; // Vec<u8>
+  qe_identity_issuer_chain: string;
+  qe_identity: string;
+  qe_identity_signature: number[]; // Vec<u8>
+}
+
+// TcbInfo structure matching the contract interface
+export interface TcbInfo {
+  mrtd: string;
+  rtmr0: string;
+  rtmr1: string;
+  rtmr2: string;
+  rtmr3: string;
+  os_image_hash: string; 
+  compose_hash: string;
+  device_id: string;
+  app_compose: string;
+  event_log: EventLog[];
+}
+
+export interface EventLog {
+  imr: number;
+  event_type: number;
+  digest: string;
+  event: string;
+  event_payload: string;
 }
 
 interface QuoteCollateralResponse {
-  checksum: string;
-  quote_collateral: unknown;
+  checksum?: string;
+  quote_collateral: {
+    pck_crl_issuer_chain?: string;
+    root_ca_crl?: string;
+    pck_crl?: string;
+    tcb_info_issuer_chain?: string;
+    tcb_info?: string;
+    tcb_info_signature?: string;
+    qe_identity_issuer_chain?: string;
+    qe_identity?: string;
+    qe_identity_signature?: string;
+  };
 }
 
 // Detects if the application is running in a TEE
@@ -35,69 +86,75 @@ export async function getDstackClient(): Promise<DstackClient | undefined> {
 }
 
 // Gets the TEE attestation for the agent
+// Returns DstackAttestation structure matching the contract interface
 export async function internalGetAttestation(
   dstackClient: DstackClient | undefined,
   agentAccountId: string,
   keysDerivedWithTEE: boolean,
-): Promise<Attestation> {
+): Promise<DstackAttestation> {
   if (!dstackClient || !keysDerivedWithTEE) {
-    // If not in a TEE or keys were not derived with TEE, return a dummy attestation
-    return {
-      quote_hex: "not-in-a-tee",
-      collateral: "not-in-a-tee",
-      checksum: "not-in-a-tee",
-      tcb_info: "not-in-a-tee",
-    };
-  } else {
-    // If in a TEE, get real attestation
-    const info = await dstackClient.info();
-    // Convert tcb_info to string (always an object)
-    const tcb_info: string = JSON.stringify(info.tcb_info);
+    // If not in a TEE or keys were not derived with TEE, return a fake/empty attestation
+    // The contract will accept this if requires_tee is false, or reject it if requires_tee is true
+    return getFakeAttestation();
+  }
 
-    // Get quote 
-    // Include the agent's account id as the report data
-    const reportData = Buffer.from(agentAccountId, "utf-8");
-    const ra = await dstackClient.getQuote(reportData);
-    const quote_hex = ra.quote.replace(/^0x/, "");
+  // Get dstack info which contains tcb_info
+  const info = await dstackClient.info();
+  const dstackTcbInfo = info.tcb_info;
 
-    // Get quote collateral
-    const formData = new FormData();
-    formData.append("hex", quote_hex);
+  // Get quote - include the agent's account id as the report data
+  // Report data is the account id as bytes padded to 64 bytes
+  const accountIdBytes = Buffer.from(agentAccountId, "hex");
+  const reportData = Buffer.alloc(64);
+  accountIdBytes.copy(reportData, 0);
 
-    // Get quote collateral
-    let collateral: string, checksum: string;
-    try {
-      // Add timeout to prevent hanging indefinitely
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+  const quoteResponse = await dstackClient.getQuote(reportData);
+  const quote_hex = quoteResponse.quote;
 
-      const response = await fetch("https://proof.t16z.com/api/upload", {
-        method: "POST",
-        body: formData,
-        signal: controller.signal,
-      });
+  // Transform quote from hex string to bytes array
+  const quote = transformQuote(quote_hex);
 
-      clearTimeout(timeoutId);
+  // Get quote collateral from Phala endpoint
+  const formData = new FormData();
+  formData.append("hex", quote_hex.replace(/^0x/, ""));
 
-      if (!response.ok) {
-        throw new Error(
-          `Failed to get quote collateral: HTTP ${response.status}`,
-        );
-      }
+  let collateral: Collateral;
+  try {
+    // Add timeout to prevent hanging indefinitely
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
 
-      const resHelper = await response.json() as QuoteCollateralResponse;
-      checksum = resHelper.checksum;
-      collateral = JSON.stringify(resHelper.quote_collateral);
-    } catch (error) {
+    const collateralUrl =
+      "https://cloud-api.phala.network/api/v1/attestations/verify";
+
+    const response = await fetch(collateralUrl, {
+      method: "POST",
+      body: formData,
+      signal: controller.signal,
+    });
+
+    clearTimeout(timeoutId);
+
+    if (!response.ok) {
       throw new Error(
-        `Failed to get quote collateral: ${error instanceof Error ? error.message : String(error)}`,
+        `Failed to get quote collateral: HTTP ${response.status}`,
       );
     }
-    return {
-      quote_hex,
-      collateral,
-      checksum,
-      tcb_info,
-    };
+
+    const resHelper = (await response.json()) as QuoteCollateralResponse;
+    collateral = transformCollateral(resHelper.quote_collateral);
+  } catch (error) {
+    throw new Error(
+      `Failed to get quote collateral: ${error instanceof Error ? error.message : String(error)}`,
+    );
   }
+
+  // Transform tcb_info from dstack response to contract interface structure
+  const tcb_info = transformTcbInfo(dstackTcbInfo);
+
+  return {
+    quote,
+    collateral,
+    tcb_info,
+  };
 }

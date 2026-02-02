@@ -2,7 +2,8 @@ mod helpers;
 
 use helpers::*;
 use serde_json::json;
-use tokio::time::{sleep, Duration};
+use shade_attestation::attestation::DstackAttestation;
+use tokio::time::{Duration, sleep};
 
 /// Tests that request_signature makes correct cross-contract call to MPC contract
 #[tokio::test]
@@ -36,6 +37,33 @@ async fn test_cross_contract_call_to_mpc() -> Result<(), Box<dyn std::error::Err
 
     sleep(Duration::from_millis(200)).await;
 
+    // Approve default measurements and PPID for local mode registration
+    let _ = call_transaction(
+        &contract_id,
+        "approve_measurements",
+        approve_measurements_default_args(),
+        &genesis_account_id,
+        &genesis_signer,
+        &network_config,
+        None,
+    )
+    .await?
+    .assert_success();
+
+    let _ = call_transaction(
+        &contract_id,
+        "approve_ppids",
+        default_ppids_json(),
+        &genesis_account_id,
+        &genesis_signer,
+        &network_config,
+        None,
+    )
+    .await?
+    .assert_success();
+
+    sleep(Duration::from_millis(200)).await;
+
     // Create and register agent
     let (agent_id, agent_signer) = create_user_account(
         &network_config,
@@ -47,7 +75,7 @@ async fn test_cross_contract_call_to_mpc() -> Result<(), Box<dyn std::error::Err
 
     let _ = call_transaction(
         &contract_id,
-        "whitelist_agent",
+        "whitelist_agent_for_local",
         json!({
             "account_id": agent_id
         }),
@@ -61,28 +89,9 @@ async fn test_cross_contract_call_to_mpc() -> Result<(), Box<dyn std::error::Err
 
     let _ = call_transaction(
         &contract_id,
-        "approve_codehash",
-        json!({
-            "codehash": "not-in-a-tee"
-        }),
-        &genesis_account_id,
-        &genesis_signer,
-        &network_config,
-        None,
-    )
-    .await?
-    .assert_success();
-
-    let _ = call_transaction(
-        &contract_id,
         "register_agent",
         json!({
-            "attestation": {
-                "quote_hex": "",
-                "collateral": "",
-                "checksum": "",
-                "tcb_info": ""
-            }
+            "attestation": serde_json::to_value(DstackAttestation::default()).unwrap()
         }),
         &agent_id,
         &agent_signer,
@@ -163,7 +172,9 @@ async fn test_cross_contract_call_to_mpc() -> Result<(), Box<dyn std::error::Err
     // Assert that the transaction failed with AccountDoesNotExist for mpc-contract not any other error
     match result {
         Ok(_) => {
-            panic!("Expected transaction to fail with AccountDoesNotExist for new-mpc-contract, but it succeeded");
+            panic!(
+                "Expected transaction to fail with AccountDoesNotExist for new-mpc-contract, but it succeeded"
+            );
         }
         Err(e) => {
             let error_str = format!("{:?}", e);

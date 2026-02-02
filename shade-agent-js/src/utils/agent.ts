@@ -50,7 +50,7 @@ async function deriveHashForTEE(dstackClient: DstackClient): Promise<Buffer> {
   crypto.getRandomValues(randomArray);
   const randomString = Buffer.from(randomArray).toString("hex");
 
-  // Entropy from TEE hardware
+  // This entropy is fixed for a given TEE hardware and user, stays the same for updating the docker image on phala
   const keyFromTee = (await dstackClient.getKey(randomString)).key;
 
   // Hash of JS crypto random and TEE entropy

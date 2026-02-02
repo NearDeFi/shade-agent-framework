@@ -2,31 +2,25 @@
 name = "shade-contract"
 description = "Basic Shade Agents contract template"
 version = "0.1.0"
-edition = "2021"
+edition = "2024"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
 
 [dependencies]
+shade-attestation = { path = "../../shade-attestation" }
 near-sdk = "5.21.0"
-schemars = { version = "0.8" }
-serde_json = "1.0.135"
-base64 = "0.22.1"
 hex = { version = "0.4", default-features = false, features = ["alloc"] }
-dcap-qvl = { git = "https://github.com/mattlockyer/dcap-qvl" }
-sha2 = "0.10.8"
-serde = "1.0.217"
-near-api-types = "0.8.2"
-
-# rustls-webpki = {git = "https://github.com/mattlockyer/webpki", default-features = false, features=[
-#    "near-wasm",
-# ]}
+serde = { version = "1.0.217", features = ["derive"] }
 
 [dev-dependencies]
 near-sdk = { version = "5.24.0", features = ["unit-testing"] }
 near-sandbox = "0.3.4"
+shade-attestation = { path = "../../shade-attestation" }
 tokio = { version = "1", features = ["full"] }
 near-api = "0.8.2"
+near-api-types = "0.8.2"
+serde_json = "1.0"
 
 [profile.release]
 codegen-units = 1

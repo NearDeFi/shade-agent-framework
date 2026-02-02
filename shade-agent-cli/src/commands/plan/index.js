@@ -1,10 +1,10 @@
 import { Command } from 'commander';
-import path from 'path';
 import chalk from 'chalk';
 import { getDeploymentConfig, getNearCredentialsOptional, getPhalaKeyOptional } from '../../utils/config.js';
-import { resolveDeploymentPlaceholders } from '../../utils/deployment-placeholders.js';
-import { getCodehashValueForPlan } from '../../utils/codehash.js';
+import { replacePlaceholders } from '../../utils/placeholders.js';
 import { createCommandErrorHandler } from '../../utils/error-handler.js';
+import { getMeasurements } from '../../utils/measurements.js';
+import { getPpids } from '../../utils/ppids.js';
 
 // Format JSON args nicely
 function formatArgs(args) {
@@ -71,12 +71,6 @@ export function planCommand() {
             // Optionally load PHALA key
             const phalaKey = await getPhalaKeyOptional();
             
-            // Determine codehash value
-            const composePath = deployment.environment === 'TEE' && !deployment.build_docker_image
-                ? deployment.docker_compose_path
-                : null;
-            const codehash = getCodehashValueForPlan(deployment, composePath);
-            
             // Start building the plan output
             console.log('\n' + chalk.cyan.bold('═'.repeat(70)));
             console.log(chalk.cyan.bold('🔎 DEPLOYMENT PLAN'));
@@ -139,13 +133,11 @@ export function planCommand() {
                 // Initialization
                 if (deployment.agent_contract.deploy_custom.init) {
                     const initCfg = deployment.agent_contract.deploy_custom.init;
-                    const resolvedArgs = resolveDeploymentPlaceholders(
-                        initCfg.args,
-                        accountId,
-                        deployment.network,
-                        deployment.environment,
-                        codehash
-                    );
+                    const replacements = {};
+                    replacements['<MASTER_ACCOUNT_ID>'] = accountId;
+                    replacements['<DEFAULT_MPC_CONTRACT_ID>'] = deployment.network === 'mainnet' ? 'v1.signer' : 'v1.signer-prod.testnet';
+                    replacements['<REQUIRES_TEE>'] = deployment.environment === 'TEE';
+                    const resolvedArgs = replacePlaceholders(initCfg.args, replacements);
                     
                     logWrapped(`• The agent contract will be initialized using the '${chalk.yellow(initCfg.method_name)}' method with arguments:`, 70, 2);
                     // Indent JSON arguments
@@ -194,49 +186,73 @@ export function planCommand() {
             }
             
             console.log('');
-            // 3. Approve Codehash
-            if (deployment.approve_codehash) {
-                console.log(chalk.cyan.bold('✓ Codehash Approval'));
+            // 3. Approve Measurements
+            if (deployment.approve_measurements) {
+                console.log(chalk.cyan.bold('✓ Measurements Approval'));
                 console.log(chalk.gray('─'.repeat(70)));
                 console.log('');
                 
-                const approveCfg = deployment.approve_codehash;
+                const approveCfg = deployment.approve_measurements;
                 
-                const resolvedArgs = resolveDeploymentPlaceholders(
-                    approveCfg.args,
-                    accountId,
-                    deployment.network,
-                    deployment.environment,
-                    codehash
-                );
+                logWrapped(`• The '${chalk.yellow(approveCfg.method_name)}' method will be called on the agent contract with measurements:`, 70, 2);
                 
-                logWrapped(`• The '${chalk.yellow(approveCfg.method_name)}' method will be called on the agent contract with arguments:`, 70, 2);
-                // Indent JSON arguments
-                const jsonLines = formatArgs(resolvedArgs).split('\n');
-                jsonLines.forEach(line => {
-                    console.log('  ' + chalk.magenta(line));
-                });
-                
-                // Add codehash message below args in same bullet point
+                // Add measurements message below args in same bullet point
                 if (deployment.environment === 'TEE') {
                     console.log('');
                     if (deployment.build_docker_image) {
-                        const codehashMsg = `The ${chalk.magenta('<CODEHASH>')} will be replaced by the computed codehash when the docker image is published.`;
-                        const lines = wrapText(codehashMsg, 70 - 2, 0); // No extra indent, we'll add it manually
+                        const measurementsMsg = `The ${chalk.magenta('<MEASUREMENTS>')} will be replaced by the computed measurements when the docker image is published.`;
+                        const lines = wrapText(measurementsMsg, 70 - 2, 0); // No extra indent, we'll add it manually
                         lines.forEach(line => console.log('  ' + line));
                     } else {
-                        const codehashMsg = `It will approve the codehash in your current ${chalk.yellow(deployment.docker_compose_path)} file.`;
-                        const lines = wrapText(codehashMsg, 70 - 2, 0); // No extra indent, we'll add it manually
-                        lines.forEach(line => console.log('  ' + line));
+                        const replacements = {};
+                        const measurements = getMeasurements(deployment.environment === 'TEE', deployment.docker_compose_path);
+                        // Pass the object directly, replacePlaceholders will handle JSON stringification
+                        replacements['<MEASUREMENTS>'] = measurements;
+                        
+                        const args = replacePlaceholders(approveCfg.args, replacements);
+
+                        const jsonLines = formatArgs(args).split('\n');
+                        jsonLines.forEach(line => {
+                            console.log('  ' + chalk.magenta(line));
+                        });
                     }
                 }
                 console.log('');
                 console.log('');
             } else {
-                console.log(chalk.cyan.bold('✓ Codehash Approval'));
+                console.log(chalk.cyan.bold('✓ Measurements Approval'));
                 console.log(chalk.gray('─'.repeat(70)));
                 console.log('');
-                    logWrapped(chalk.gray('• The codehash won\'t be approved.'), 70, 2);
+                    logWrapped(chalk.gray('• The measurements won\'t be approved.'), 70, 2);
+                console.log('');
+                console.log('');
+            }
+
+            // 3b. Approve PPIDs
+            if (deployment.approve_ppids) {
+                console.log(chalk.cyan.bold('✓ PPIDs Approval'));
+                console.log(chalk.gray('─'.repeat(70)));
+                console.log('');
+
+                const approveCfg = deployment.approve_ppids;
+
+                logWrapped(`• The '${chalk.yellow(approveCfg.method_name)}' method will be called on the agent contract with ppids:`, 70, 2);
+
+                const ppids = await getPpids(deployment.environment === 'TEE');
+                const replacements = { '<PPIDS>': ppids };
+                const args = replacePlaceholders(approveCfg.args, replacements);
+
+                const jsonLines = formatArgs(args).split('\n');
+                jsonLines.forEach(line => {
+                    console.log('  ' + chalk.magenta(line));
+                });
+                console.log('');
+                console.log('');
+            } else {
+                console.log(chalk.cyan.bold('✓ PPIDs Approval'));
+                console.log(chalk.gray('─'.repeat(70)));
+                console.log('');
+                logWrapped(chalk.gray('• The PPIDs won\'t be approved.'), 70, 2);
                 console.log('');
                 console.log('');
             }

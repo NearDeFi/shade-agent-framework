@@ -3,12 +3,13 @@ mod helpers;
 use helpers::*;
 use near_api::Data;
 use serde_json::json;
-use tokio::time::{sleep, Duration};
+use shade_attestation::attestation::DstackAttestation;
+use tokio::time::{Duration, sleep};
 
 /// Tests pagination with large dataset
 #[tokio::test]
-async fn test_large_dataset_pagination_real_contract(
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn test_large_dataset_pagination_real_contract()
+-> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let sandbox = near_sandbox::Sandbox::start_sandbox().await?;
     let network_config = create_network_config(&sandbox);
     let (genesis_account_id, genesis_signer) = setup_genesis_account().await;
@@ -18,10 +19,10 @@ async fn test_large_dataset_pagination_real_contract(
 
     sleep(Duration::from_millis(200)).await;
 
-    // Create 20 agents
+    // Create 20 agents, whitelist and register each (default measurements/PPID already approved by deploy)
     let mut agent_ids = Vec::new();
     for i in 0..20 {
-        let (agent_id, _) = create_user_account(
+        let (agent_id, agent_signer) = create_user_account(
             &network_config,
             &genesis_account_id,
             &genesis_signer,
@@ -31,12 +32,26 @@ async fn test_large_dataset_pagination_real_contract(
 
         let _ = call_transaction(
             &contract_id,
-            "whitelist_agent",
+            "whitelist_agent_for_local",
             json!({
                 "account_id": agent_id
             }),
             &genesis_account_id,
             &genesis_signer,
+            &network_config,
+            None,
+        )
+        .await?
+        .assert_success();
+
+        let _ = call_transaction(
+            &contract_id,
+            "register_agent",
+            json!({
+                "attestation": serde_json::to_value(DstackAttestation::default()).unwrap()
+            }),
+            &agent_id,
+            &agent_signer,
             &network_config,
             None,
         )

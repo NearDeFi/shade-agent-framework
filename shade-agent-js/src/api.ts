@@ -1,10 +1,11 @@
 import { Provider } from "@near-js/providers";
 import { internalFundAgent, createAccountObject } from "./utils/near";
 import {
-  Attestation,
+  DstackAttestation,
   getDstackClient,
   internalGetAttestation,
 } from "./utils/tee";
+import { attestationForContract } from "./utils/attestation-transform";
 import { DstackClient } from "@phala/dstack-sdk";
 import { ensureKeysSetup, generateAgent, getAgentSigner } from "./utils/agent";
 import { validateShadeConfig } from "./utils/validation";
@@ -15,18 +16,24 @@ import {
 } from "@near-js/types"; 
 import { NEAR } from "@near-js/tokens";
 
-export interface AgentStatus {
-  registered: boolean;
-  whitelisted: boolean;
-  codehash_is_approved: boolean;
+export interface Measurements {
+  /** MRTD (Measurement of Root of Trust for Data) - identifies the virtual firmware. */
+  mrtd: string;
+  /** RTMR0 (Runtime Measurement Register 0) - typically measures the bootloader, virtual firmware data, and configuration. */
+  rtmr0: string;
+  /** RTMR1 (Runtime Measurement Register 1) - typically measures the OS kernel, boot parameters, and initrd (initial ramdisk). */
+  rtmr1: string;
+  /** RTMR2 (Runtime Measurement Register 2) - typically measures the OS application. */
+  rtmr2: string;
 }
 
-interface GetAgentResponse {
-  account_id: string;
-  registered: boolean;
-  whitelisted: boolean;
-  codehash?: string | null;
-  codehash_is_approved: boolean;
+export interface FullMeasurements {
+  /** Expected RTMRs (Runtime Measurement Registers). */
+  rtmrs: Measurements;
+  /** Expected digest for the key-provider event. */
+  key_provider_event_digest: string;
+  /** Expected app_compose hash payload. */
+  app_compose_hash_payload: string;
 }
 
 /**
@@ -141,40 +148,6 @@ export class ShadeClient {
   }
 
   /**
-   * Checks the agent's registration status on the agent contract
-   * @returns Promise that resolves to an AgentStatus object containing registered, whitelisted, and codehash_is_approved booleans
-   * @throws Error if agentContractId is not configured or if view call fails
-   */
-  async registrationStatus(): Promise<AgentStatus> {
-    if (!this.config.agentContractId) {
-      throw new Error(
-        "agentContractId is required for checking registration status",
-      );
-    }
-
-    const res = await this.view<GetAgentResponse | null>({
-      methodName: "get_agent",
-      args: {
-        account_id: this.agentAccountId,
-      },
-    });
-
-    if (res === null) {
-      return {
-        registered: false,
-        whitelisted: false,
-        codehash_is_approved: false,
-      };
-    }
-
-    return {
-      registered: res.registered,
-      whitelisted: res.whitelisted,
-      codehash_is_approved: res.codehash_is_approved,
-    };
-  }
-
-  /**
    * Registers the agent in the agent contract
    * @returns Promise that resolves to true if registration was successful
    * @throws Error if agentContractId is not configured, if fetching attestation fails (network errors, timeouts), or if contract call fails
@@ -190,13 +163,16 @@ export class ShadeClient {
       this.keysDerivedWithTEE,
     );
 
+    // Convert attestation to contract format (arrays to hex strings for collateral)
+    const contractAttestation = attestationForContract(attestation);
+
     // Call the register_agent function on the agent contract
     return await this.call({
       methodName: "register_agent",
       args: {
-        attestation,
+        attestation: contractAttestation,
       },
-      gas: BigInt("250000000000000"), // 250 TGas
+      gas: BigInt("300000000000000"), // 300 TGas
     });
   }
 
@@ -290,10 +266,10 @@ export class ShadeClient {
 
   /**
    * Gets the TEE attestation for the agent
-   * @returns Promise that resolves to the attestation object
+   * @returns Promise that resolves to the DstackAttestation object
    * @throws Error if fetching quote collateral fails (network errors, HTTP errors, timeouts)
    */
-  async getAttestation(): Promise<Attestation> {
+  async getAttestation(): Promise<DstackAttestation> {
     return internalGetAttestation(
       this.dstackClient,
       this.agentAccountId,
@@ -307,7 +283,7 @@ export class ShadeClient {
    * @returns Promise that resolves when funding is complete
    * @throws Error if sponsor is not configured or if transfer fails after retries
    */
-  async fundAgent(fundAmount: number): Promise<void> {
+  async fund(fundAmount: number): Promise<void> {
     if (!this.config.sponsor) {
       throw new Error("sponsor is required for funding the agent account");
     }
@@ -327,7 +303,7 @@ export class ShadeClient {
    * @returns Array of private key strings
    * @throws Error if acknowledgeRisk is not set to true
    */
-  getAgentPrivateKeys(acknowledgeRisk: boolean = false): string[] {
+  getPrivateKeys(acknowledgeRisk: boolean = false): string[] {
     if (!acknowledgeRisk) {
       throw new Error(
         "WARNING: Exporting private keys from the library is a risky operation, you may accidentally leak them from the TEE. Do not use the keys to sign transactions other than to the agent contract. Please acknowledge the risk by setting acknowledgeRisk to true.",
@@ -338,5 +314,33 @@ export class ShadeClient {
     );
 
     return this.agentPrivateKeys;
+  }
+
+  /**
+   * Checks if the agent is whitelisted for local mode
+   * @returns Promise that resolves to true if the agent is whitelisted, false if the agent is not whitelisted, or null if the agent contract requires TEE
+   * @throws Error if agentContractId is not configured or if view call fails
+   */
+  async isWhitelisted(): Promise<boolean | null> {
+    if (!this.config.agentContractId) {
+      throw new Error("agentContractId is required for checking if the agent is whitelisted");
+    }
+
+    const res = await this.view<boolean>({
+      methodName: "get_requires_tee",
+      args: {},
+    });
+
+    // If the agent contract requires TEE return null
+    if (res === true) {
+      return null;
+    }
+
+    const whitelisted_agents = await this.view<string[]>({
+        methodName: "get_whitelisted_agents_for_local",
+        args: {},
+      });
+
+    return whitelisted_agents.includes(this.agentAccountId);
   }
 }

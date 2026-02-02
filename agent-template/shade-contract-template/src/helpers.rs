@@ -10,18 +10,28 @@ impl Contract {
         );
     }
 
-    // Require the caller to be a registered agent
-    pub(crate) fn require_registered_agent(&mut self) {
+    // Require the caller to be a valid agent (has approved measurements and PPID)
+    // Just because an agent is registered does not mean it is valid
+    // it needs to have current approved measurements and PPID
+    pub(crate) fn require_valid_agent(&mut self) {
+        // If in local mode additionally check that the agent is whitelisted
+        if !self.requires_tee {
+            require!(
+                self.whitelisted_agents_for_local
+                    .contains(&env::predecessor_account_id()),
+                "Agent needs to be whitelisted for local mode"
+            );
+        }
         let agent = self
             .get_agent(env::predecessor_account_id())
-            .expect("Agent not whitelisted");
-        let codehash = agent.codehash.unwrap_or_else(|| {
-            panic!("Agent not registered");
-        });
-        // Check the agent is registered with an approved codehash
+            .expect("Agent not registered");
         require!(
-            self.approved_codehashes.contains(&codehash),
-            "Agent not registered with approved codehash"
+            self.approved_measurements.contains(&agent.measurements),
+            "Agent not registered with approved measurements"
+        );
+        require!(
+            self.approved_ppids.contains(&agent.ppid),
+            "Agent not registered with approved PPID"
         );
     }
 }

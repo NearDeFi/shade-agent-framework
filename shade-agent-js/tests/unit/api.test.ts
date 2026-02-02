@@ -2,12 +2,13 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ShadeClient, ShadeConfig } from '../../src/api';
 import { createMockAccount, createMockProvider } from '../mocks';
 import { createMockDstackClient } from '../mocks/tee-mocks';
-import { generateTestKey } from '../test-utils';
+import { generateTestKey, createMockAttestation } from '../test-utils';
 import { NEAR } from '@near-js/tokens';
 import { validateShadeConfig } from '../../src/utils/validation';
 import { getDstackClient, internalGetAttestation } from '../../src/utils/tee';
 import { generateAgent, ensureKeysSetup, getAgentSigner } from '../../src/utils/agent';
 import { createAccountObject, internalFundAgent } from '../../src/utils/near';
+import { attestationForContract } from '../../src/utils/attestation-transform';
 
 vi.mock('../../src/utils/validation', () => ({
   validateShadeConfig: vi.fn(),
@@ -27,6 +28,10 @@ vi.mock('../../src/utils/agent', () => ({
 vi.mock('../../src/utils/near', () => ({
   createAccountObject: vi.fn(),
   internalFundAgent: vi.fn(),
+}));
+
+vi.mock('../../src/utils/attestation-transform', () => ({
+  attestationForContract: vi.fn(),
 }));
 
 // Store mock account globally so Account class can access it
@@ -88,12 +93,7 @@ describe('ShadeClient', () => {
       signer: {} as any,
       keyIndex: 0,
     });
-    vi.mocked(internalGetAttestation).mockResolvedValue({
-      quote_hex: 'not-in-a-tee',
-      collateral: 'not-in-a-tee',
-      checksum: 'not-in-a-tee',
-      tcb_info: 'not-in-a-tee',
-    });
+    vi.mocked(internalGetAttestation).mockResolvedValue(createMockAttestation());
   }
 
   describe('create', () => {
@@ -194,75 +194,28 @@ describe('ShadeClient', () => {
     });
   });
 
-  describe('registrationStatus', () => {
-    it('should return registration status when agent is registered', async () => {
-      setupClientMocks();
-      const mockResponse = {
-        account_id: testAccountId,
-        registered: true,
-        whitelisted: true,
-        codehash_is_approved: true,
-      };
-      (mockProvider.callFunction as ReturnType<typeof vi.fn>).mockResolvedValue(mockResponse);
-      
-      const client = await ShadeClient.create({
-        agentContractId: 'agent.contract.testnet',
-        rpc: mockProvider,
-      });
-      
-      const status = await client.registrationStatus();
-      
-      expect(mockProvider.callFunction).toHaveBeenCalledWith(
-        'agent.contract.testnet',
-        'get_agent',
-        { account_id: testAccountId },
-        undefined
-      );
-      expect(status).toEqual({
-        registered: true,
-        whitelisted: true,
-        codehash_is_approved: true,
-      });
-    });
-
-    it('should return false status when agent is not found', async () => {
-      setupClientMocks();
-      (mockProvider.callFunction as ReturnType<typeof vi.fn>).mockResolvedValue(null);
-      
-      const client = await ShadeClient.create({
-        agentContractId: 'agent.contract.testnet',
-        rpc: mockProvider,
-      });
-      
-      const status = await client.registrationStatus();
-      
-      expect(status).toEqual({
-        registered: false,
-        whitelisted: false,
-        codehash_is_approved: false,
-      });
-    });
-
-    it('should throw error if agentContractId is not configured', async () => {
-      setupClientMocks();
-      const client = await ShadeClient.create({ rpc: mockProvider });
-      
-      await expect(client.registrationStatus()).rejects.toThrow(
-        'agentContractId is required for checking registration status'
-      );
-    });
-  });
 
   describe('register', () => {
     it('should register agent successfully', async () => {
       setupClientMocks();
-      const attestation = {
-        quote_hex: 'test-quote',
-        collateral: 'test-collateral',
-        checksum: 'test-checksum',
-        tcb_info: 'test-tcb',
+      const attestation = createMockAttestation({ quote: [1, 2, 3] });
+      const contractAttestation = {
+        quote: [1, 2, 3],
+        collateral: {
+          pck_crl_issuer_chain: '',
+          root_ca_crl: '',
+          pck_crl: '',
+          tcb_info_issuer_chain: '',
+          tcb_info: '',
+          tcb_info_signature: '',
+          qe_identity_issuer_chain: '',
+          qe_identity: '',
+          qe_identity_signature: '',
+        },
+        tcb_info: attestation.tcb_info,
       };
       vi.mocked(internalGetAttestation).mockResolvedValue(attestation);
+      vi.mocked(attestationForContract).mockReturnValue(contractAttestation);
       (mockAccount.callFunction as ReturnType<typeof vi.fn>).mockResolvedValue(true);
       
       const client = await ShadeClient.create({
@@ -277,13 +230,14 @@ describe('ShadeClient', () => {
         testAccountId,
         false
       );
+      expect(attestationForContract).toHaveBeenCalledWith(attestation);
       expect(ensureKeysSetup).toHaveBeenCalled();
       expect(mockAccount.callFunction).toHaveBeenCalledWith(
         expect.objectContaining({
           contractId: 'agent.contract.testnet',
           methodName: 'register_agent',
-          args: { attestation },
-          gas: BigInt('250000000000000'),
+          args: { attestation: contractAttestation },
+          gas: BigInt('300000000000000'),
         })
       );
       expect(result).toBe(true);
@@ -428,7 +382,7 @@ describe('ShadeClient', () => {
       
       expect(ensureKeysSetup).toHaveBeenCalled();
       // Verify keys were added to the client
-      const keys = client.getAgentPrivateKeys(true);
+      const keys = client.getPrivateKeys(true);
       expect(keys).toContain(testPrivateKey);
       expect(keys).toContain(additionalKey);
     });
@@ -493,12 +447,7 @@ describe('ShadeClient', () => {
   describe('getAttestation', () => {
     it('should return attestation', async () => {
       setupClientMocks();
-      const attestation = {
-        quote_hex: 'test-quote',
-        collateral: 'test-collateral',
-        checksum: 'test-checksum',
-        tcb_info: 'test-tcb',
-      };
+      const attestation = createMockAttestation({ quote: [1, 2, 3] });
       vi.mocked(internalGetAttestation).mockResolvedValue(attestation);
       
       const client = await ShadeClient.create({});
@@ -515,12 +464,7 @@ describe('ShadeClient', () => {
 
     it('should use TEE client if available', async () => {
       setupClientMocks({ dstackClient: mockDstackClient, derivedWithTEE: true });
-      const attestation = {
-        quote_hex: 'tee-quote',
-        collateral: 'tee-collateral',
-        checksum: 'tee-checksum',
-        tcb_info: 'tee-tcb',
-      };
+      const attestation = createMockAttestation({ quote: [4, 5, 6] });
       vi.mocked(internalGetAttestation).mockResolvedValue(attestation);
       
       const client = await ShadeClient.create({});
@@ -549,7 +493,7 @@ describe('ShadeClient', () => {
         rpc: mockProvider,
       });
       
-      await client.fundAgent(10);
+      await client.fund(10);
       
       expect(internalFundAgent).toHaveBeenCalledWith(
         testAccountId,
@@ -564,22 +508,22 @@ describe('ShadeClient', () => {
       setupClientMocks();
       const client = await ShadeClient.create({ rpc: mockProvider });
       
-      await expect(client.fundAgent(10)).rejects.toThrow(
+      await expect(client.fund(10)).rejects.toThrow(
         'sponsor is required for funding the agent account'
       );
     });
   });
 
-  describe('getAgentPrivateKeys', () => {
+  describe('getPrivateKeys', () => {
     it('should throw error if acknowledgeRisk is not true', async () => {
       setupClientMocks();
       const client = await ShadeClient.create({});
       
-      expect(() => client.getAgentPrivateKeys()).toThrow(
+      expect(() => client.getPrivateKeys()).toThrow(
         'WARNING: Exporting private keys from the library is a risky operation'
       );
       
-      expect(() => client.getAgentPrivateKeys(false)).toThrow(
+      expect(() => client.getPrivateKeys(false)).toThrow(
         'WARNING: Exporting private keys from the library is a risky operation'
       );
     });
@@ -590,7 +534,7 @@ describe('ShadeClient', () => {
       
       const client = await ShadeClient.create({});
       
-      const keys = client.getAgentPrivateKeys(true);
+      const keys = client.getPrivateKeys(true);
       
       expect(keys).toEqual([testPrivateKey]);
       expect(consoleSpy).toHaveBeenCalledWith(
@@ -620,11 +564,89 @@ describe('ShadeClient', () => {
       // Call a method to trigger key addition
       await client.call({ methodName: 'test', args: {} });
       
-      const keys = client.getAgentPrivateKeys(true);
+      const keys = client.getPrivateKeys(true);
       
       expect(keys).toHaveLength(2);
       expect(keys).toContain(testPrivateKey);
       expect(keys).toContain(additionalKey);
+    });
+  });
+
+  describe('isWhitelisted', () => {
+    it('should throw error if agentContractId is not configured', async () => {
+      setupClientMocks();
+      const client = await ShadeClient.create({ rpc: mockProvider });
+      
+      await expect(client.isWhitelisted()).rejects.toThrow(
+        'agentContractId is required for checking if the agent is whitelisted'
+      );
+    });
+
+    it('should return null when contract requires TEE', async () => {
+      setupClientMocks();
+      (mockProvider.callFunction as ReturnType<typeof vi.fn>).mockResolvedValueOnce(true);
+      
+      const client = await ShadeClient.create({
+        agentContractId: 'agent.contract.testnet',
+        rpc: mockProvider,
+      });
+      
+      const result = await client.isWhitelisted();
+      
+      expect(mockProvider.callFunction).toHaveBeenCalledWith(
+        'agent.contract.testnet',
+        'get_requires_tee',
+        {},
+        undefined
+      );
+      expect(result).toBe(null);
+    });
+
+    it('should return true when agent is whitelisted', async () => {
+      setupClientMocks();
+      (mockProvider.callFunction as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce(false) // requires_tee = false
+        .mockResolvedValueOnce([testAccountId, 'other.agent.testnet']); // whitelisted agents
+      
+      const client = await ShadeClient.create({
+        agentContractId: 'agent.contract.testnet',
+        rpc: mockProvider,
+      });
+      
+      const result = await client.isWhitelisted();
+      
+      expect(mockProvider.callFunction).toHaveBeenCalledTimes(2);
+      expect(mockProvider.callFunction).toHaveBeenNthCalledWith(
+        1,
+        'agent.contract.testnet',
+        'get_requires_tee',
+        {},
+        undefined
+      );
+      expect(mockProvider.callFunction).toHaveBeenNthCalledWith(
+        2,
+        'agent.contract.testnet',
+        'get_whitelisted_agents_for_local',
+        {},
+        undefined
+      );
+      expect(result).toBe(true);
+    });
+
+    it('should return false when agent is not whitelisted', async () => {
+      setupClientMocks();
+      (mockProvider.callFunction as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce(false) // requires_tee = false
+        .mockResolvedValueOnce(['other.agent.testnet', 'another.agent.testnet']); // whitelisted agents
+      
+      const client = await ShadeClient.create({
+        agentContractId: 'agent.contract.testnet',
+        rpc: mockProvider,
+      });
+      
+      const result = await client.isWhitelisted();
+      
+      expect(result).toBe(false);
     });
   });
 });

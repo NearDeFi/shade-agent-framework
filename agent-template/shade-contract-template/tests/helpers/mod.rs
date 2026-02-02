@@ -1,12 +1,13 @@
 // Test Helpers
 use near_api::{
-    signer, Account, AccountId, Contract, NearToken, NetworkConfig, RPCEndpoint, Signer,
+    Account, AccountId, Contract, NearToken, NetworkConfig, RPCEndpoint, Signer, signer,
 };
 use near_api_types::transaction::result::ExecutionFinalResult;
 use near_sandbox::{GenesisAccount, Sandbox};
 use serde_json::json;
+use shade_attestation::measurements::FullMeasurementsHex;
 use std::sync::Arc;
-use tokio::time::{sleep, Duration};
+use tokio::time::{Duration, sleep};
 
 #[allow(dead_code)]
 pub const CONTRACT_WASM_PATH: &str = concat!(
@@ -136,7 +137,9 @@ pub async fn deploy_contract(
             || error_str
                 .contains("Smart contract panicked: The contract has already been initialized")
         {
-            println!("Contract already initialized (likely from previous timeout attempt), treating as success");
+            println!(
+                "Contract already initialized (likely from previous timeout attempt), treating as success"
+            );
             // Contract is deployed and initialized, we're good
         } else {
             return Err(format!("Contract deploy/init failed: {:?}", e).into());
@@ -158,7 +161,7 @@ pub async fn deploy_contract_default(
     let owner = genesis_account_id.clone();
     let mpc_contract: AccountId = "mpc-contract".parse().unwrap();
 
-    deploy_contract(
+    let contract_id = deploy_contract(
         network_config,
         genesis_account_id,
         genesis_signer,
@@ -171,7 +174,87 @@ pub async fn deploy_contract_default(
         })),
         None,
     )
-    .await
+    .await?;
+
+    // Approve default measurements and PPID so agents can register in local mode
+    let _ = call_transaction(
+        &contract_id,
+        "approve_measurements",
+        approve_measurements_default_args(),
+        genesis_account_id,
+        genesis_signer,
+        network_config,
+        None,
+    )
+    .await?
+    .into_result()
+    .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
+        format!("approve_measurements failed: {:?}", e).into()
+    })?;
+
+    let _ = call_transaction(
+        &contract_id,
+        "approve_ppids",
+        default_ppids_json(),
+        genesis_account_id,
+        genesis_signer,
+        network_config,
+        None,
+    )
+    .await?
+    .into_result()
+    .map_err(|e| -> Box<dyn std::error::Error + Send + Sync> {
+        format!("approve_ppids failed: {:?}", e).into()
+    })?;
+
+    Ok(contract_id)
+}
+
+/// Returns JSON for FullMeasurementsHex::default() (all zeros). Used for local mode registration.
+/// Uses the same type as the contract so serialization matches exactly.
+#[allow(dead_code)]
+pub fn default_measurements_json() -> serde_json::Value {
+    serde_json::to_value(FullMeasurementsHex::default()).expect("FullMeasurementsHex::default() serializes")
+}
+
+/// Args for approve_measurements with default measurements (parameter name required by contract).
+#[allow(dead_code)]
+pub fn approve_measurements_default_args() -> serde_json::Value {
+    json!({ "measurements": default_measurements_json() })
+}
+
+/// Returns JSON for approve_ppids with default PPID (16 zero bytes = 32 hex chars).
+#[allow(dead_code)]
+pub fn default_ppids_json() -> serde_json::Value {
+    json!({
+        "ppids": ["0".repeat(32)]
+    })
+}
+
+/// Returns JSON for non-default measurements (one byte differs from default).
+/// Used to test that registration fails when default measurements are not approved.
+#[allow(dead_code)]
+pub fn non_default_measurements_json() -> serde_json::Value {
+    let mut m = default_measurements_json();
+    let mrtd = m["rtmrs"]["mrtd"].as_str().expect("mrtd is string");
+    let mut chars: Vec<char> = mrtd.chars().collect();
+    chars[95] = '1';
+    m["rtmrs"]["mrtd"] = serde_json::Value::String(chars.into_iter().collect());
+    m
+}
+
+/// Returns JSON for approve_measurements with non-default measurements.
+#[allow(dead_code)]
+pub fn approve_non_default_measurements_args() -> serde_json::Value {
+    json!({ "measurements": non_default_measurements_json() })
+}
+
+/// Returns JSON for approve_ppids with non-default PPID (differs from 16 zero bytes).
+#[allow(dead_code)]
+pub fn non_default_ppids_json() -> serde_json::Value {
+    json!({
+        "ppids": ["0".repeat(31) + "1"]
+    })
 }
 
 #[allow(dead_code)]

@@ -3,7 +3,7 @@ mod helpers;
 use helpers::*;
 use near_api::Data;
 use serde_json::json;
-use tokio::time::{sleep, Duration};
+use tokio::time::{Duration, sleep};
 
 #[tokio::test]
 async fn test_update_contract() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {

@@ -3,12 +3,12 @@ mod helpers;
 use helpers::*;
 use near_api::Data;
 use serde_json::json;
-use tokio::time::{sleep, Duration};
+use tokio::time::{Duration, sleep};
 
 /// Tests owner transfer and new owner operations
 #[tokio::test]
-async fn test_owner_transfer_and_new_owner_operations(
-) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn test_owner_transfer_and_new_owner_operations()
+-> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let sandbox = near_sandbox::Sandbox::start_sandbox().await?;
     let network_config = create_network_config(&sandbox);
     let (genesis_account_id, genesis_signer) = setup_genesis_account().await;
@@ -44,13 +44,11 @@ async fn test_owner_transfer_and_new_owner_operations(
 
     sleep(Duration::from_millis(500)).await;
 
-    // Verify old owner cannot approve codehash
+    // Verify old owner cannot approve measurements
     let _ = call_transaction(
         &contract_id,
-        "approve_codehash",
-        json!({
-            "codehash": "test_hash"
-        }),
+        "approve_measurements",
+        approve_measurements_default_args(),
         &genesis_account_id,
         &genesis_signer,
         &network_config,
@@ -59,27 +57,11 @@ async fn test_owner_transfer_and_new_owner_operations(
     .await?
     .assert_failure();
 
-    // Verify codehash was not approved
-    let approved_codehashes: Data<Vec<String>> = call_view(
-        &contract_id,
-        "get_approved_codehashes",
-        json!({
-            "from_index": null,
-            "limit": null
-        }),
-        &network_config,
-    )
-    .await?;
-
-    assert!(approved_codehashes.data.is_empty());
-
-    // Verify new owner can approve codehash
+    // Verify new owner can approve measurements (default already approved by deploy; re-approving is idempotent)
     let _ = call_transaction(
         &contract_id,
-        "approve_codehash",
-        json!({
-            "codehash": "test_hash"
-        }),
+        "approve_measurements",
+        approve_measurements_default_args(),
         &new_owner_id,
         &new_owner_signer,
         &network_config,
@@ -90,10 +72,10 @@ async fn test_owner_transfer_and_new_owner_operations(
 
     sleep(Duration::from_millis(200)).await;
 
-    // Verify codehash was approved
-    let approved_codehashes: Data<Vec<String>> = call_view(
+    // Verify measurements are approved
+    let approved_measurements: Data<Vec<serde_json::Value>> = call_view(
         &contract_id,
-        "get_approved_codehashes",
+        "get_approved_measurements",
         json!({
             "from_index": null,
             "limit": null
@@ -102,7 +84,10 @@ async fn test_owner_transfer_and_new_owner_operations(
     )
     .await?;
 
-    assert!(approved_codehashes.data.contains(&"test_hash".to_string()));
+    assert!(
+        approved_measurements.data.len() >= 1,
+        "Default measurements should be in approved list"
+    );
 
     Ok(())
 }

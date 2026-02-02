@@ -1,6 +1,4 @@
 use crate::*;
-use near_sdk::ext_contract;
-use serde::Serialize;
 
 #[derive(Debug, Serialize)]
 pub enum Payload {
@@ -21,7 +19,7 @@ trait MPCContract {
     fn sign(&self, request: SignRequest);
 }
 
-const GAS: Gas = Gas::from_tgas(10);
+const GAS: Gas = Gas::from_tgas(15);
 const ATTACHED_DEPOSIT: NearToken = NearToken::from_yoctonear(1);
 
 #[near]
@@ -34,8 +32,11 @@ impl Contract {
     ) -> Promise {
         // Convert the payload to the correct type
         let (payload_v2, domain_id) = match key_type.as_str() {
+            "Ecdsa" => (Payload::Ecdsa(payload), 0),
             "Eddsa" => (Payload::Eddsa(payload), 1),
-            _ => (Payload::Ecdsa(payload), 0),
+            _ => {
+                panic!("Invalid key type");
+            }
         };
 
         // Create the request

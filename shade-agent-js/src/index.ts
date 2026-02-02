@@ -1,5 +1,10 @@
-export type { ShadeConfig, AgentStatus } from "./api";
+export type { ShadeConfig, Measurements, FullMeasurements } from "./api";
 
 export { ShadeClient } from "./api";
 
-export type { Attestation } from "./utils/tee";
+export type {
+  DstackAttestation,
+  Collateral,
+  TcbInfo,
+  EventLog,
+} from "./utils/tee";
