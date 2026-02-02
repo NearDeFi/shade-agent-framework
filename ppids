@@ -1,6 +1,0 @@
-{"ppids": ["2c4b9725e98e37230f0f3bcda0ed34bf","354e2a1c79c98e81723eab4b78b990a7","3e306e133b7fdaa7bb79f67634cb520c","604e6de041508d19a9bce702e2f875c3","62d54040cb9dfc08bb13006fa75ece56","6d756d181daefa59a3fd41fb2e748b24","789e24484ea860fd2658896b8a535721","897d3eb76ea887b783f9ad3d0771034b","bf8be978ae75c93f862e1e6be4818ed9","d12fc50bb37cb1ec84c32f70f8b673b7"]}
-
-
-
-
-near contract call-function as-transaction ijsdfoijeqoifijf.testnet approve_ppids json-args '{"ppids": ["2c4b9725e98e37230f0f3bcda0ed34bf","354e2a1c79c98e81723eab4b78b990a7","3e306e133b7fdaa7bb79f67634cb520c","604e6de041508d19a9bce702e2f875c3","62d54040cb9dfc08bb13006fa75ece56","6d756d181daefa59a3fd41fb2e748b24","789e24484ea860fd2658896b8a535721","897d3eb76ea887b783f9ad3d0771034b","bf8be978ae75c93f862e1e6be4818ed9","d12fc50bb37cb1ec84c32f70f8b673b7"]}' prepaid-gas '100.0 Tgas' attached-deposit '0 NEAR' sign-as pivortex.testnet network-config testnet sign-with-legacy-keychain send

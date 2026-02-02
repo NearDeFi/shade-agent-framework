@@ -1,0 +1,15 @@
+{
+  "name": "shade-tests-in-tee",
+  "version": "1.0.0",
+  "description": "Integration tests that run in TEE",
+  "type": "module",
+  "scripts": {
+    "test": "node test-script.js"
+  },
+  "dependencies": {
+    "@near-js/accounts": "^2.5.1",
+    "@near-js/crypto": "^2.5.1",
+    "@near-js/providers": "^2.5.1",
+    "@near-js/signers": "^2.5.1"
+  }
+}

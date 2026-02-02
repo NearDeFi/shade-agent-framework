@@ -22,10 +22,9 @@ function createTeeMeasurements(appComposeHash) {
   };
 }
 
-function calculateAppComposeHash(dockerComposePath) {
+// Helper function to extract allowed envs from docker-compose file
+export function extractAllowedEnvs(dockerComposePath) {
   const dockerComposeFile = fs.readFileSync(dockerComposePath, 'utf8');
-  
-  // Parse the docker-compose YAML to extract environment variables
   const dockerCompose = parse(dockerComposeFile);
   const allowedEnvs = [];
   
@@ -51,6 +50,18 @@ function calculateAppComposeHash(dockerComposePath) {
       }
     }
   }
+  
+  return allowedEnvs;
+}
+
+// Calculate app compose hash with optional allowed envs override
+export function calculateAppComposeHash(dockerComposePath, allowedEnvsOverride = null) {
+  const dockerComposeFile = fs.readFileSync(dockerComposePath, 'utf8');
+  
+  // If override is provided, use it; otherwise extract from docker-compose
+  const allowedEnvs = allowedEnvsOverride !== null 
+    ? allowedEnvsOverride 
+    : extractAllowedEnvs(dockerComposePath);
 
   const appCompose = {
     allowed_envs: allowedEnvs,

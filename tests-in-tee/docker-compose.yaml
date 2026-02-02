@@ -1,0 +1,14 @@
+services:
+  shade-test-image:
+    environment:
+      AGENT_CONTRACT_ID: ${AGENT_CONTRACT_ID}
+      SPONSOR_ACCOUNT_ID: ${SPONSOR_ACCOUNT_ID}
+      SPONSOR_PRIVATE_KEY: ${SPONSOR_PRIVATE_KEY}
+    platform: linux/amd64
+    build:
+      context: ..
+      dockerfile: test-image.Dockerfile
+    container_name: shade-test-image
+    volumes:
+      - /var/run/dstack.sock:/var/run/dstack.sock
+    restart: always
