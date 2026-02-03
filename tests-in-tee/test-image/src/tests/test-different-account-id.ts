@@ -12,10 +12,11 @@
  */
 
 import { ShadeClient } from "@neardefi/shade-agent-js";
-import { KeyPair } from "@near-js/crypto";
+import { KeyPair, KeyPairString } from "@near-js/crypto";
 import { Account } from "@near-js/accounts";
 import { KeyPairSigner } from "@near-js/signers";
 import { JsonRpcProvider } from "@near-js/providers";
+import { NEAR } from "@near-js/tokens";
 
 export default async function testDifferentAccountId(
   agent: ShadeClient
@@ -26,35 +27,6 @@ export default async function testDifferentAccountId(
   callError?: string;
 }> {
   const agentAccountId = agent.accountId();
-
-  // First, register the correct agent (this should succeed)
-  try {
-    await agent.register();
-  } catch (error: any) {
-    return {
-      success: false,
-      agentAccountId,
-      registrationError: `Correct agent registration failed: ${error.message}`,
-    };
-  }
-
-  // Try to make a call with the correct agent (this should succeed)
-  try {
-    await agent.call({
-      methodName: "request_signature",
-      args: {
-        path: "test",
-        payload: "test",
-        key_type: "Ecdsa",
-      },
-    });
-  } catch (error: any) {
-    return {
-      success: false,
-      agentAccountId,
-      callError: `Correct agent call failed: ${error.message}`,
-    };
-  }
 
   // Now try to submit attestation from a different account
   // Generate a new random keypair and account ID
@@ -82,9 +54,20 @@ export default async function testDifferentAccountId(
     url: "https://rpc.testnet.near.org",
   });
 
-  const secretKey = differentKeyPair.toString();
-  const signer = KeyPairSigner.fromSecretKey(secretKey);
-  const differentAccount = new Account(differentAccountId, provider, signer);
+  const differentSigner = new KeyPairSigner(differentKeyPair);
+  const differentAccount = new Account(differentAccountId, provider, differentSigner);
+
+  const funderPrivateKey = process.env.SPONSOR_PRIVATE_KEY;
+  const sponsorAccountId = process.env.SPONSOR_ACCOUNT_ID;
+  const funderSigner = KeyPairSigner.fromSecretKey(funderPrivateKey as KeyPairString);
+  const funderAccount = new Account(sponsorAccountId as string, provider, funderSigner);
+
+  // Fund the different account
+  await funderAccount.transfer({
+    token: NEAR,
+    amount: NEAR.toUnits(0.3),
+    receiverId: differentAccountId,
+  });
 
   // Try to register with different account - should fail with WrongHash error
   let registrationError: string | undefined;
@@ -110,8 +93,8 @@ export default async function testDifferentAccountId(
       contractId: agentContractId,
       methodName: "request_signature",
       args: {
-        path: "test",
-        payload: "test",
+        path: "test-path",
+        payload: "b1bce08af8ed85b255f9fa2fe98b8feafa1460959d886e3914d533eca11cb6c6",
         key_type: "Ecdsa",
       },
     });

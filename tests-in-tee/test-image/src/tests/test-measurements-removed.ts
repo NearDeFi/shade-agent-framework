@@ -17,14 +17,15 @@ export default async function testMeasurementsRemoved(
 }> {
   const agentAccountId = agent.accountId();
 
-  // Try to make a call - should fail because measurements were removed
+  // Agent should already be registered (registration happens in the register-agent endpoint)
+  // Just try to make a call - should fail because measurements were removed
   let callError: string | undefined;
   try {
     await agent.call({
       methodName: "request_signature",
       args: {
-        path: "test",
-        payload: "test",
+        path: "test-path",
+        payload: "b1bce08af8ed85b255f9fa2fe98b8feafa1460959d886e3914d533eca11cb6c6",
         key_type: "Ecdsa",
       },
     });

@@ -11,7 +11,7 @@
 
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
-import { dirname, resolve } from 'path';
+import path, { dirname, resolve } from 'path';
 import fs from 'fs';
 import dotenv from 'dotenv';
 import { parse, stringify } from 'yaml';
@@ -50,6 +50,10 @@ const TEST_APP_NAME = 'shade-integration-tests';
 
 // Toggle to skip redeploying account, contract, and initialization (useful for reusing existing deployment)
 const SKIP_CONTRACT_DEPLOYMENT = true
+
+// Toggle to skip Phala deployment - ON if TEST_APP_URL is specified, OFF if empty
+// const TEST_APP_URL = "https://45034fea45a406a829feea099c77bbe6cf26faed-3000.dstack-pha-prod7.phala.network";
+const SKIP_PHALA_DEPLOYMENT = false;
 
 // Write AGENT_CONTRACT_ID to .env file for docker-compose
 function updateEnvFile() {
@@ -335,8 +339,61 @@ async function deployToPhala() {
   const composePath = resolve(__dirname, 'docker-compose.yaml');
   const envFilePath = resolve(__dirname, '.env');
 
+  // Extract allowed environment variables from docker-compose.yaml
+  const allowedEnvs = extractAllowedEnvs(composePath);
+  
+  // Build environment variable flags for Phala CLI
+  // Only include env vars that are allowed in docker-compose.yaml
+  let envFlags = '';
+  if (envFilePath && allowedEnvs.length > 0) {
+    // Resolve env file path relative to current working directory
+    const resolvedEnvFilePath = path.isAbsolute(envFilePath) 
+      ? envFilePath 
+      : path.resolve(process.cwd(), envFilePath);
+    
+    // Read the env file and extract values for allowed env vars
+    if (!fs.existsSync(resolvedEnvFilePath)) {
+      console.log(`Warning: Env file not found at ${resolvedEnvFilePath}, skipping environment variables`);
+    } else {
+      const envFileContent = fs.readFileSync(resolvedEnvFilePath, 'utf8');
+      const envVars = {};
+      
+      // Parse .env file (simple key=value format)
+      envFileContent.split('\n').forEach(line => {
+        line = line.trim();
+        // Skip comments and empty lines
+        if (line && !line.startsWith('#')) {
+          const match = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
+          if (match) {
+            const [, key, value] = match;
+            // Remove quotes if present (handles both single and double quotes)
+            const cleanValue = value.replace(/^["']|["']$/g, '');
+            envVars[key] = cleanValue;
+          }
+        }
+      });
+      
+      // Build -e KEY=VALUE flags for allowed env vars only
+      // Escape values that contain spaces or special characters
+      const envFlagArray = allowedEnvs
+        .filter(key => envVars.hasOwnProperty(key))
+        .map(key => {
+          const value = envVars[key];
+          // Quote value if it contains spaces or special characters
+          const escapedValue = (value.includes(' ') || value.includes('$') || value.includes('`'))
+            ? `"${value.replace(/"/g, '\\"')}"`
+            : value;
+          return `-e ${key}=${escapedValue}`;
+        });
+      
+      if (envFlagArray.length > 0) {
+        envFlags = envFlagArray.join(' ');
+      }
+    }
+  }
+
   const result = execSync(
-    `${phalaBin} deploy --name ${TEST_APP_NAME} --api-token ${PHALA_API_KEY} --compose ${composePath} --env-file ${envFilePath} --image dstack-0.5.5`,
+    `${phalaBin} deploy --name ${TEST_APP_NAME} --api-token ${PHALA_API_KEY} --compose ${composePath} ${envFlags} --image dstack-0.5.5`,
     { encoding: 'utf-8', stdio: 'pipe' }
   );
 
@@ -609,8 +666,43 @@ async function runTest(appUrl, testName, setupFn, verifyFn) {
   }
 }
 
-// Test 1: Can't verify with wrong measurements (RTMR2)
+// Test 1: Successful registration and signature request
 async function test1(appUrl) {
+  const correctMeasurements = getCorrectMeasurements();
+  const correctPpids = await getCorrectPpids();
+  
+  await runTest(
+    appUrl,
+    'successful-registration',
+    async () => {
+      // Approve measurements and PPIDs
+      await approveMeasurements(correctMeasurements);
+      await approvePpids(correctPpids);
+    },
+    async (result) => {
+      // Check that no errors occurred
+      if (result.registrationError) {
+        throw new Error(`Registration should have succeeded, got error: ${result.registrationError}`);
+      }
+      if (result.callError) {
+        throw new Error(`Call should have succeeded, got error: ${result.callError}`);
+      }
+      
+      // Verify agent is registered externally
+      const registered = await isAgentRegistered(result.agentAccountId);
+      if (!registered) {
+        throw new Error('Agent should be registered but is not');
+      }
+      
+      // Cleanup: Remove measurements and PPIDs
+      await removeMeasurements(correctMeasurements);
+      await removePpids(correctPpids);
+    }
+  );
+}
+
+// Test 2: Can't verify with wrong measurements (RTMR2)
+async function test2(appUrl) {
   const wrongMeasurements = getWrongMeasurementsRtmr2();
   const correctPpids = await getCorrectPpids();
   
@@ -629,10 +721,11 @@ async function test1(appUrl) {
         throw new Error('Agent should not be registered');
       }
       
-      // Verify registrationError matches WrongHash format with rtmr2
+      // Verify registrationError matches generic expected_measurements error
       const registrationError = result.registrationError || '';
-      if (!registrationError.match(/wrong rtmr2_(report_data|tcb_info) hash \(found .+ expected .+\)/i)) {
-        throw new Error(`Expected WrongHash error with rtmr2, got: ${registrationError}`);
+      if (!registrationError.includes('wrong expected_measurements hash') || 
+          !registrationError.includes('found none matched expected one of the embedded TCB info sets')) {
+        throw new Error(`Expected wrong expected_measurements hash error, got: ${registrationError}`);
       }
       
       // Verify callError contains "Agent not registered"
@@ -641,14 +734,14 @@ async function test1(appUrl) {
         throw new Error(`Expected callError to contain 'Agent not registered', got: ${callError}`);
       }
       
-      // Remove wrong measurements
       await removeMeasurements(wrongMeasurements);
+      await removePpids(correctPpids);
     }
   );
 }
 
-// Test 2: Can't verify with wrong key provider
-async function test2(appUrl) {
+// Test 3: Can't verify with wrong key provider
+async function test3(appUrl) {
   const wrongMeasurements = getWrongMeasurementsKeyProvider();
   const correctPpids = await getCorrectPpids();
   
@@ -665,10 +758,11 @@ async function test2(appUrl) {
         throw new Error('Agent should not be registered');
       }
       
-      // Verify registrationError matches WrongHash format with key_provider
+      // Verify registrationError matches generic expected_measurements error
       const registrationError = result.registrationError || '';
-      if (!registrationError.match(/wrong key_provider hash \(found .+ expected .+\)/i)) {
-        throw new Error(`Expected WrongHash error with key_provider, got: ${registrationError}`);
+      if (!registrationError.includes('wrong expected_measurements hash') || 
+          !registrationError.includes('found none matched expected one of the embedded TCB info sets')) {
+        throw new Error(`Expected wrong expected_measurements hash error, got: ${registrationError}`);
       }
       
       // Verify callError contains "Agent not registered"
@@ -678,12 +772,13 @@ async function test2(appUrl) {
       }
       
       await removeMeasurements(wrongMeasurements);
+      await removePpids(correctPpids);
     }
   );
 }
 
-// Test 3: Can't verify with wrong app compose
-async function test3(appUrl) {
+// Test 4: Can't verify with wrong app compose
+async function test4(appUrl) {
   const wrongMeasurements = getWrongMeasurementsAppCompose();
   const correctPpids = await getCorrectPpids();
   
@@ -700,10 +795,11 @@ async function test3(appUrl) {
         throw new Error('Agent should not be registered');
       }
       
-      // Verify registrationError matches WrongHash format with app_compose_hash
+      // Verify registrationError matches generic expected_measurements error
       const registrationError = result.registrationError || '';
-      if (!registrationError.match(/wrong app_compose_hash hash \(found .+ expected .+\)/i)) {
-        throw new Error(`Expected WrongHash error with app_compose_hash, got: ${registrationError}`);
+      if (!registrationError.includes('wrong expected_measurements hash') || 
+          !registrationError.includes('found none matched expected one of the embedded TCB info sets')) {
+        throw new Error(`Expected wrong expected_measurements hash error, got: ${registrationError}`);
       }
       
       // Verify callError contains "Agent not registered"
@@ -713,12 +809,13 @@ async function test3(appUrl) {
       }
       
       await removeMeasurements(wrongMeasurements);
+      await removePpids(correctPpids);
     }
   );
 }
 
-// Test 4: Can't verify with wrong PPID
-async function test4(appUrl) {
+// Test 5: Can't verify with wrong PPID
+async function test5(appUrl) {
   const correctMeasurements = getCorrectMeasurements();
   const wrongPpid = ['00000000000000000000000000000000']; // Wrong PPID
   
@@ -746,12 +843,16 @@ async function test4(appUrl) {
       if (!callError.includes('Agent not registered')) {
         throw new Error(`Expected callError to contain 'Agent not registered', got: ${callError}`);
       }
+      
+      // Cleanup: Remove measurements and wrong PPID
+      await removeMeasurements(correctMeasurements);
+      await removePpids(wrongPpid);
     }
   );
 }
 
-// Test 5: Can't submit attestation from different account ID
-async function test5(appUrl) {
+// Test 6: Can't submit attestation from different account ID
+async function test6(appUrl) {
   const correctMeasurements = getCorrectMeasurements();
   const correctPpids = await getCorrectPpids();
   
@@ -763,21 +864,6 @@ async function test5(appUrl) {
       await approvePpids(correctPpids);
     },
     async (result) => {
-      // Check that the agent is registered
-      const registered = await isAgentRegistered(result.agentAccountId);
-      if (!registered) {
-        throw new Error('Agent should be registered');
-      }
-      // Check that no other agent is registered
-      const agents = await provider.callFunction(
-        AGENT_CONTRACT_ID,
-        'get_agents',
-        {}
-      );
-      if (agents.length !== 1) {
-        throw new Error(`Expected 1 registered agent, found ${agents.length}`);
-      }
-      
       // Verify registrationError matches WrongHash format with report_data
       const registrationError = result.registrationError || '';
       if (!registrationError.match(/wrong report_data hash \(found .+ expected .+\)/i)) {
@@ -789,12 +875,16 @@ async function test5(appUrl) {
       if (!callError.includes('Agent not registered')) {
         throw new Error(`Expected callError to contain 'Agent not registered', got: ${callError}`);
       }
+      
+      // Cleanup: Remove measurements and PPIDs
+      await removeMeasurements(correctMeasurements);
+      await removePpids(correctPpids);
     }
   );
 }
 
-// Test 6: Can't do stuff if measurements are removed
-async function test6(appUrl) {
+// Test 7: Can't do stuff if measurements are removed
+async function test7(appUrl) {
   const correctMeasurements = getCorrectMeasurements();
   const correctPpids = await getCorrectPpids();
   
@@ -802,38 +892,61 @@ async function test6(appUrl) {
   console.log(`Running test: measurements-removed`);
   console.log('='.repeat(70));
   
-  // First approve measurements and PPIDs (if not already approved)
-  await approveMeasurements(correctMeasurements);
-  await approvePpids(correctPpids);
-  
-  // Wait for agent to register (if not already registered)
-  console.log('Waiting for agent to register...');
-  await new Promise(res => setTimeout(res, 10000));
-  
-  // Now remove measurements
-  await removeMeasurements(correctMeasurements);
-  
-  // Wait a bit for the removal to propagate
-  await new Promise(res => setTimeout(res, 2000));
-  
-  // Call test endpoint
-  const result = await callTestEndpoint(appUrl, 'measurements-removed');
-  
-  if (!result.success) {
-    throw new Error(`Test failed: ${result.error || 'Unknown error'}`);
+  try {
+    // Step 1: Approve measurements and PPIDs
+    await approveMeasurements(correctMeasurements);
+    await approvePpids(correctPpids);
+    await new Promise(res => setTimeout(res, 2000));
+    
+    // Step 2: Register the agent (should succeed)
+    const registerUrl = `${appUrl}/test/register-agent/measurements-removed`;
+    console.log(`Registering agent: ${registerUrl}`);
+    const registerResponse = await fetch(registerUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!registerResponse.ok) {
+      const errorText = await registerResponse.text();
+      throw new Error(`Failed to register agent: HTTP ${registerResponse.status}: ${errorText}`);
+    }
+    
+    const registerResult = await registerResponse.json();
+    if (!registerResult.success || registerResult.registrationError) {
+      throw new Error(`Registration should have succeeded, got error: ${registerResult.registrationError || 'Unknown error'}`);
+    }
+    
+    // Step 3: Remove measurements (this is the test scenario)
+    await removeMeasurements(correctMeasurements);
+    await new Promise(res => setTimeout(res, 2000));
+    
+    // Step 4: Try to make a call (should fail because measurements were removed)
+    const result = await callTestEndpoint(appUrl, 'measurements-removed');
+    
+    // Verify error contains "Agent not registered with approved measurements"
+    const errorMsg = result.callError || '';
+    if (!errorMsg.includes('Agent not registered with approved measurements')) {
+      throw new Error(`Expected error 'Agent not registered with approved measurements', got: ${errorMsg}`);
+    }
+    
+    // Verify test result
+    if (!result.success) {
+      throw new Error(`Test failed: ${result.error || 'Unknown error'}`);
+    }
+    
+    // Cleanup: Remove PPIDs
+    await removePpids(correctPpids);
+    
+    console.log(`✓ Test measurements-removed passed`);
+    return true;
+  } catch (error) {
+    console.error(`✗ Test measurements-removed failed: ${error.message}`);
+    throw error;
   }
-  
-  // Verify error contains "Agent not registered with approved measurements"
-  const errorMsg = result.callError || '';
-  if (!errorMsg.includes('Agent not registered with approved measurements')) {
-    throw new Error(`Expected error 'Agent not registered with approved measurements', got: ${errorMsg}`);
-  }
-  
-  console.log(`✓ Test measurements-removed passed`);
 }
 
-// Test 7: Can't do stuff if PPID is removed
-async function test7(appUrl) {
+// Test 8: Can't do stuff if PPID is removed
+async function test8(appUrl) {
   const correctMeasurements = getCorrectMeasurements();
   const correctPpids = await getCorrectPpids();
   
@@ -841,35 +954,59 @@ async function test7(appUrl) {
   console.log(`Running test: ppid-removed`);
   console.log('='.repeat(70));
   
-  // First approve measurements and PPIDs (if not already approved)
-  await approveMeasurements(correctMeasurements);
-  await approvePpids(correctPpids);
-  
-  // Wait for agent to register (if not already registered)
-  console.log('Waiting for agent to register...');
-  await new Promise(res => setTimeout(res, 10000));
-  
-  // Now remove PPID
-  await removePpids(correctPpids);
-  
-  // Wait a bit for the removal to propagate
-  await new Promise(res => setTimeout(res, 2000));
-  
-  // Call test endpoint
-  const result = await callTestEndpoint(appUrl, 'ppid-removed');
-  
-  if (!result.success) {
-    throw new Error(`Test failed: ${result.error || 'Unknown error'}`);
+  try {
+    // Step 1: Approve measurements and PPIDs
+    await approveMeasurements(correctMeasurements);
+    await approvePpids(correctPpids);
+    await new Promise(res => setTimeout(res, 2000));
+    
+    // Step 2: Register the agent (should succeed)
+    const registerUrl = `${appUrl}/test/register-agent/ppid-removed`;
+    console.log(`Registering agent: ${registerUrl}`);
+    const registerResponse = await fetch(registerUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+    });
+    
+    if (!registerResponse.ok) {
+      const errorText = await registerResponse.text();
+      throw new Error(`Failed to register agent: HTTP ${registerResponse.status}: ${errorText}`);
+    }
+    
+    const registerResult = await registerResponse.json();
+    if (!registerResult.success || registerResult.registrationError) {
+      throw new Error(`Registration should have succeeded, got error: ${registerResult.registrationError || 'Unknown error'}`);
+    }
+    
+    // Step 3: Remove PPID (this is the test scenario)
+    await removePpids(correctPpids);
+    await new Promise(res => setTimeout(res, 2000));
+    
+    // Step 4: Try to make a call (should fail because PPID was removed)
+    const result = await callTestEndpoint(appUrl, 'ppid-removed');
+    
+    // Verify error contains "Agent not registered with approved PPID"
+    const errorMsg = result.callError || '';
+    if (!errorMsg.includes('Agent not registered with approved PPID')) {
+      throw new Error(`Expected error 'Agent not registered with approved PPID', got: ${errorMsg}`);
+    }
+    
+    // Verify test result
+    if (!result.success) {
+      throw new Error(`Test failed: ${result.error || 'Unknown error'}`);
+    }
+    
+    // Cleanup: Remove measurements
+    await removeMeasurements(correctMeasurements);
+    
+    console.log(`✓ Test ppid-removed passed`);
+    return true;
+  } catch (error) {
+    console.error(`✗ Test ppid-removed failed: ${error.message}`);
+    throw error;
   }
-  
-  // Verify error contains "Agent not registered with approved PPID"
-  const errorMsg = result.callError || '';
-  if (!errorMsg.includes('Agent not registered with approved PPID')) {
-    throw new Error(`Expected error 'Agent not registered with approved PPID', got: ${errorMsg}`);
-  }
-  
-  console.log(`✓ Test ppid-removed passed`);
 }
+
 
 // Main execution
 async function main() {
@@ -891,57 +1028,55 @@ async function main() {
     console.log('\n⚠ Skipping contract deployment (SKIP_CONTRACT_DEPLOYMENT=true)\n');
   }
   
-  // Build, push, and update docker-compose.yaml with the test image
-  console.log('\nBuilding and pushing test image...');
-  await buildAndPushTestImage();
-  console.log('✓ Test image built and pushed\n');
-  
-  // Deploy to Phala once
-  console.log('Deploying test image to Phala...');
-  const appId = await deployToPhala();
-  const appUrls = await getAppUrl(appId);
-  if (!appUrls || appUrls.length === 0) {
-    throw new Error('Failed to get app URL from Phala');
+  // Deploy to Phala or use provided endpoint
+  let appUrl;
+  if (SKIP_PHALA_DEPLOYMENT) {
+    console.log('⚠ Skipping Phala deployment (TEST_APP_URL provided)');
+    appUrl = TEST_APP_URL.trim();
+    console.log(`✓ Using provided app URL: ${appUrl}`);
+  } else {
+    // Build, push, and update docker-compose.yaml with the test image
+    console.log('\nBuilding and pushing test image...');
+    await buildAndPushTestImage();
+    console.log('✓ Test image built and pushed\n');
+    
+    console.log('Deploying test image to Phala...');
+    const appId = await deployToPhala();
+    const appUrls = await getAppUrl(appId);
+    if (!appUrls || appUrls.length === 0) {
+      throw new Error('Failed to get app URL from Phala');
+    }
+    appUrl = appUrls[0].app;
+    console.log(`✓ App deployed at: ${appUrl}`);
   }
-  const appUrl = appUrls[0].app;
-  console.log(`✓ App deployed at: ${appUrl}`);
   
   // Wait for the app to be ready using heartbeat
   await waitForAppReady(appUrl);
   
   const tests = [
-    { name: 'Test 1: Wrong measurements (RTMR2)', fn: test1 },
-    { name: 'Test 2: Wrong key provider', fn: test2 },
-    { name: 'Test 3: Wrong app compose', fn: test3 },
-    { name: 'Test 4: Wrong PPID', fn: test4 },
-    { name: 'Test 5: Different account ID', fn: test5 },
-    { name: 'Test 6: Measurements removed', fn: test6 },
-    { name: 'Test 7: PPID removed', fn: test7 },
+    { name: 'Test 1: Successful registration', fn: test1 },
+    { name: 'Test 2: Wrong measurements (RTMR2)', fn: test2 },
+    { name: 'Test 3: Wrong key provider', fn: test3 },
+    { name: 'Test 4: Wrong app compose', fn: test4 },
+    { name: 'Test 5: Wrong PPID', fn: test5 },
+    { name: 'Test 6: Different account ID', fn: test6 },
+    { name: 'Test 7: Measurements removed', fn: test7 },
+    { name: 'Test 8: PPID removed', fn: test8 },
   ];
   
-  const failedTests = [];
-  
-  for (const test of tests) {
+  for (let i = 0; i < tests.length; i++) {
+    const test = tests[i];
     try {
       await test.fn(appUrl);
+      
+      // Add 1 second delay between tests (except after the last one)
+      if (i < tests.length - 1) {
+        await new Promise(res => setTimeout(res, 1000));
+      }
     } catch (error) {
       console.error(`\n✗ ${test.name} FAILED: ${error.message}`);
-      failedTests.push(test.name);
-      // Continue with next test
+      throw error;
     }
-  }
-  
-  console.log(`\n${'='.repeat(70)}`);
-  console.log('Test Summary');
-  console.log('='.repeat(70));
-  console.log(`Total tests: ${tests.length}`);
-  console.log(`Passed: ${tests.length - failedTests.length}`);
-  console.log(`Failed: ${failedTests.length}`);
-  
-  if (failedTests.length > 0) {
-    console.log('\nFailed tests:');
-    failedTests.forEach(name => console.log(`  - ${name}`));
-    process.exit(1);
   }
   
   console.log('\n✓ All tests passed!');

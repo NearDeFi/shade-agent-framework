@@ -4,6 +4,7 @@ import { fileURLToPath } from 'url';
 import fs from 'fs';
 import chalk from 'chalk';
 import { getConfig } from '../../utils/config.js';
+import { extractAllowedEnvs } from '../../utils/measurements.js';
 
 // Use native fetch (available in Node.js 18+)
 const fetchFn = globalThis.fetch;
@@ -93,7 +94,7 @@ async function getAppNameFromDeployment() {
 }
 
 // Deploy the app to Phala Cloud
-async function deployToPhala() {
+export async function deployToPhala() {
     // Deploys the app to Phala Cloud using phala CLI
     console.log('Deploying to Phala Cloud');
     const appName = await getAppNameFromDeployment();
@@ -111,8 +112,61 @@ async function deployToPhala() {
         const composePath = config.deployment.docker_compose_path;
         const envFilePath = config.deployment?.deploy_to_phala?.env_file_path;
 
+        // Extract allowed environment variables from docker-compose.yaml
+        const allowedEnvs = extractAllowedEnvs(composePath);
+        
+        // Build environment variable flags for Phala CLI
+        // Only include env vars that are allowed in docker-compose.yaml
+        let envFlags = '';
+        if (envFilePath && allowedEnvs.length > 0) {
+            // Resolve env file path relative to current working directory (where deployment.yaml is)
+            const resolvedEnvFilePath = path.isAbsolute(envFilePath) 
+                ? envFilePath 
+                : path.resolve(process.cwd(), envFilePath);
+            
+            // Read the env file and extract values for allowed env vars (allowed envs in the docker compose are decided by the ones specified in the env file not the ones defined by the docker compose file)
+            if (!fs.existsSync(resolvedEnvFilePath)) {
+                console.log(chalk.yellow(`Warning: Env file not found at ${resolvedEnvFilePath}, skipping environment variables`));
+            } else {
+                const envFileContent = fs.readFileSync(resolvedEnvFilePath, 'utf8');
+                const envVars = {};
+                
+                // Parse .env file (simple key=value format)
+                envFileContent.split('\n').forEach(line => {
+                    line = line.trim();
+                    // Skip comments and empty lines
+                    if (line && !line.startsWith('#')) {
+                        const match = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
+                        if (match) {
+                            const [, key, value] = match;
+                            // Remove quotes if present (handles both single and double quotes)
+                            const cleanValue = value.replace(/^["']|["']$/g, '');
+                            envVars[key] = cleanValue;
+                        }
+                    }
+                });
+                
+                // Build -e KEY=VALUE flags for allowed env vars only
+                // Escape values that contain spaces or special characters
+                const envFlagArray = allowedEnvs
+                    .filter(key => envVars.hasOwnProperty(key))
+                    .map(key => {
+                        const value = envVars[key];
+                        // Quote value if it contains spaces or special characters
+                        const escapedValue = (value.includes(' ') || value.includes('$') || value.includes('`'))
+                            ? `"${value.replace(/"/g, '\\"')}"`
+                            : value;
+                        return `-e ${key}=${escapedValue}`;
+                    });
+                
+                if (envFlagArray.length > 0) {
+                    envFlags = envFlagArray.join(' ');
+                }
+            }
+        }
+
         const result = execSync(
-            `${PHALA_COMMAND} deploy --name ${appName} --api-token ${phalaKey} --compose ${composePath} --env-file ${envFilePath} --image dstack-0.5.5`,
+            `${PHALA_COMMAND} deploy --name ${appName} --api-token ${phalaKey} --compose ${composePath} ${envFlags} --image dstack-0.5.5`,
             { encoding: 'utf-8', stdio: 'pipe' }
         );
 

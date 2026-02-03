@@ -37,8 +37,8 @@ export default async function testWrongKeyProvider(
     await agent.call({
       methodName: "request_signature",
       args: {
-        path: "test",
-        payload: "test",
+        path: "test-path",
+        payload: "b1bce08af8ed85b255f9fa2fe98b8feafa1460959d886e3914d533eca11cb6c6",
         key_type: "Ecdsa",
       },
     });
