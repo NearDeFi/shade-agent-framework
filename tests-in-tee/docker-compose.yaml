@@ -5,10 +5,10 @@ services:
       SPONSOR_ACCOUNT_ID: ${SPONSOR_ACCOUNT_ID}
       SPONSOR_PRIVATE_KEY: ${SPONSOR_PRIVATE_KEY}
     platform: linux/amd64
-    build:
-      context: ..
-      dockerfile: test-image.Dockerfile
+    image: pivortex/shade-test-image@sha256:6406afe5d10580881fc676c9a6427a8e9106760b23942c665084be30151116f3
     container_name: shade-test-image
+    ports:
+      - 3000:3000
     volumes:
       - /var/run/dstack.sock:/var/run/dstack.sock
     restart: always

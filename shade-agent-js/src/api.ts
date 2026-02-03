@@ -1,11 +1,11 @@
 import { Provider } from "@near-js/providers";
 import { internalFundAgent, createAccountObject } from "./utils/near";
 import {
-  DstackAttestation,
   getDstackClient,
   internalGetAttestation,
+  TcbInfo,
 } from "./utils/tee";
-import { attestationForContract } from "./utils/attestation-transform";
+import { type DstackAttestationForContract } from "./utils/attestation-transform";
 import { DstackClient } from "@phala/dstack-sdk";
 import { ensureKeysSetup, generateAgent, getAgentSigner } from "./utils/agent";
 import { validateShadeConfig } from "./utils/validation";
@@ -157,14 +157,12 @@ export class ShadeClient {
       throw new Error("agentContractId is required for registering the agent");
     }
 
-    const attestation = await internalGetAttestation(
+    // Get attestation in contract format
+    const contractAttestation = await internalGetAttestation(
       this.dstackClient,
       this.agentAccountId,
       this.keysDerivedWithTEE,
     );
-
-    // Convert attestation to contract format (arrays to hex strings for collateral)
-    const contractAttestation = attestationForContract(attestation);
 
     // Call the register_agent function on the agent contract
     return await this.call({
@@ -265,11 +263,11 @@ export class ShadeClient {
   }
 
   /**
-   * Gets the TEE attestation for the agent
-   * @returns Promise that resolves to the DstackAttestation object
+   * Gets the TEE attestation for the agent in contract format (ready to be sent to the contract)
+   * @returns Promise that resolves to the contract-formatted attestation object
    * @throws Error if fetching quote collateral fails (network errors, HTTP errors, timeouts)
    */
-  async getAttestation(): Promise<DstackAttestation> {
+  async getAttestation(): Promise<DstackAttestationForContract> {
     return internalGetAttestation(
       this.dstackClient,
       this.agentAccountId,

@@ -32,7 +32,7 @@ export default async function testPpidRemoved(
   } catch (error: any) {
     callError = error.message || String(error);
     // Expected to fail - verify error mentions PPID
-    if (!callError.toLowerCase().includes("ppid")) {
+    if (!callError?.toLowerCase().includes("ppid")) {
       callError = `Call failed but error doesn't mention PPID: ${callError}`;
     }
   }

@@ -360,14 +360,14 @@ describe('attestation-transform', () => {
       const result = getFakeAttestation();
 
       expect(result.collateral.pck_crl_issuer_chain).toBe('');
-      expect(result.collateral.root_ca_crl).toEqual([]);
-      expect(result.collateral.pck_crl).toEqual([]);
+      expect(result.collateral.root_ca_crl).toBe(''); // Empty array becomes empty hex string
+      expect(result.collateral.pck_crl).toBe(''); // Empty array becomes empty hex string
       expect(result.collateral.tcb_info_issuer_chain).toBe('');
       expect(result.collateral.tcb_info).toBe('');
-      expect(result.collateral.tcb_info_signature).toEqual([]);
+      expect(result.collateral.tcb_info_signature).toBe(''); // Empty array becomes empty hex string
       expect(result.collateral.qe_identity_issuer_chain).toBe('');
       expect(result.collateral.qe_identity).toBe('');
-      expect(result.collateral.qe_identity_signature).toEqual([]);
+      expect(result.collateral.qe_identity_signature).toBe(''); // Empty array becomes empty hex string
     });
 
     it('should have TcbInfo with correct hex lengths for fixed-size fields', () => {

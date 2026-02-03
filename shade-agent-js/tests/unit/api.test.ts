@@ -2,13 +2,12 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { ShadeClient, ShadeConfig } from '../../src/api';
 import { createMockAccount, createMockProvider } from '../mocks';
 import { createMockDstackClient } from '../mocks/tee-mocks';
-import { generateTestKey, createMockAttestation } from '../test-utils';
+import { generateTestKey, createMockAttestation, createMockContractAttestation } from '../test-utils';
 import { NEAR } from '@near-js/tokens';
 import { validateShadeConfig } from '../../src/utils/validation';
 import { getDstackClient, internalGetAttestation } from '../../src/utils/tee';
 import { generateAgent, ensureKeysSetup, getAgentSigner } from '../../src/utils/agent';
 import { createAccountObject, internalFundAgent } from '../../src/utils/near';
-import { attestationForContract } from '../../src/utils/attestation-transform';
 
 vi.mock('../../src/utils/validation', () => ({
   validateShadeConfig: vi.fn(),
@@ -30,9 +29,6 @@ vi.mock('../../src/utils/near', () => ({
   internalFundAgent: vi.fn(),
 }));
 
-vi.mock('../../src/utils/attestation-transform', () => ({
-  attestationForContract: vi.fn(),
-}));
 
 // Store mock account globally so Account class can access it
 let globalMockAccount: any = null;
@@ -93,7 +89,7 @@ describe('ShadeClient', () => {
       signer: {} as any,
       keyIndex: 0,
     });
-    vi.mocked(internalGetAttestation).mockResolvedValue(createMockAttestation());
+    vi.mocked(internalGetAttestation).mockResolvedValue(createMockContractAttestation());
   }
 
   describe('create', () => {
@@ -198,7 +194,6 @@ describe('ShadeClient', () => {
   describe('register', () => {
     it('should register agent successfully', async () => {
       setupClientMocks();
-      const attestation = createMockAttestation({ quote: [1, 2, 3] });
       const contractAttestation = {
         quote: [1, 2, 3],
         collateral: {
@@ -212,10 +207,20 @@ describe('ShadeClient', () => {
           qe_identity: '',
           qe_identity_signature: '',
         },
-        tcb_info: attestation.tcb_info,
+        tcb_info: {
+          mrtd: '',
+          rtmr0: '',
+          rtmr1: '',
+          rtmr2: '',
+          rtmr3: '',
+          os_image_hash: '',
+          compose_hash: '',
+          device_id: '',
+          app_compose: '',
+          event_log: [],
+        },
       };
-      vi.mocked(internalGetAttestation).mockResolvedValue(attestation);
-      vi.mocked(attestationForContract).mockReturnValue(contractAttestation);
+      vi.mocked(internalGetAttestation).mockResolvedValue(contractAttestation);
       (mockAccount.callFunction as ReturnType<typeof vi.fn>).mockResolvedValue(true);
       
       const client = await ShadeClient.create({
@@ -230,7 +235,6 @@ describe('ShadeClient', () => {
         testAccountId,
         false
       );
-      expect(attestationForContract).toHaveBeenCalledWith(attestation);
       expect(ensureKeysSetup).toHaveBeenCalled();
       expect(mockAccount.callFunction).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -447,7 +451,7 @@ describe('ShadeClient', () => {
   describe('getAttestation', () => {
     it('should return attestation', async () => {
       setupClientMocks();
-      const attestation = createMockAttestation({ quote: [1, 2, 3] });
+      const attestation = createMockContractAttestation({ quote: [1, 2, 3] });
       vi.mocked(internalGetAttestation).mockResolvedValue(attestation);
       
       const client = await ShadeClient.create({});
@@ -464,7 +468,7 @@ describe('ShadeClient', () => {
 
     it('should use TEE client if available', async () => {
       setupClientMocks({ dstackClient: mockDstackClient, derivedWithTEE: true });
-      const attestation = createMockAttestation({ quote: [4, 5, 6] });
+      const attestation = createMockContractAttestation({ quote: [4, 5, 6] });
       vi.mocked(internalGetAttestation).mockResolvedValue(attestation);
       
       const client = await ShadeClient.create({});

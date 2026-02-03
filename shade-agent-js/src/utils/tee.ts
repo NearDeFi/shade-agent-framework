@@ -5,6 +5,8 @@ import {
   transformCollateral,
   transformTcbInfo,
   getFakeAttestation,
+  attestationForContract,
+  type DstackAttestationForContract,
 } from "./attestation-transform";
 
 // DstackAttestation structure matching the contract interface
@@ -85,13 +87,13 @@ export async function getDstackClient(): Promise<DstackClient | undefined> {
   }
 }
 
-// Gets the TEE attestation for the agent
-// Returns DstackAttestation structure matching the contract interface
+// Gets the TEE attestation for the agent in contract format
+// Returns DstackAttestationForContract structure ready to be sent to the contract
 export async function internalGetAttestation(
   dstackClient: DstackClient | undefined,
   agentAccountId: string,
   keysDerivedWithTEE: boolean,
-): Promise<DstackAttestation> {
+): Promise<DstackAttestationForContract> {
   if (!dstackClient || !keysDerivedWithTEE) {
     // If not in a TEE or keys were not derived with TEE, return a fake/empty attestation
     // The contract will accept this if requires_tee is false, or reject it if requires_tee is true
@@ -152,9 +154,12 @@ export async function internalGetAttestation(
   // Transform tcb_info from dstack response to contract interface structure
   const tcb_info = transformTcbInfo(dstackTcbInfo);
 
-  return {
+  // Convert to contract format
+  const attestation: DstackAttestation = {
     quote,
     collateral,
     tcb_info,
   };
+
+  return attestationForContract(attestation);
 }

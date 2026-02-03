@@ -16,35 +16,29 @@ import { KeyPair } from "@near-js/crypto";
 import { Account } from "@near-js/accounts";
 import { KeyPairSigner } from "@near-js/signers";
 import { JsonRpcProvider } from "@near-js/providers";
-import { internalGetAttestation, getDstackClient } from "@neardefi/shade-agent-js/src/utils/tee";
-import { attestationForContract } from "@neardefi/shade-agent-js/src/utils/attestation-transform";
 
 export default async function testDifferentAccountId(
   agent: ShadeClient
 ): Promise<{
   success: boolean;
   agentAccountId: string;
-  registrationSuccess?: boolean;
-  callSuccess?: boolean;
-  differentAccountError?: string;
+  registrationError?: string;
+  callError?: string;
 }> {
   const agentAccountId = agent.accountId();
 
-  // Check that it can register and make a call
-  let registrationSuccess = false;
+  // First, register the correct agent (this should succeed)
   try {
-    registrationSuccess = await agent.register();
+    await agent.register();
   } catch (error: any) {
     return {
       success: false,
       agentAccountId,
-      registrationSuccess: false,
-      differentAccountError: `Registration failed: ${error.message}`,
+      registrationError: `Correct agent registration failed: ${error.message}`,
     };
   }
 
-  // Try to make a call
-  let callSuccess = false;
+  // Try to make a call with the correct agent (this should succeed)
   try {
     await agent.call({
       methodName: "request_signature",
@@ -54,14 +48,11 @@ export default async function testDifferentAccountId(
         key_type: "Ecdsa",
       },
     });
-    callSuccess = true;
   } catch (error: any) {
     return {
       success: false,
       agentAccountId,
-      registrationSuccess,
-      callSuccess: false,
-      differentAccountError: `Call failed: ${error.message}`,
+      callError: `Correct agent call failed: ${error.message}`,
     };
   }
 
@@ -72,13 +63,9 @@ export default async function testDifferentAccountId(
   const differentAccountIdBytes = publicKey.data;
   const differentAccountId = Buffer.from(differentAccountIdBytes).toString("hex").toLowerCase();
 
-  // Get attestation for the original agent account (this will have wrong report data)
-  const dstackClient = await getDstackClient();
-  const attestation = await internalGetAttestation(
-    dstackClient || undefined,
-    agentAccountId, // Use original account ID - this creates wrong report data
-    true
-  );
+  // Get attestation for the original agent account (this will have wrong report data for the different account)
+  // getAttestation() now returns the contract-formatted attestation directly
+  const contractAttestation = await agent.getAttestation();
 
   // Try to register with different account using the attestation
   // This should fail because report data doesn't match
@@ -87,9 +74,7 @@ export default async function testDifferentAccountId(
     return {
       success: false,
       agentAccountId,
-      registrationSuccess,
-      callSuccess,
-      differentAccountError: "AGENT_CONTRACT_ID not set",
+      registrationError: "AGENT_CONTRACT_ID not set",
     };
   }
 
@@ -101,9 +86,9 @@ export default async function testDifferentAccountId(
   const signer = KeyPairSigner.fromSecretKey(secretKey);
   const differentAccount = new Account(differentAccountId, provider, signer);
 
-  let differentAccountError: string | undefined;
+  // Try to register with different account - should fail with WrongHash error
+  let registrationError: string | undefined;
   try {
-    const contractAttestation = attestationForContract(attestation);
     await differentAccount.callFunction({
       contractId: agentContractId,
       methodName: "register_agent",
@@ -112,13 +97,14 @@ export default async function testDifferentAccountId(
       },
       gas: BigInt("300000000000000"), // 300 TGas
     });
-    differentAccountError = "Registration with different account should have failed but succeeded";
+    registrationError = "Registration with different account should have failed but succeeded";
   } catch (error: any) {
-    differentAccountError = error.message || String(error);
+    registrationError = error.message || String(error);
     // Expected to fail
   }
 
-  // Try to make a call from the different account - should fail
+  // Try to make a call from the different account - should fail with "Agent not registered"
+  let callError: string | undefined;
   try {
     await differentAccount.callFunction({
       contractId: agentContractId,
@@ -129,25 +115,23 @@ export default async function testDifferentAccountId(
         key_type: "Ecdsa",
       },
     });
-    if (!differentAccountError) {
-      differentAccountError = "Call from different account should have failed but succeeded";
-    }
+    callError = "Call from different account should have failed but succeeded";
   } catch (error: any) {
+    callError = error.message || String(error);
     // Expected to fail - this is good
   }
 
+  // Verify that errors occurred (as expected)
   const success =
-    registrationSuccess &&
-    callSuccess &&
-    differentAccountError !== undefined &&
-    differentAccountError !== "Registration with different account should have failed but succeeded" &&
-    differentAccountError !== "Call from different account should have failed but succeeded";
+    registrationError !== undefined &&
+    callError !== undefined &&
+    registrationError !== "Registration with different account should have failed but succeeded" &&
+    callError !== "Call from different account should have failed but succeeded";
 
   return {
     success,
     agentAccountId,
-    registrationSuccess,
-    callSuccess,
-    differentAccountError,
+    registrationError,
+    callError,
   };
 }

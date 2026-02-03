@@ -3,6 +3,7 @@ import { createHash } from 'crypto';
 import { vi } from 'vitest';
 import { createMockAccount } from './mocks';
 import type { DstackAttestation } from '../src/utils/tee';
+import type { DstackAttestationForContract } from '../src/utils/attestation-transform';
 
 // Generates a valid ed25519 test key from a seed string
 export function generateTestKey(seed: string): string {
@@ -39,7 +40,7 @@ export function createMockAccountWithKeys(keys: Array<{ public_key: string }>) {
   return mockAccount;
 }
 
-// Creates a mock DstackAttestation for testing
+// Creates a mock DstackAttestation for testing (internal format with byte arrays)
 // Allows overriding specific fields while providing defaults for the rest
 export function createMockAttestation(
   overrides?: Partial<DstackAttestation>
@@ -56,6 +57,41 @@ export function createMockAttestation(
       qe_identity_issuer_chain: '',
       qe_identity: '',
       qe_identity_signature: [],
+      ...overrides?.collateral,
+    },
+    tcb_info: {
+      mrtd: '',
+      rtmr0: '',
+      rtmr1: '',
+      rtmr2: '',
+      rtmr3: '',
+      os_image_hash: '',
+      compose_hash: '',
+      device_id: '',
+      app_compose: '',
+      event_log: [],
+      ...overrides?.tcb_info,
+    },
+  };
+}
+
+// Creates a mock DstackAttestationForContract for testing (contract format with hex strings)
+// Allows overriding specific fields while providing defaults for the rest
+export function createMockContractAttestation(
+  overrides?: Partial<DstackAttestationForContract>
+): DstackAttestationForContract {
+  return {
+    quote: overrides?.quote ?? [],
+    collateral: {
+      pck_crl_issuer_chain: '',
+      root_ca_crl: '', // hex string
+      pck_crl: '', // hex string
+      tcb_info_issuer_chain: '',
+      tcb_info: '',
+      tcb_info_signature: '', // hex string
+      qe_identity_issuer_chain: '',
+      qe_identity: '',
+      qe_identity_signature: '', // hex string
       ...overrides?.collateral,
     },
     tcb_info: {

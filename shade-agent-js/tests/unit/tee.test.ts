@@ -367,14 +367,14 @@ describe('tee utils', () => {
 
       expect(result.collateral).toEqual({
         pck_crl_issuer_chain: 'chain3',
-        root_ca_crl: [18, 52, 86, 120], // hex decoded
-        pck_crl: [135, 101, 67, 33], // hex decoded
+        root_ca_crl: '12345678', // hex string (contract format)
+        pck_crl: '87654321', // hex string (contract format)
         tcb_info_issuer_chain: 'chain1',
         tcb_info: 'tcb_info_json',
-        tcb_info_signature: [222, 173, 190, 239], // hex decoded
+        tcb_info_signature: 'deadbeef', // hex string (contract format)
         qe_identity_issuer_chain: 'chain2',
         qe_identity: 'qe_identity_json',
-        qe_identity_signature: [202, 254, 186, 190], // hex decoded
+        qe_identity_signature: 'cafebabe', // hex string (contract format)
       });
     });
   });

@@ -70,9 +70,6 @@ The script will:
 
 - `TESTNET_ACCOUNT_ID` - NEAR testnet account that will fund and manage tests
 - `TESTNET_PRIVATE_KEY` - Private key for the testnet account
-- `AGENT_CONTRACT_ID` - NEAR contract ID for the agent contract
 - `PHALA_API_KEY` - Phala Cloud API key for deployment
-- `TEST_APP_NAME` - Optional name for the Phala app (defaults to 'shade-integration-tests')
-- `SPONSOR_ACCOUNT_ID` - Sponsor account for the test image (usually same as TESTNET_ACCOUNT_ID)
-- `SPONSOR_PRIVATE_KEY` - Sponsor private key (usually same as TESTNET_PRIVATE_KEY)
-- `PORT` - Port for the test image server (defaults to 3000)
+
+**Note**: `AGENT_CONTRACT_ID` is automatically generated as `shade-test-contract.${TESTNET_ACCOUNT_ID}` and written to the `.env` file. The script will create this as a subaccount, deploy the contract, and initialize it automatically.

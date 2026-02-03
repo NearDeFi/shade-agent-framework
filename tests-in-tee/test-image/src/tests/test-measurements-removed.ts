@@ -30,9 +30,9 @@ export default async function testMeasurementsRemoved(
     });
     callError = "Call should have failed but succeeded";
   } catch (error: any) {
-    callError = error.message || String(error);
+    callError = (error?.message ?? String(error));
     // Expected to fail - verify error mentions measurements
-    if (!callError.toLowerCase().includes("measurement")) {
+    if (!callError?.toLowerCase().includes("measurement")) {
       callError = `Call failed but error doesn't mention measurements: ${callError}`;
     }
   }
@@ -48,4 +48,4 @@ export default async function testMeasurementsRemoved(
     agentAccountId,
     callError,
   };
-}
+}  

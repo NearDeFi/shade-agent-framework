@@ -13,8 +13,13 @@ import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { dirname, resolve } from 'path';
 import fs from 'fs';
-import { Account, KeyPairSigner } from '@near-js/accounts';
-import { KeyPair } from '@near-js/crypto';
+import dotenv from 'dotenv';
+import { parse, stringify } from 'yaml';
+import { platform } from 'os';
+import { Account } from '@near-js/accounts';
+import { KeyPairSigner } from '@near-js/signers';
+import { JsonRpcProvider } from '@near-js/providers';
+import { NEAR } from '@near-js/tokens';
 import { getMeasurements, calculateAppComposeHash, extractAllowedEnvs } from '../shade-agent-cli/src/utils/measurements.js';
 import { getPpids } from '../shade-agent-cli/src/utils/ppids.js';
 import { tgasToGas } from '../shade-agent-cli/src/utils/near.js';
@@ -22,34 +27,297 @@ import { tgasToGas } from '../shade-agent-cli/src/utils/near.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// Load environment variables from .env file
+const envPath = resolve(__dirname, '.env');
+dotenv.config({ path: envPath });
+
 // Load environment variables
 const TESTNET_ACCOUNT_ID = process.env.TESTNET_ACCOUNT_ID;
 const TESTNET_PRIVATE_KEY = process.env.TESTNET_PRIVATE_KEY;
-const AGENT_CONTRACT_ID = process.env.AGENT_CONTRACT_ID;
 const PHALA_API_KEY = process.env.PHALA_API_KEY;
 
-if (!TESTNET_ACCOUNT_ID || !TESTNET_PRIVATE_KEY || !AGENT_CONTRACT_ID || !PHALA_API_KEY) {
+if (!TESTNET_ACCOUNT_ID || !TESTNET_PRIVATE_KEY || !PHALA_API_KEY) {
   console.error('Missing required environment variables:');
   console.error('  TESTNET_ACCOUNT_ID');
   console.error('  TESTNET_PRIVATE_KEY');
-  console.error('  AGENT_CONTRACT_ID');
   console.error('  PHALA_API_KEY');
   process.exit(1);
 }
 
+// Generate contract ID as subaccount of TESTNET_ACCOUNT_ID
+const AGENT_CONTRACT_ID = `shade-test-contract.${TESTNET_ACCOUNT_ID}`;
 const TEST_APP_NAME = 'shade-integration-tests';
 
-// Initialize NEAR account
-const provider = new Provider({
-  type: 'JsonRpcProvider',
-  args: {
-    url: 'https://rpc.testnet.near.org',
-  },
-});
+// Toggle to skip redeploying account, contract, and initialization (useful for reusing existing deployment)
+const SKIP_CONTRACT_DEPLOYMENT = true
 
-const keyPair = KeyPair.fromString(TESTNET_PRIVATE_KEY);
-const signer = KeyPairSigner.fromKeyPair(keyPair);
+// Write AGENT_CONTRACT_ID to .env file for docker-compose
+function updateEnvFile() {
+  const envPath = resolve(__dirname, '.env');
+  let envContent = '';
+  
+  if (fs.existsSync(envPath)) {
+    envContent = fs.readFileSync(envPath, 'utf8');
+  }
+  
+  // Update or add AGENT_CONTRACT_ID
+  const lines = envContent.split('\n');
+  let found = false;
+  const updatedLines = lines.map(line => {
+    if (line.startsWith('AGENT_CONTRACT_ID=')) {
+      found = true;
+      return `AGENT_CONTRACT_ID=${AGENT_CONTRACT_ID}`;
+    }
+    return line;
+  });
+  
+  if (!found) {
+    updatedLines.push(`AGENT_CONTRACT_ID=${AGENT_CONTRACT_ID}`);
+  }
+  
+  // Also ensure SPONSOR_ACCOUNT_ID and SPONSOR_PRIVATE_KEY are set
+  let sponsorAccountFound = false;
+  let sponsorPrivateKeyFound = false;
+  const finalLines = updatedLines.map(line => {
+    if (line.startsWith('SPONSOR_ACCOUNT_ID=')) {
+      sponsorAccountFound = true;
+      return `SPONSOR_ACCOUNT_ID=${TESTNET_ACCOUNT_ID}`;
+    }
+    if (line.startsWith('SPONSOR_PRIVATE_KEY=')) {
+      sponsorPrivateKeyFound = true;
+      return `SPONSOR_PRIVATE_KEY=${TESTNET_PRIVATE_KEY}`;
+    }
+    return line;
+  });
+  
+  if (!sponsorAccountFound) {
+    finalLines.push(`SPONSOR_ACCOUNT_ID=${TESTNET_ACCOUNT_ID}`);
+  }
+  if (!sponsorPrivateKeyFound) {
+    finalLines.push(`SPONSOR_PRIVATE_KEY=${TESTNET_PRIVATE_KEY}`);
+  }
+  
+  fs.writeFileSync(envPath, finalLines.join('\n') + '\n');
+  console.log(`✓ Updated .env file with AGENT_CONTRACT_ID=${AGENT_CONTRACT_ID}`);
+}
+
+// Initialize NEAR account
+const provider = new JsonRpcProvider(
+  {
+      url: "https://test.rpc.fastnear.com"
+  },
+  {
+      retries: 3,
+      backoff: 2,
+      wait: 1000,
+  }
+  );
+
+const signer = KeyPairSigner.fromSecretKey(TESTNET_PRIVATE_KEY);
 const account = new Account(TESTNET_ACCOUNT_ID, provider, signer);
+const contractAccount = new Account(AGENT_CONTRACT_ID, provider, signer);
+
+// Sleep helper
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+// Create contract account (as subaccount of TESTNET_ACCOUNT_ID)
+async function createContractAccount() {
+  console.log('Creating contract account...');
+  const fundingAmount = 10; // NEAR tokens
+  
+  // Check if master account has enough balance
+  const requiredBalance = fundingAmount + 0.1;
+  const masterBalance = await account.getBalance(NEAR);
+  const masterBalanceDecimal = parseFloat(NEAR.toDecimal(masterBalance));
+  
+  // Get contract account balance if it exists (will be returned to master when deleted)
+  let contractAccountExists = false;
+  let contractBalanceDecimal = 0;
+  try {
+    const state = await contractAccount.getState();
+    contractAccountExists = true;
+    // Extract balance from state
+    if (state && state.balance && state.balance.total) {
+      const contractBalance = state.balance.total;
+      contractBalanceDecimal = parseFloat(NEAR.toDecimal(contractBalance));
+    }
+  } catch (e) {
+    // Contract account doesn't exist, balance is 0 - this is fine
+    if (e.type !== 'AccountDoesNotExist') {
+      throw new Error(`Error checking contract account: ${e.message}`);
+    }
+  }
+  
+  const totalBalance = masterBalanceDecimal + contractBalanceDecimal;
+  
+  if (totalBalance < requiredBalance) {
+    throw new Error(
+      `Insufficient balance. Master account has ${totalBalance} NEAR but needs ${requiredBalance} NEAR ` +
+      `(${fundingAmount} NEAR for contract + 0.1 NEAR for fees)`
+    );
+  }
+  
+  // Delete the contract account if it exists
+  if (contractAccountExists) {
+    console.log('Contract account already exists, deleting it...');
+    try {
+      await contractAccount.deleteAccount(TESTNET_ACCOUNT_ID);
+      await sleep(2000);
+    } catch (deleteError) {
+      if (deleteError.type === 'AccessKeyDoesNotExist') {
+        throw new Error(
+          'Cannot delete contract account - access key mismatch. ' +
+          'The contract account was created with a different master account.'
+        );
+      }
+      throw new Error(`Failed to delete existing contract account: ${deleteError.message}`);
+    }
+  } else {
+    console.log('Contract account does not exist, creating it');
+  }
+  
+  // Create the contract account
+  try {
+    const publicKey = await account.getSigner().getPublicKey();
+    const result = await account.createAccount(
+      AGENT_CONTRACT_ID,
+      publicKey,
+      NEAR.toUnits(fundingAmount)
+    );
+    
+    await sleep(2000);
+    console.log(`✓ Contract account created: ${AGENT_CONTRACT_ID}`);
+  } catch (e) {
+    throw new Error(`Failed to create contract account: ${e.message}`);
+  }
+}
+
+// Deploy contract WASM
+async function deployContract() {
+  console.log('Deploying contract WASM...');
+  const wasmPath = resolve(__dirname, '..', 'agent-template', 'shade-contract-template', 'target', 'near', 'shade_contract.wasm');
+  
+  if (!fs.existsSync(wasmPath)) {
+    throw new Error(`WASM file not found at ${wasmPath}. Please build the contract first.`);
+  }
+  
+  try {
+    const wasmBytes = fs.readFileSync(wasmPath);
+    await contractAccount.deployContract(new Uint8Array(wasmBytes));
+    await sleep(2000);
+    console.log('✓ Contract deployed');
+  } catch (e) {
+    throw new Error(`Failed to deploy contract: ${e.message}`);
+  }
+}
+
+// Initialize contract
+async function initializeContract() {
+  console.log('Initializing contract...');
+  
+  const initArgs = {
+    owner_id: TESTNET_ACCOUNT_ID,
+    mpc_contract_id: 'v1.signer-prod.testnet', // testnet MPC contract
+    requires_tee: true,
+  };
+  
+  try {
+    await contractAccount.callFunction({
+      contractId: AGENT_CONTRACT_ID,
+      methodName: 'new',
+      args: initArgs,
+      gas: tgasToGas(30),
+    });
+    await sleep(2000);
+    console.log('✓ Contract initialized');
+  } catch (e) {
+    throw new Error(`Failed to initialize contract: ${e.message}`);
+  }
+}
+
+// Get sudo prefix for Docker commands based on OS
+function getSudoPrefix() {
+  const platformName = platform();
+  return platformName === 'linux' ? 'sudo ' : '';
+}
+
+// Build the Docker image
+async function buildTestImage(dockerTag) {
+  console.log('Building the Docker image...');
+  try {
+    const dockerfilePath = resolve(__dirname, '..', 'test-image.Dockerfile');
+    const dockerfileFlag = `-f ${dockerfilePath}`;
+    const sudoPrefix = getSudoPrefix();
+    // Use the directory containing the Dockerfile as build context (project root)
+    const buildContext = resolve(__dirname, '..');
+    execSync(
+      `${sudoPrefix}docker build ${dockerfileFlag} --platform=linux/amd64 -t ${dockerTag}:latest ${buildContext}`,
+      { stdio: 'inherit' }
+    );
+  } catch (e) {
+    throw new Error(`Error building the Docker image: ${e.message}`);
+  }
+}
+
+// Push the Docker image to docker hub and return the codehash
+async function pushTestImage(dockerTag) {
+  console.log('Pushing the Docker image...');
+  try {
+    const sudoPrefix = getSudoPrefix();
+    const output = execSync(
+      `${sudoPrefix}docker push ${dockerTag}:latest`,
+      { encoding: 'utf-8', stdio: 'pipe' }
+    );
+    const match = output.toString().match(/sha256:[a-f0-9]{64}/gim);
+    if (!match || !match[0]) {
+      throw new Error('Could not extract codehash from the Docker push output');
+    }
+    const codehash = match[0].split('sha256:')[1];
+    return codehash;
+  } catch (e) {
+    throw new Error(`Error pushing the Docker image: ${e.message}`);
+  }
+}
+
+// Update the docker-compose.yaml file with the new image codehash
+function updateDockerComposeImage(dockerTag, codehash) {
+  console.log('Updating docker-compose.yaml with new image codehash...');
+  try {
+    const composePath = resolve(__dirname, 'docker-compose.yaml');
+    const compose = fs.readFileSync(composePath, 'utf8');
+    const doc = parse(compose);
+
+    if (!doc.services || !doc.services['shade-test-image']) {
+      throw new Error(`Could not find services.shade-test-image in ${composePath}`);
+    }
+
+    // Set image to tag@sha256:codehash
+    doc.services['shade-test-image'].image = `${dockerTag}@sha256:${codehash}`;
+
+    const updated = stringify(doc);
+    fs.writeFileSync(composePath, updated, 'utf8');
+    console.log(`✓ Updated docker-compose.yaml with image ${dockerTag}@sha256:${codehash}`);
+  } catch (e) {
+    throw new Error(`Error updating docker-compose.yaml: ${e.message}`);
+  }
+}
+
+// Build, push, and update docker-compose.yaml
+async function buildAndPushTestImage() {
+  const dockerTag = process.env.DOCKER_TAG || 'pivortex/shade-test-image';
+  console.log(`Using Docker tag: ${dockerTag}`);
+  
+  // Build the image
+  await buildTestImage(dockerTag);
+  
+  // Push the image and get the codehash
+  const codehash = await pushTestImage(dockerTag);
+  
+  // Update docker-compose.yaml
+  updateDockerComposeImage(dockerTag, codehash);
+  
+  return codehash;
+}
 
 // Get Phala CLI binary
 function getPhalaBin() {
@@ -63,7 +331,6 @@ function getPhalaBin() {
 
 // Deploy to Phala
 async function deployToPhala() {
-  console.log('Deploying test image to Phala...');
   const phalaBin = getPhalaBin();
   const composePath = resolve(__dirname, 'docker-compose.yaml');
   const envFilePath = resolve(__dirname, '.env');
@@ -86,38 +353,48 @@ async function deployToPhala() {
   return deployResult.vm_uuid;
 }
 
-// Get app URL from Phala
+// Get app URL from Phala (matches CLI implementation)
 async function getAppUrl(appId) {
-  console.log('Waiting for app URL...');
+  console.log('Getting the app URL');
   const url = `https://cloud-api.phala.network/api/v1/cvms/${appId}`;
-  const maxAttempts = 10;
-  const delay = 2000;
+  const maxAttempts = 5;
+  const delay = 1000;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
-      const response = await fetch(url, {
-        headers: { 'X-API-Key': PHALA_API_KEY },
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        if (!data.error && Array.isArray(data.public_urls)) {
+      const response = await fetch(url, { headers: { 'X-API-Key': PHALA_API_KEY } });
+      if (!response.ok) {
+        if (attempt === maxAttempts) {
+          console.log(`HTTP error! status: ${response.status}`);
+        }
+        continue;
+      }
+      const data = await response.json();
+      if (!data.error) {
+        // List all non-empty public URLs
+        if (Array.isArray(data.public_urls)) {
           const validUrls = data.public_urls.filter(u => u.app && u.app.trim() !== '');
           if (validUrls.length > 0) {
-            return validUrls[0].app;
+            // Print URLs and exit immediately
+            console.log(`\nYour app is live at:`);
+            validUrls.forEach((urlObj, index) => {
+              console.log(`  ${index + 1}. ${urlObj.app}${urlObj.instance ? ` (instance: ${urlObj.instance})` : ''}`);
+            });
+            return validUrls;
           }
         }
       }
     } catch (e) {
-      // Continue retrying
+      if (attempt === maxAttempts) {
+        console.log(`Error fetching CVM network info (attempt ${attempt}): ${e.message}`);
+      }
     }
-    
     if (attempt < maxAttempts) {
       await new Promise(res => setTimeout(res, delay));
     }
   }
-  
-  throw new Error('Failed to get app URL');
+  console.log(`Failed to get app URL: CVM Network Info did not become ready after ${maxAttempts} attempts.`);
+  return null;
 }
 
 // Approve measurements
@@ -351,6 +628,19 @@ async function test1(appUrl) {
       if (registered) {
         throw new Error('Agent should not be registered');
       }
+      
+      // Verify registrationError matches WrongHash format with rtmr2
+      const registrationError = result.registrationError || '';
+      if (!registrationError.match(/wrong rtmr2_(report_data|tcb_info) hash \(found .+ expected .+\)/i)) {
+        throw new Error(`Expected WrongHash error with rtmr2, got: ${registrationError}`);
+      }
+      
+      // Verify callError contains "Agent not registered"
+      const callError = result.callError || '';
+      if (!callError.includes('Agent not registered')) {
+        throw new Error(`Expected callError to contain 'Agent not registered', got: ${callError}`);
+      }
+      
       // Remove wrong measurements
       await removeMeasurements(wrongMeasurements);
     }
@@ -374,6 +664,19 @@ async function test2(appUrl) {
       if (registered) {
         throw new Error('Agent should not be registered');
       }
+      
+      // Verify registrationError matches WrongHash format with key_provider
+      const registrationError = result.registrationError || '';
+      if (!registrationError.match(/wrong key_provider hash \(found .+ expected .+\)/i)) {
+        throw new Error(`Expected WrongHash error with key_provider, got: ${registrationError}`);
+      }
+      
+      // Verify callError contains "Agent not registered"
+      const callError = result.callError || '';
+      if (!callError.includes('Agent not registered')) {
+        throw new Error(`Expected callError to contain 'Agent not registered', got: ${callError}`);
+      }
+      
       await removeMeasurements(wrongMeasurements);
     }
   );
@@ -396,6 +699,19 @@ async function test3(appUrl) {
       if (registered) {
         throw new Error('Agent should not be registered');
       }
+      
+      // Verify registrationError matches WrongHash format with app_compose_hash
+      const registrationError = result.registrationError || '';
+      if (!registrationError.match(/wrong app_compose_hash hash \(found .+ expected .+\)/i)) {
+        throw new Error(`Expected WrongHash error with app_compose_hash, got: ${registrationError}`);
+      }
+      
+      // Verify callError contains "Agent not registered"
+      const callError = result.callError || '';
+      if (!callError.includes('Agent not registered')) {
+        throw new Error(`Expected callError to contain 'Agent not registered', got: ${callError}`);
+      }
+      
       await removeMeasurements(wrongMeasurements);
     }
   );
@@ -417,6 +733,18 @@ async function test4(appUrl) {
       const registered = await isAgentRegistered(result.agentAccountId);
       if (registered) {
         throw new Error('Agent should not be registered');
+      }
+      
+      // Verify registrationError contains PPID not in allowed list custom error
+      const registrationError = result.registrationError || '';
+      if (!registrationError.toLowerCase().includes('ppid') || !registrationError.toLowerCase().includes('not in the allowed ppids list')) {
+        throw new Error(`Expected error about PPID not in allowed list, got: ${registrationError}`);
+      }
+      
+      // Verify callError contains "Agent not registered"
+      const callError = result.callError || '';
+      if (!callError.includes('Agent not registered')) {
+        throw new Error(`Expected callError to contain 'Agent not registered', got: ${callError}`);
       }
     }
   );
@@ -448,6 +776,18 @@ async function test5(appUrl) {
       );
       if (agents.length !== 1) {
         throw new Error(`Expected 1 registered agent, found ${agents.length}`);
+      }
+      
+      // Verify registrationError matches WrongHash format with report_data
+      const registrationError = result.registrationError || '';
+      if (!registrationError.match(/wrong report_data hash \(found .+ expected .+\)/i)) {
+        throw new Error(`Expected WrongHash error with report_data, got: ${registrationError}`);
+      }
+      
+      // Verify callError contains "Agent not registered"
+      const callError = result.callError || '';
+      if (!callError.includes('Agent not registered')) {
+        throw new Error(`Expected callError to contain 'Agent not registered', got: ${callError}`);
       }
     }
   );
@@ -483,6 +823,12 @@ async function test6(appUrl) {
     throw new Error(`Test failed: ${result.error || 'Unknown error'}`);
   }
   
+  // Verify error contains "Agent not registered with approved measurements"
+  const errorMsg = result.callError || '';
+  if (!errorMsg.includes('Agent not registered with approved measurements')) {
+    throw new Error(`Expected error 'Agent not registered with approved measurements', got: ${errorMsg}`);
+  }
+  
   console.log(`✓ Test measurements-removed passed`);
 }
 
@@ -516,6 +862,12 @@ async function test7(appUrl) {
     throw new Error(`Test failed: ${result.error || 'Unknown error'}`);
   }
   
+  // Verify error contains "Agent not registered with approved PPID"
+  const errorMsg = result.callError || '';
+  if (!errorMsg.includes('Agent not registered with approved PPID')) {
+    throw new Error(`Expected error 'Agent not registered with approved PPID', got: ${errorMsg}`);
+  }
+  
   console.log(`✓ Test ppid-removed passed`);
 }
 
@@ -525,10 +877,33 @@ async function main() {
   console.log('Starting Integration Tests');
   console.log('='.repeat(70));
   
+  // Update .env file with generated contract ID
+  updateEnvFile();
+  
+  // Deploy contract to testnet (skip if SKIP_CONTRACT_DEPLOYMENT is true)
+  if (!SKIP_CONTRACT_DEPLOYMENT) {
+    console.log('\nDeploying contract to testnet...');
+    await createContractAccount();
+    await deployContract();
+    await initializeContract();
+    console.log('✓ Contract deployment complete\n');
+  } else {
+    console.log('\n⚠ Skipping contract deployment (SKIP_CONTRACT_DEPLOYMENT=true)\n');
+  }
+  
+  // Build, push, and update docker-compose.yaml with the test image
+  console.log('\nBuilding and pushing test image...');
+  await buildAndPushTestImage();
+  console.log('✓ Test image built and pushed\n');
+  
   // Deploy to Phala once
-  console.log('\nDeploying test image to Phala...');
+  console.log('Deploying test image to Phala...');
   const appId = await deployToPhala();
-  const appUrl = await getAppUrl(appId);
+  const appUrls = await getAppUrl(appId);
+  if (!appUrls || appUrls.length === 0) {
+    throw new Error('Failed to get app URL from Phala');
+  }
+  const appUrl = appUrls[0].app;
   console.log(`✓ App deployed at: ${appUrl}`);
   
   // Wait for the app to be ready using heartbeat

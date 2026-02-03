@@ -85,10 +85,8 @@ export function transformTcbInfo(dstackTcbInfo: DstackTcbInfo): TcbInfo {
   };
 }
 
-// Converts DstackAttestation to a format suitable for JSON serialization to the contract
-export function attestationForContract(
-  attestation: DstackAttestation,
-): {
+// Contract-formatted attestation structure (ready to be sent to the contract)
+export interface DstackAttestationForContract {
   quote: number[];
   collateral: {
     pck_crl_issuer_chain: string;
@@ -102,7 +100,12 @@ export function attestationForContract(
     qe_identity_signature: string; // hex string
   };
   tcb_info: TcbInfo;
-} {
+}
+
+// Converts DstackAttestation to a format suitable for JSON serialization to the contract
+export function attestationForContract(
+  attestation: DstackAttestation,
+): DstackAttestationForContract {
   return {
     quote: attestation.quote,
     collateral: {
@@ -123,7 +126,7 @@ export function attestationForContract(
 }
 
 // Creates a fake/empty DstackAttestation structure for non-TEE (requires_tee = false)
-export function getFakeAttestation(): DstackAttestation {
+function getFakeAttestationInternal(): DstackAttestation {
   // TcbInfo fixed-size fields must be valid hex of the right length for contract deserialization
   const ZERO_48_HEX = "0".repeat(96); // 48 bytes
   const ZERO_32_HEX = "0".repeat(64); // 32 bytes
@@ -154,4 +157,9 @@ export function getFakeAttestation(): DstackAttestation {
       event_log: [],
     },
   };
+}
+
+// Creates a fake/empty DstackAttestationForContract structure for non-TEE (requires_tee = false)
+export function getFakeAttestation(): DstackAttestationForContract {
+  return attestationForContract(getFakeAttestationInternal());
 }
