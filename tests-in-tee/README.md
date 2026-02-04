@@ -73,3 +73,10 @@ The script will:
 - `PHALA_API_KEY` - Phala Cloud API key for deployment
 
 **Note**: `AGENT_CONTRACT_ID` is automatically generated as `shade-test-contract.${TESTNET_ACCOUNT_ID}` and written to the `.env` file. The script will create this as a subaccount, deploy the contract, and initialize it automatically.
+
+
+
+
+
+No tests for dcap qval, expired attestation, tcb info matching report, tcb advisory and up to date.
+

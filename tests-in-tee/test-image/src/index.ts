@@ -18,6 +18,7 @@ import testDifferentAccountId from "./tests/test-different-account-id";
 import testMeasurementsRemoved from "./tests/test-measurements-removed";
 import testPpidRemoved from "./tests/test-ppid-removed";
 import testSuccessfulRegistration from "./tests/test-successful-registration";
+import testUniqueKeys from "./tests/test-unique-keys";
 
 // Load environment variables
 dotenv.config();
@@ -248,6 +249,22 @@ app.post("/test/successful-registration", async (c) => {
   try {
     const agent = await createAgent();
     const result = await testSuccessfulRegistration(agent);
+    return c.json(result);
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: error.message,
+        stack: error.stack,
+      },
+      500
+    );
+  }
+});
+
+app.post("/test/unique-keys", async (c) => {
+  try {
+    const result = await testUniqueKeys();
     return c.json(result);
   } catch (error: any) {
     return c.json(

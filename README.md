@@ -150,6 +150,3 @@ You may need to cast results into types now, this can be got from chainsig.js, s
 If you want to start the agent again you don't need to run the CLI 
 
 If you want to reconfigure something in the contract like switching to mainnet you should run the CLI again
-
-
-phala deploy --name shade-test-2 --image dstack-0.5.4.1 -c docker-compose.yaml --env-file .env

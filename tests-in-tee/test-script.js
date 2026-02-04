@@ -49,7 +49,7 @@ const AGENT_CONTRACT_ID = `shade-test-contract.${TESTNET_ACCOUNT_ID}`;
 const TEST_APP_NAME = 'shade-integration-tests';
 
 // Toggle to skip redeploying account, contract, and initialization (useful for reusing existing deployment)
-const SKIP_CONTRACT_DEPLOYMENT = true
+const SKIP_CONTRACT_DEPLOYMENT = false
 
 // Toggle to skip Phala deployment - ON if TEST_APP_URL is specified, OFF if empty
 // const TEST_APP_URL = "https://45034fea45a406a829feea099c77bbe6cf26faed-3000.dstack-pha-prod7.phala.network";
@@ -1007,6 +1007,39 @@ async function test8(appUrl) {
   }
 }
 
+// Test 9: Verify that two agent instances generate different private keys
+async function test9(appUrl) {
+  const correctMeasurements = getCorrectMeasurements();
+  const correctPpids = await getCorrectPpids();
+  
+  await runTest(
+    appUrl,
+    'unique-keys',
+    async () => {
+      await approveMeasurements(correctMeasurements);
+      await approvePpids(correctPpids);
+    },
+    async (result) => {
+      // Verify all keys are unique
+      if (!result.allKeysUnique) {
+        throw new Error('Expected all keys to be unique, but duplicates were found');
+      }
+      
+      // Verify each agent has 3 keys
+      if (!result.agent1Keys || result.agent1Keys.length !== 3) {
+        throw new Error(`Agent 1 should have 3 keys, got ${result.agent1Keys?.length || 0}`);
+      }
+      
+      if (!result.agent2Keys || result.agent2Keys.length !== 3) {
+        throw new Error(`Agent 2 should have 3 keys, got ${result.agent2Keys?.length || 0}`);
+      }
+
+      // Cleanup: Remove measurements and PPIDs
+      await removeMeasurements(correctMeasurements);
+      await removePpids(correctPpids);
+    }
+  );
+}
 
 // Main execution
 async function main() {
@@ -1062,6 +1095,7 @@ async function main() {
     { name: 'Test 6: Different account ID', fn: test6 },
     { name: 'Test 7: Measurements removed', fn: test7 },
     { name: 'Test 8: PPID removed', fn: test8 },
+    { name: 'Test 9: Unique keys across agent instances', fn: test9 },
   ];
   
   for (let i = 0; i < tests.length; i++) {
