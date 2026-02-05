@@ -1,6 +1,6 @@
 use crate::*;
 use near_sdk::test_utils::{VMContextBuilder, accounts};
-use near_sdk::testing_env;
+use near_sdk::{testing_env, NearToken};
 use shade_attestation::{
     attestation::DstackAttestation,
     measurements::{FullMeasurementsHex, MeasurementsHex},
@@ -9,14 +9,44 @@ use shade_attestation::{
 
 // Only testing requires_tee = false since we cannot produce a valid attestation for a TEE in unit tests
 
+// Deposit constants for tests
+const DEPOSIT_005_NEAR: NearToken = NearToken::from_yoctonear(5_000_000_000_000_000_000_000); // 0.005 NEAR
+const DEPOSIT_003_NEAR: NearToken = NearToken::from_yoctonear(3_000_000_000_000_000_000_000); // 0.003 NEAR
+const DEPOSIT_ZERO: NearToken = NearToken::from_yoctonear(0);
+
 // Helper function to create a mock context
 fn get_context(predecessor: AccountId, is_view: bool) -> VMContextBuilder {
+    get_context_with_deposit(predecessor, is_view, None)
+}
+
+// Helper function to create a mock context with attached deposit
+fn get_context_with_deposit(
+    predecessor: AccountId,
+    is_view: bool,
+    deposit: Option<NearToken>,
+) -> VMContextBuilder {
+    get_context_with_deposit_and_timestamp(predecessor, is_view, deposit, None)
+}
+
+// Helper function to create a mock context with attached deposit and block timestamp
+fn get_context_with_deposit_and_timestamp(
+    predecessor: AccountId,
+    is_view: bool,
+    deposit: Option<NearToken>,
+    block_timestamp_ms: Option<u64>,
+) -> VMContextBuilder {
     let mut builder = VMContextBuilder::new();
     builder
         .current_account_id(accounts(0))
         .signer_account_id(predecessor.clone())
         .predecessor_account_id(predecessor)
         .is_view(is_view);
+    if let Some(dep) = deposit {
+        builder.attached_deposit(dep);
+    }
+    if let Some(ts) = block_timestamp_ms {
+        builder.block_timestamp(ts * 1_000_000); // Convert ms to nanoseconds
+    }
     builder
 }
 
@@ -47,7 +77,13 @@ fn setup_contract() -> Contract {
     let mpc_contract = accounts(1);
     let context = get_context(owner.clone(), false);
     testing_env!(context.build());
-    let mut contract = Contract::new(false, owner, mpc_contract);
+    // Use a short expiration time for tests: 100 seconds = 100000 ms
+    let mut contract = Contract::new(
+        false,
+        U64::from(100000u64), // 100 seconds in milliseconds
+        owner,
+        mpc_contract,
+    );
     contract.approve_measurements(FullMeasurementsHex::default());
     contract.approve_ppids(vec![Ppid::default()]);
     contract
@@ -61,11 +97,20 @@ fn test_new() {
     let context = get_context(owner.clone(), false);
     testing_env!(context.build());
 
-    let contract = Contract::new(false, owner.clone(), mpc_contract.clone());
+    // Use a short expiration time for tests: 100 seconds = 100000 ms
+    let attestation_expiration_time_ms = U64::from(100000u64);
+    let contract = Contract::new(
+        false,
+        attestation_expiration_time_ms,
+        owner.clone(),
+        mpc_contract.clone(),
+    );
 
-    assert_eq!(contract.owner_id, owner);
-    assert_eq!(contract.mpc_contract_id, mpc_contract);
-    assert_eq!(contract.requires_tee, false);
+    let contract_info = contract.get_contract_info();
+    assert_eq!(contract_info.owner_id, owner);
+    assert_eq!(contract_info.mpc_contract_id, mpc_contract);
+    assert_eq!(contract_info.requires_tee, false);
+    assert_eq!(contract_info.attestation_expiration_time_ms.0, 100000u64);
     assert_eq!(contract.get_approved_measurements(&None, &None).len(), 0);
     assert_eq!(contract.get_approved_ppids().len(), 0);
     assert_eq!(contract.get_agents(&None, &None).len(), 0);
@@ -186,7 +231,7 @@ fn test_whitelist_agent_after_registration() {
     contract.whitelist_agent_for_local(agent.clone());
 
     // Register agent (default measurements and PPID already approved in setup)
-    let context = get_context(agent.clone(), false);
+    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
     contract.register_agent(DstackAttestation::default());
 
@@ -226,7 +271,7 @@ fn test_remove_agent_for_local_not_found() {
     let mut contract = setup_contract();
     let agent = accounts(2);
     // Agent was never whitelisted
-    contract.remove_agent_for_local(agent);
+    contract.remove_agent_from_whitelist_for_local(agent);
 }
 
 // Test that owner can remove an agent from the whitelist (local)
@@ -238,7 +283,7 @@ fn test_remove_agent_from_whitelist() {
     contract.whitelist_agent_for_local(agent.clone());
     assert!(contract.get_whitelisted_agents_for_local().contains(&agent));
 
-    contract.remove_agent_for_local(agent.clone());
+    contract.remove_agent_from_whitelist_for_local(agent.clone());
     assert!(!contract.get_whitelisted_agents_for_local().contains(&agent));
     assert!(contract.get_agent(agent).is_none());
 }
@@ -254,7 +299,7 @@ fn test_remove_agent_for_local_not_owner() {
 
     let context = get_context(non_owner, false);
     testing_env!(context.build());
-    contract.remove_agent_for_local(agent);
+    contract.remove_agent_from_whitelist_for_local(agent);
 }
 
 // Test that owner can remove a registered agent from the agents map
@@ -264,7 +309,7 @@ fn test_remove_agent() {
     let agent = accounts(2);
 
     contract.whitelist_agent_for_local(agent.clone());
-    let context = get_context(agent.clone(), false);
+    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
     contract.register_agent(DstackAttestation::default());
     assert!(contract.get_agent(agent.clone()).is_some());
@@ -293,7 +338,7 @@ fn test_remove_agent_not_owner() {
     let non_owner = accounts(2);
     let agent = accounts(3);
     contract.whitelist_agent_for_local(agent.clone());
-    let context = get_context(agent.clone(), false);
+    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
     contract.register_agent(DstackAttestation::default());
 
@@ -302,7 +347,7 @@ fn test_remove_agent_not_owner() {
     contract.remove_agent(agent);
 }
 
-// Test that a whitelisted agent can register
+// Test that a whitelisted agent can register with sufficient deposit
 #[test]
 fn test_register_agent_without_tee() {
     let mut contract = setup_contract();
@@ -311,8 +356,8 @@ fn test_register_agent_without_tee() {
     // Owner whitelists the agent (default measurements and PPID already approved in setup)
     contract.whitelist_agent_for_local(agent.clone());
 
-    // Agent registers with fake attestation
-    let context = get_context(agent.clone(), false);
+    // Agent registers with fake attestation and 0.005 NEAR deposit
+    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
 
     let result = contract.register_agent(DstackAttestation::default());
@@ -321,6 +366,8 @@ fn test_register_agent_without_tee() {
     let agent_info = contract.get_agent(agent.clone()).unwrap();
     assert!(agent_info.measurements_are_approved);
     assert!(agent_info.ppid_is_approved);
+    assert!(agent_info.timestamp_is_valid);
+    assert!(agent_info.is_valid);
 }
 
 // Test that an agent can register twice and the registration is updated
@@ -331,8 +378,8 @@ fn test_register_agent_twice() {
 
     contract.whitelist_agent_for_local(agent.clone());
 
-    // Register agent first time
-    let context = get_context(agent.clone(), false);
+    // Register agent first time with 0.005 NEAR deposit
+    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
     let result = contract.register_agent(DstackAttestation::default());
     assert!(result);
@@ -341,8 +388,8 @@ fn test_register_agent_twice() {
     assert!(agent_info.measurements_are_approved);
     assert!(agent_info.ppid_is_approved);
 
-    // Register agent again
-    let context = get_context(agent.clone(), false);
+    // Register agent again with 0.005 NEAR deposit
+    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
     let result = contract.register_agent(DstackAttestation::default());
     assert!(result);
@@ -358,7 +405,39 @@ fn test_register_agent_twice() {
 fn test_register_agent_not_whitelisted() {
     let mut contract = setup_contract();
     let agent = accounts(2);
-    let context = get_context(agent, false);
+    let context = get_context_with_deposit(agent, false, Some(DEPOSIT_005_NEAR));
+    testing_env!(context.build());
+
+    contract.register_agent(DstackAttestation::default());
+}
+
+// Test that register_agent fails with insufficient deposit (0 NEAR)
+#[test]
+#[should_panic(expected = "Attached deposit must be greater than storage cost")]
+fn test_register_agent_insufficient_deposit_zero() {
+    let mut contract = setup_contract();
+    let agent = accounts(2);
+
+    contract.whitelist_agent_for_local(agent.clone());
+
+    // Try to register with 0 NEAR deposit
+    let context = get_context_with_deposit(agent, false, Some(DEPOSIT_ZERO));
+    testing_env!(context.build());
+
+    contract.register_agent(DstackAttestation::default());
+}
+
+// Test that register_agent fails with insufficient deposit (0.003 NEAR)
+#[test]
+#[should_panic(expected = "Attached deposit must be greater than storage cost")]
+fn test_register_agent_insufficient_deposit_low() {
+    let mut contract = setup_contract();
+    let agent = accounts(2);
+
+    contract.whitelist_agent_for_local(agent.clone());
+
+    // Try to register with 0.003 NEAR deposit (less than storage cost)
+    let context = get_context_with_deposit(agent, false, Some(DEPOSIT_003_NEAR));
     testing_env!(context.build());
 
     contract.register_agent(DstackAttestation::default());
@@ -371,7 +450,8 @@ fn test_update_owner_id() {
     let new_owner = accounts(3);
 
     contract.update_owner_id(new_owner.clone());
-    assert_eq!(contract.owner_id, new_owner);
+    let contract_info = contract.get_contract_info();
+    assert_eq!(contract_info.owner_id, new_owner);
 }
 
 // Test that non-owner cannot update the owner ID
@@ -394,7 +474,8 @@ fn test_update_mpc_contract_id() {
     let new_mpc = accounts(4);
 
     contract.update_mpc_contract_id(new_mpc.clone());
-    assert_eq!(contract.mpc_contract_id, new_mpc);
+    let contract_info = contract.get_contract_info();
+    assert_eq!(contract_info.mpc_contract_id, new_mpc);
 }
 
 // Test that non-owner cannot update the MPC contract ID
@@ -410,11 +491,37 @@ fn test_update_mpc_contract_id_not_owner() {
     contract.update_mpc_contract_id(new_mpc);
 }
 
-// Test that get_requires_tee returns the correct value
+// Test that owner can update the attestation expiration time
 #[test]
-fn test_get_requires_tee() {
+fn test_update_attestation_expiration_time() {
+    let mut contract = setup_contract();
+    let new_expiration_time = U64::from(200000u64); // 200 seconds
+
+    contract.update_attestation_expiration_time(new_expiration_time.clone());
+    let contract_info = contract.get_contract_info();
+    assert_eq!(contract_info.attestation_expiration_time_ms.0, 200000u64);
+}
+
+// Test that non-owner cannot update the attestation expiration time
+#[test]
+#[should_panic(expected = "Caller is not the owner")]
+fn test_update_attestation_expiration_time_not_owner() {
+    let mut contract = setup_contract();
+    let non_owner = accounts(2);
+    let new_expiration_time = U64::from(200000u64);
+    let context = get_context(non_owner, false);
+    testing_env!(context.build());
+
+    contract.update_attestation_expiration_time(new_expiration_time);
+}
+
+// Test that get_contract_info returns the correct values
+#[test]
+fn test_get_contract_info() {
     let contract = setup_contract();
-    assert_eq!(contract.get_requires_tee(), false);
+    let contract_info = contract.get_contract_info();
+    assert_eq!(contract_info.requires_tee, false);
+    assert_eq!(contract_info.attestation_expiration_time_ms.0, 100000u64);
 }
 
 // Test that get_approved_measurements returns approved measurements and pagination works
@@ -450,11 +557,11 @@ fn test_get_agents() {
     assert_eq!(contract.get_agents(&None, &None).len(), 0);
 
     // Register agent1 and agent2; agent3 remains unregistered
-    let context = get_context(agent1.clone(), false);
+    let context = get_context_with_deposit(agent1.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
     contract.register_agent(DstackAttestation::default());
 
-    let context = get_context(agent2.clone(), false);
+    let context = get_context_with_deposit(agent2.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
     contract.register_agent(DstackAttestation::default());
 
@@ -503,7 +610,7 @@ fn test_get_agent() {
     assert!(contract.get_agent(agent.clone()).is_none());
 
     // Register agent
-    let context = get_context(agent.clone(), false);
+    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
     contract.register_agent(DstackAttestation::default());
 
@@ -513,20 +620,37 @@ fn test_get_agent() {
     assert!(agent_info.ppid_is_approved);
 }
 
-// Test that request_signature fails if the agent is not whitelisted for local
+// Test that request_signature removes agent if the agent is registered but not whitelisted for local
 #[test]
-#[should_panic(expected = "Agent needs to be whitelisted for local mode")]
 fn test_request_signature_not_whitelisted() {
     let mut contract = setup_contract();
     let agent = accounts(2);
-    let context = get_context(agent, false);
-    testing_env!(context.build());
 
-    let _ = contract.request_signature(
+    // Register agent first (while whitelisted)
+    contract.whitelist_agent_for_local(agent.clone());
+    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
+    testing_env!(context.build());
+    contract.register_agent(DstackAttestation::default());
+
+    // Verify agent is registered
+    assert!(contract.get_agent(agent.clone()).is_some());
+
+    // Remove agent from whitelist
+    let context = get_context(accounts(0), false);
+    testing_env!(context.build());
+    contract.remove_agent_from_whitelist_for_local(agent.clone());
+
+    // Call request_signature - should remove agent because it's not whitelisted
+    let context = get_context(agent.clone(), false);
+    testing_env!(context.build());
+    let _promise = contract.request_signature(
         "path".to_string(),
         "payload".to_string(),
         "Ecdsa".to_string(),
     );
+
+    // Agent should be removed from map
+    assert!(contract.get_agent(agent).is_none());
 }
 
 // Test that request_signature fails if the agent is whitelisted but not registered
@@ -547,16 +671,137 @@ fn test_request_signature_not_registered() {
     );
 }
 
-// Test that request_signature fails if the agent's measurements are removed from the approved list
+// Test that require_valid_agent removes agent and emits event when measurements are invalid
 #[test]
-#[should_panic(expected = "Agent not registered with approved measurements")]
+fn test_require_valid_agent_removes_on_invalid_measurements() {
+    let mut contract = setup_contract();
+    let agent = accounts(2);
+
+    contract.whitelist_agent_for_local(agent.clone());
+
+    // Register agent
+    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
+    testing_env!(context.build());
+    contract.register_agent(DstackAttestation::default());
+
+    // Verify agent is registered
+    assert!(contract.get_agent(agent.clone()).is_some());
+
+    // Remove measurements from approved list
+    let context = get_context(accounts(0), false);
+    testing_env!(context.build());
+    contract.remove_measurements(FullMeasurementsHex::default());
+
+    // Call require_valid_agent - should remove agent and emit event (not panic)
+    let context = get_context(agent.clone(), false);
+    testing_env!(context.build());
+    contract.require_valid_agent();
+
+    // Verify agent is removed from map
+    assert!(contract.get_agent(agent).is_none());
+}
+
+// Test that require_valid_agent removes agent and emits event when PPID is invalid
+#[test]
+fn test_require_valid_agent_removes_on_invalid_ppid() {
+    let mut contract = setup_contract();
+    let agent = accounts(2);
+
+    contract.whitelist_agent_for_local(agent.clone());
+
+    // Register agent
+    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
+    testing_env!(context.build());
+    contract.register_agent(DstackAttestation::default());
+
+    // Verify agent is registered
+    assert!(contract.get_agent(agent.clone()).is_some());
+
+    // Remove PPID from approved list
+    let context = get_context(accounts(0), false);
+    testing_env!(context.build());
+    contract.remove_ppids(vec![Ppid::default()]);
+
+    // Call require_valid_agent - should remove agent and emit event (not panic)
+    let context = get_context(agent.clone(), false);
+    testing_env!(context.build());
+    contract.require_valid_agent();
+
+    // Verify agent is removed from map
+    assert!(contract.get_agent(agent).is_none());
+}
+
+// Test that require_valid_agent removes agent and emits event when not whitelisted for local
+#[test]
+fn test_require_valid_agent_removes_on_not_whitelisted() {
+    let mut contract = setup_contract();
+    let agent = accounts(2);
+
+    contract.whitelist_agent_for_local(agent.clone());
+
+    // Register agent
+    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
+    testing_env!(context.build());
+    contract.register_agent(DstackAttestation::default());
+
+    // Verify agent is registered
+    assert!(contract.get_agent(agent.clone()).is_some());
+
+    // Remove agent from whitelist
+    let context = get_context(accounts(0), false);
+    testing_env!(context.build());
+    contract.remove_agent_from_whitelist_for_local(agent.clone());
+
+    // Call require_valid_agent - should remove agent and emit event (not panic)
+    let context = get_context(agent.clone(), false);
+    testing_env!(context.build());
+    contract.require_valid_agent();
+
+    // Verify agent is removed from map
+    assert!(contract.get_agent(agent).is_none());
+}
+
+// Test that require_valid_agent removes agent and emits event with multiple reasons
+#[test]
+fn test_require_valid_agent_removes_with_multiple_reasons() {
+    let mut contract = setup_contract();
+    let agent = accounts(2);
+
+    contract.whitelist_agent_for_local(agent.clone());
+
+    // Register agent
+    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
+    testing_env!(context.build());
+    contract.register_agent(DstackAttestation::default());
+
+    // Verify agent is registered
+    assert!(contract.get_agent(agent.clone()).is_some());
+
+    // Remove measurements, PPID, and whitelist to trigger multiple reasons
+    let context = get_context(accounts(0), false);
+    testing_env!(context.build());
+    contract.remove_measurements(FullMeasurementsHex::default());
+    contract.remove_ppids(vec![Ppid::default()]);
+    contract.remove_agent_from_whitelist_for_local(agent.clone());
+
+    // Call require_valid_agent - should remove agent and emit event with multiple reasons (not panic)
+    let context = get_context(agent.clone(), false);
+    testing_env!(context.build());
+    contract.require_valid_agent();
+
+    // Verify agent is removed from map
+    assert!(contract.get_agent(agent).is_none());
+}
+
+// Test that request_signature removes agent when measurements are removed from the approved list
+#[test]
 fn test_request_signature_measurements_removed() {
     let mut contract = setup_contract();
     let agent = accounts(2);
 
     contract.whitelist_agent_for_local(agent.clone());
 
-    let context = get_context(agent.clone(), false);
+    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
     contract.register_agent(DstackAttestation::default());
 
@@ -576,25 +821,29 @@ fn test_request_signature_measurements_removed() {
     let agent_info = contract.get_agent(agent.clone()).unwrap();
     assert!(!agent_info.measurements_are_approved);
 
-    let context = get_context(agent, false);
+    // Call request_signature - should remove agent and emit event, then continue
+    // The agent is removed, so on next call it will panic
+    let context = get_context(agent.clone(), false);
     testing_env!(context.build());
-    let _ = contract.request_signature(
+    let _promise2 = contract.request_signature(
         "path".to_string(),
         "payload".to_string(),
         "Ecdsa".to_string(),
     );
+
+    // Agent should be removed from map after require_valid_agent removed it
+    assert!(contract.get_agent(agent).is_none());
 }
 
-// Test that request_signature fails if the agent's PPID is removed from the approved list
+// Test that request_signature removes agent when PPID is removed from the approved list
 #[test]
-#[should_panic(expected = "Agent not registered with approved PPID")]
 fn test_request_signature_ppid_removed() {
     let mut contract = setup_contract();
     let agent = accounts(2);
 
     contract.whitelist_agent_for_local(agent.clone());
 
-    let context = get_context(agent.clone(), false);
+    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
     contract.register_agent(DstackAttestation::default());
 
@@ -614,13 +863,18 @@ fn test_request_signature_ppid_removed() {
     let agent_info = contract.get_agent(agent.clone()).unwrap();
     assert!(!agent_info.ppid_is_approved);
 
-    let context = get_context(agent, false);
+    // Call request_signature - should remove agent and emit event, then continue
+    // The agent is removed, so on next call it will panic
+    let context = get_context(agent.clone(), false);
     testing_env!(context.build());
-    let _ = contract.request_signature(
+    let _promise2 = contract.request_signature(
         "path".to_string(),
         "payload".to_string(),
         "Ecdsa".to_string(),
     );
+
+    // Agent should be removed from map after require_valid_agent removed it
+    assert!(contract.get_agent(agent).is_none());
 }
 
 // Test that request_signature succeeds when agent is whitelisted, registered, and measurements/PPID approved (Ecdsa)
@@ -631,7 +885,7 @@ fn test_request_signature_success() {
 
     contract.whitelist_agent_for_local(agent.clone());
 
-    let context = get_context(agent.clone(), false);
+    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
     contract.register_agent(DstackAttestation::default());
 
@@ -652,7 +906,7 @@ fn test_request_signature_with_eddsa() {
 
     contract.whitelist_agent_for_local(agent.clone());
 
-    let context = get_context(agent.clone(), false);
+    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
     contract.register_agent(DstackAttestation::default());
 
@@ -674,7 +928,7 @@ fn test_request_signature_invalid_key_type() {
 
     contract.whitelist_agent_for_local(agent.clone());
 
-    let context = get_context(agent.clone(), false);
+    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
     contract.register_agent(DstackAttestation::default());
 
@@ -685,4 +939,156 @@ fn test_request_signature_invalid_key_type() {
         "payload".to_string(),
         "invalid".to_string(),
     );
+}
+
+// Test that require_valid_agent removes agent when attestation expires
+#[test]
+fn test_require_valid_agent_removes_on_expired_attestation() {
+    let mut contract = setup_contract();
+    let agent = accounts(2);
+
+    contract.whitelist_agent_for_local(agent.clone());
+
+    // Register agent at timestamp 1000 ms
+    let context = get_context_with_deposit_and_timestamp(
+        agent.clone(),
+        false,
+        Some(DEPOSIT_005_NEAR),
+        Some(1000u64),
+    );
+    testing_env!(context.build());
+    contract.register_agent(DstackAttestation::default());
+
+    // Verify agent is registered and has valid timestamp
+    let agent_info = contract.get_agent(agent.clone()).unwrap();
+    assert!(agent_info.timestamp_is_valid);
+    assert!(agent_info.is_valid);
+
+    // Fast forward time past expiration (attestation_expiration_time_ms is 100000 ms = 100 seconds)
+    // So valid_until_ms should be 1000 + 100000 = 101000
+    // Set time to 101001 ms (1 ms past expiration)
+    let context = get_context_with_deposit_and_timestamp(
+        agent.clone(),
+        false,
+        None,
+        Some(101001u64),
+    );
+    testing_env!(context.build());
+
+    // Call require_valid_agent - should remove agent and emit event (not panic)
+    contract.require_valid_agent();
+
+    // Verify agent is removed from map
+    assert!(contract.get_agent(agent).is_none());
+}
+
+// Test that get_agent shows timestamp_is_valid and is_valid correctly
+#[test]
+fn test_get_agent_expiration_fields() {
+    let mut contract = setup_contract();
+    let agent = accounts(2);
+
+    contract.whitelist_agent_for_local(agent.clone());
+
+    // Register agent at timestamp 1000 ms
+    let context = get_context_with_deposit_and_timestamp(
+        agent.clone(),
+        false,
+        Some(DEPOSIT_005_NEAR),
+        Some(1000u64),
+    );
+    testing_env!(context.build());
+    contract.register_agent(DstackAttestation::default());
+
+    // Check agent info - should not be expired
+    let agent_info = contract.get_agent(agent.clone()).unwrap();
+    assert!(agent_info.timestamp_is_valid);
+    assert!(agent_info.is_valid);
+    assert_eq!(agent_info.valid_until_ms.0, 101000u64); // 1000 + 100000
+
+    // Fast forward time past expiration
+    // Note: We use is_view: false because contract drop needs to flush storage
+    // View methods can still be called with is_view: false
+    let context = get_context_with_deposit_and_timestamp(
+        agent.clone(),
+        false,
+        None,
+        Some(101001u64),
+    );
+    testing_env!(context.build());
+
+    // Check agent info - should have invalid timestamp (expired)
+    let agent_info = contract.get_agent(agent.clone()).unwrap();
+    assert!(!agent_info.timestamp_is_valid);
+    assert!(!agent_info.is_valid);
+    assert_eq!(agent_info.valid_until_ms.0, 101000u64);
+}
+
+// Test that get_agents shows timestamp_is_valid and is_valid correctly
+#[test]
+fn test_get_agents_expiration_fields() {
+    let mut contract = setup_contract();
+    let agent1 = accounts(2);
+    let agent2 = accounts(3);
+
+    contract.whitelist_agent_for_local(agent1.clone());
+    contract.whitelist_agent_for_local(agent2.clone());
+
+    // Register agent1 at timestamp 1000 ms
+    let context = get_context_with_deposit_and_timestamp(
+        agent1.clone(),
+        false,
+        Some(DEPOSIT_005_NEAR),
+        Some(1000u64),
+    );
+    testing_env!(context.build());
+    contract.register_agent(DstackAttestation::default());
+
+    // Register agent2 at timestamp 2000 ms
+    let context = get_context_with_deposit_and_timestamp(
+        agent2.clone(),
+        false,
+        Some(DEPOSIT_005_NEAR),
+        Some(2000u64),
+    );
+    testing_env!(context.build());
+    contract.register_agent(DstackAttestation::default());
+
+    // Check at timestamp 1001 ms - both should be valid
+    // Note: We use is_view: false because contract drop needs to flush storage
+    // View methods can still be called with is_view: false
+    let context = get_context_with_deposit_and_timestamp(
+        accounts(0),
+        false,
+        None,
+        Some(1001u64),
+    );
+    testing_env!(context.build());
+
+    let agents = contract.get_agents(&None, &None);
+    assert_eq!(agents.len(), 2);
+    for agent_info in &agents {
+        assert!(agent_info.timestamp_is_valid);
+        assert!(agent_info.is_valid);
+    }
+
+    // Fast forward past agent1 expiration but not agent2
+    // agent1 expires at 101000, agent2 expires at 102000
+    // Note: We use is_view: false because contract drop needs to flush storage
+    let context = get_context_with_deposit_and_timestamp(
+        accounts(0),
+        false,
+        None,
+        Some(101500u64), // Between the two expirations
+    );
+    testing_env!(context.build());
+
+    let agents = contract.get_agents(&None, &None);
+    assert_eq!(agents.len(), 2);
+    let agent1_info = agents.iter().find(|a| a.account_id == agent1).unwrap();
+    let agent2_info = agents.iter().find(|a| a.account_id == agent2).unwrap();
+    assert!(!agent1_info.timestamp_is_valid);
+    assert!(!agent1_info.is_valid);
+    assert!(agent2_info.timestamp_is_valid);
+    assert!(agent2_info.is_valid);
 }

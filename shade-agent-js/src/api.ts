@@ -1,6 +1,6 @@
 import { Provider } from "@near-js/providers";
 import { internalFundAgent, createAccountObject } from "./utils/near";
-import { getDstackClient, internalGetAttestation, TcbInfo } from "./utils/tee";
+import { getDstackClient, internalGetAttestation } from "./utils/tee";
 import { type DstackAttestationForContract } from "./utils/attestation-transform";
 import { DstackClient } from "@phala/dstack-sdk";
 import { ensureKeysSetup, generateAgent, getAgentSigner } from "./utils/agent";
@@ -30,6 +30,20 @@ export interface FullMeasurements {
   key_provider_event_digest: string;
   /** Expected app_compose hash payload. */
   app_compose_hash_payload: string;
+}
+
+/**
+ * Contract information returned by get_contract_info
+ */
+export interface ContractInfo {
+  /** Whether the contract requires TEE for registration */
+  requires_tee: boolean;
+  /** Attestation expiration time in milliseconds (as string, U64 serialized) */
+  attestation_expiration_time_ms: string;
+  /** Owner account ID */
+  owner_id: string;
+  /** MPC contract ID */
+  mpc_contract_id: string;
 }
 
 /**
@@ -158,11 +172,13 @@ export class ShadeClient {
     );
 
     // Call the register_agent function on the agent contract
+    // Attach 0.005 NEAR deposit (5_000_000_000_000_000_000_000 yoctoNEAR) for storage cost
     return await this.call({
       methodName: "register_agent",
       args: {
         attestation: contractAttestation,
       },
+      deposit: "5000000000000000000000", // 0.005 NEAR
       gas: BigInt("300000000000000"), // 300 TGas
     });
   }
@@ -319,13 +335,13 @@ export class ShadeClient {
       );
     }
 
-    const res = await this.view<boolean>({
-      methodName: "get_requires_tee",
+    const res = (await this.view<ContractInfo>({
+      methodName: "get_contract_info",
       args: {},
-    });
+    })) as ContractInfo;
 
     // If the agent contract requires TEE return null
-    if (res === true) {
+    if (res.requires_tee) {
       return null;
     }
 

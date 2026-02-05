@@ -272,6 +272,7 @@ describe("ShadeClient", () => {
           contractId: "agent.contract.testnet",
           methodName: "register_agent",
           args: { attestation: contractAttestation },
+          deposit: "5000000000000000000000", // 0.005 NEAR
           gas: BigInt("300000000000000"),
         }),
       );
@@ -646,7 +647,12 @@ describe("ShadeClient", () => {
       setupClientMocks();
       (
         mockProvider.callFunction as ReturnType<typeof vi.fn>
-      ).mockResolvedValueOnce(true);
+      ).mockResolvedValueOnce({
+        requires_tee: true,
+        attestation_expiration_time_ms: "100000",
+        owner_id: "owner.testnet",
+        mpc_contract_id: "mpc.testnet",
+      });
 
       const client = await ShadeClient.create({
         agentContractId: "agent.contract.testnet",
@@ -657,7 +663,7 @@ describe("ShadeClient", () => {
 
       expect(mockProvider.callFunction).toHaveBeenCalledWith(
         "agent.contract.testnet",
-        "get_requires_tee",
+        "get_contract_info",
         {},
         undefined,
       );
@@ -667,7 +673,12 @@ describe("ShadeClient", () => {
     it("should return true when agent is whitelisted", async () => {
       setupClientMocks();
       (mockProvider.callFunction as ReturnType<typeof vi.fn>)
-        .mockResolvedValueOnce(false) // requires_tee = false
+        .mockResolvedValueOnce({
+          requires_tee: false,
+          attestation_expiration_time_ms: "100000",
+          owner_id: "owner.testnet",
+          mpc_contract_id: "mpc.testnet",
+        })
         .mockResolvedValueOnce([testAccountId, "other.agent.testnet"]); // whitelisted agents
 
       const client = await ShadeClient.create({
@@ -681,7 +692,7 @@ describe("ShadeClient", () => {
       expect(mockProvider.callFunction).toHaveBeenNthCalledWith(
         1,
         "agent.contract.testnet",
-        "get_requires_tee",
+        "get_contract_info",
         {},
         undefined,
       );
@@ -698,7 +709,12 @@ describe("ShadeClient", () => {
     it("should return false when agent is not whitelisted", async () => {
       setupClientMocks();
       (mockProvider.callFunction as ReturnType<typeof vi.fn>)
-        .mockResolvedValueOnce(false) // requires_tee = false
+        .mockResolvedValueOnce({
+          requires_tee: false,
+          attestation_expiration_time_ms: "100000",
+          owner_id: "owner.testnet",
+          mpc_contract_id: "mpc.testnet",
+        })
         .mockResolvedValueOnce([
           "other.agent.testnet",
           "another.agent.testnet",

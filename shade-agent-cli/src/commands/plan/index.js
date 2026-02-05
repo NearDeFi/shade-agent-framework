@@ -179,6 +179,7 @@ export function planCommand() {
               ? "v1.signer"
               : "v1.signer-prod.testnet";
           replacements["<REQUIRES_TEE>"] = deployment.environment === "TEE";
+          replacements["<7_DAYS>"] = "604800000"; // 7 days in milliseconds (7 * 24 * 60 * 60 * 1000)
           const resolvedArgs = replacePlaceholders(initCfg.args, replacements);
 
           logWrapped(

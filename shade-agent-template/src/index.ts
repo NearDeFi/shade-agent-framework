@@ -71,6 +71,10 @@ while (true) {
   await new Promise((resolve) => setTimeout(resolve, 10000));
 }
 
+// setInterval(agent.register, 518400000); // Re-register every 6 days
+
+setInterval(agent.register, 10000); // Re-register every 10 seconds
+
 // Start server after registration is complete
 const port = Number(process.env.PORT || "3000");
 console.log(`Server starting on port ${port}...`);

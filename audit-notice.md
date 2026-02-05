@@ -5,7 +5,7 @@
 The main things to check for is that:
 
 - An agent cannot register if it does not have the correct measurement and running the correct code (rtmr0-2, mrtd, correct app compose and key provider), PPID and the attestation is sent by the same account id as the one contained within the TEE instance that generated the attestation. Does anything else need to be measured and validated?
-- Think about can someone deploy the smart contract on top of the account with existing state to have an agent registered that did not pass the attestations. Do we put restrictions in place for this or it is sufficient for a contract to be verified by checking the accounts past history (one could do something similar with contract migrations)?
+- Think about can someone deploy the smart contract on top of the account with existing state to have an agent registered that did not pass the attestations. Do we put restrictions in place for this or it is sufficient for a contract to be verified by checking the accounts past history (one could do something similar with contract migrations)? 
 
 [Contract](./agent-template/shade-contract-template/)
 

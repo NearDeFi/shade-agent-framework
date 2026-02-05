@@ -11,7 +11,7 @@ agent_contract:
   # NEAR Account Id of the contract
   # Fill this out with a unique contract id for your agent contract
   # For example: example-contract-123.testnet
-  contract_id: ijsdfoijeqoifijf.testnet
+  contract_id: bruh-aisodjfoisjdf.testnet
 
   # Optional, if not provided the contract will not be deployed
   # and it's assumed the agent contract is already deployed to the contract_id
@@ -27,11 +27,11 @@ agent_contract:
     # Option 1: Build contract from source and deploy
     deploy_from_source:
       enabled: false
-      source_path: ../shade-agent-contract
+      source_path: ../shade-contract-template
     # Option 2: Use pre-built WASM file
     deploy_from_wasm:
       enabled: true
-      wasm_path: ../shade-agent-contract/target/near/shade_contract.wasm
+      wasm_path: ../shade-contract-template/target/near/shade_contract_template.wasm
     # Option 3: Use a deployed global contract, specifying it by its hash
     use_global_by_hash:
       enabled: false
@@ -46,16 +46,17 @@ agent_contract:
       # The <REQUIRES_TEE> will automatically be selected based on the environment
       args: |
         {
+          "requires_tee": <REQUIRES_TEE>,
+          "attestation_expiration_time_ms": <7_DAYS>,
           "owner_id": <MASTER_ACCOUNT_ID>,
           "mpc_contract_id": <DEFAULT_MPC_CONTRACT_ID>,
-          "requires_tee": <REQUIRES_TEE>
         }
       # tgas: 30
 
 # Optional, if not provided the current docker-compose.yaml file will be used
 # Only applicable if the environment is TEE
 build_docker_image:
-  enabled: true
+  enabled: false
   # Fill this out with the docker tag you want to use. For example: pivortex/my-first-agent
   tag: pivortex/my-first-agent
   cache: true
@@ -91,7 +92,7 @@ approve_ppids:
 # Optional, if not provided the app will not be deployed to Phala Cloud
 # Only applicable if the environment is TEE
 deploy_to_phala:
-  enabled: true
+  enabled: false
   app_name: my-first-agent
   env_file_path: ./.env
 

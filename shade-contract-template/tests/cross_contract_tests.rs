@@ -1,8 +1,10 @@
 mod helpers;
 
 use helpers::*;
+use near_api::{AccountId, Data};
 use serde_json::json;
 use shade_attestation::attestation::DstackAttestation;
+use shade_contract_template::ContractInfo;
 use tokio::time::{Duration, sleep};
 
 /// Tests that request_signature makes correct cross-contract call to MPC contract
@@ -20,6 +22,7 @@ async fn test_cross_contract_call_to_mpc() -> Result<(), Box<dyn std::error::Err
     sleep(Duration::from_millis(200)).await;
 
     // Deploy main contract with mock MPC as the MPC contract
+    // Use a short expiration time for tests: 100 seconds = 100000 ms
     let contract_id = deploy_contract(
         &network_config,
         &genesis_account_id,
@@ -29,7 +32,8 @@ async fn test_cross_contract_call_to_mpc() -> Result<(), Box<dyn std::error::Err
         Some(json!({
             "owner_id": genesis_account_id,
             "mpc_contract_id": mpc_contract_id,
-            "requires_tee": false
+            "requires_tee": false,
+            "attestation_expiration_time_ms": "100000"
         })),
         None,
     )
@@ -87,6 +91,7 @@ async fn test_cross_contract_call_to_mpc() -> Result<(), Box<dyn std::error::Err
     .await?
     .assert_success();
 
+    // Register agent with 0.005 NEAR deposit
     let _ = call_transaction(
         &contract_id,
         "register_agent",
@@ -96,7 +101,7 @@ async fn test_cross_contract_call_to_mpc() -> Result<(), Box<dyn std::error::Err
         &agent_id,
         &agent_signer,
         &network_config,
-        None,
+        Some(helpers::DEPOSIT_005_NEAR),
     )
     .await?
     .assert_success();
@@ -137,6 +142,20 @@ async fn test_cross_contract_call_to_mpc() -> Result<(), Box<dyn std::error::Err
     .await?
     .assert_success();
 
+    // Verify initial MPC contract ID
+    let contract_info: Data<ContractInfo> = call_view(
+        &contract_id,
+        "get_contract_info",
+        json!({}),
+        &network_config,
+    )
+    .await?;
+    assert_eq!(
+        contract_info.data.mpc_contract_id,
+        mpc_contract_id,
+        "Initial MPC contract ID should match deployed mock MPC"
+    );
+
     // Update the mpc contract id to a new contract id
     let _ = call_transaction(
         &contract_id,
@@ -151,6 +170,23 @@ async fn test_cross_contract_call_to_mpc() -> Result<(), Box<dyn std::error::Err
     )
     .await?
     .assert_success();
+
+    sleep(Duration::from_millis(200)).await;
+
+    // Verify MPC contract ID was updated using get_contract_info
+    let contract_info: Data<ContractInfo> = call_view(
+        &contract_id,
+        "get_contract_info",
+        json!({}),
+        &network_config,
+    )
+    .await?;
+    let new_mpc_id: AccountId = "new-mpc-contract".parse().unwrap();
+    assert_eq!(
+        contract_info.data.mpc_contract_id,
+        new_mpc_id,
+        "MPC contract ID should be updated to new-mpc-contract"
+    );
 
     // Request signature - this should call the new mock MPC contract
     let result = call_transaction(

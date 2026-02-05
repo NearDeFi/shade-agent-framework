@@ -1,10 +1,36 @@
 use crate::*;
 
+#[near(serializers = [json])]
+pub struct ContractInfo {
+    pub requires_tee: bool,
+    pub attestation_expiration_time_ms: U64,
+    pub owner_id: AccountId,
+    pub mpc_contract_id: AccountId,
+}
+
+#[near(serializers = [json])]
+#[derive(Clone)]
+pub struct AgentView {
+    pub account_id: AccountId,
+    pub measurements: FullMeasurementsHex,
+    pub measurements_are_approved: bool,
+    pub ppid: Ppid,
+    pub ppid_is_approved: bool,
+    pub valid_until_ms: U64,
+    pub timestamp_is_valid: bool,
+    pub is_valid: bool,
+}
+
 #[near]
 impl Contract {
     // Get whether the contract requires TEE for registration
-    pub fn get_requires_tee(&self) -> bool {
-        self.requires_tee
+    pub fn get_contract_info(&self) -> ContractInfo {
+        ContractInfo {
+            requires_tee: self.requires_tee,
+            attestation_expiration_time_ms: U64::from(self.attestation_expiration_time_ms),
+            owner_id: self.owner_id.clone(),
+            mpc_contract_id: self.mpc_contract_id.clone(),
+        }
     }
 
     // Get the list of approved PPIDs
@@ -37,6 +63,11 @@ impl Contract {
             measurements_are_approved: self.approved_measurements.contains(&agent.measurements),
             ppid: agent.ppid.clone(),
             ppid_is_approved: self.approved_ppids.contains(&agent.ppid),
+            valid_until_ms: U64::from(agent.valid_until_ms),
+            timestamp_is_valid: agent.valid_until_ms > block_timestamp_ms(),
+            is_valid: self.approved_measurements.contains(&agent.measurements)
+                && self.approved_ppids.contains(&agent.ppid)
+                && agent.valid_until_ms > block_timestamp_ms(),
         })
     }
 
@@ -55,6 +86,11 @@ impl Contract {
                 measurements_are_approved: self.approved_measurements.contains(&agent.measurements),
                 ppid: agent.ppid.clone(),
                 ppid_is_approved: self.approved_ppids.contains(&agent.ppid),
+                valid_until_ms: U64::from(agent.valid_until_ms),
+                timestamp_is_valid: agent.valid_until_ms > block_timestamp_ms(),
+                is_valid: self.approved_measurements.contains(&agent.measurements)
+                    && self.approved_ppids.contains(&agent.ppid)
+                    && agent.valid_until_ms > block_timestamp_ms(),
             })
             .collect()
     }

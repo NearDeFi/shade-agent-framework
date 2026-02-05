@@ -44,6 +44,7 @@ async fn test_large_dataset_pagination_real_contract()
         .await?
         .assert_success();
 
+        // Register agent with 0.005 NEAR deposit
         let _ = call_transaction(
             &contract_id,
             "register_agent",
@@ -53,7 +54,7 @@ async fn test_large_dataset_pagination_real_contract()
             &agent_id,
             &agent_signer,
             &network_config,
-            None,
+            Some(helpers::DEPOSIT_005_NEAR),
         )
         .await?
         .assert_success();

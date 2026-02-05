@@ -8,7 +8,7 @@ This monorepo contains all the tooling for the Shade Agent Framework, it contain
 - [shade-agent-cli](./shade-agent-cli/) - A published CLI to help deploy Shade Agents.
 - [shade-attestation](./shade-attestation/) - A published Rust crate to verify Shade Agent TEE attestations in NEAR smart contracts.
 - [shade-contract-template](./shade-contract-template/) - A minimal example agent contract that is easy to swap between local and TEE modes. Note that it relies on local dependencies and is used for development of the framework for a standalone example see https://github.com/NearDeFi/shade-agent-template
-- [shade-agent-template](./shade-agent-template/) - A minimal example price oracle agent. Note that it relies on local dependencies and is used for development of the framework for a stan
+- [shade-agent-template](./shade-agent-template/) - A minimal example price oracle agent. Note that it relies on local dependencies and is used for development of the framework for a standalone example see https://github.com/NearDeFi/shade-agent-template
 - [tests-in-tee](./tests-in-tee/) - A set of integration tests that run inside a TEE and hit shade-agent-js, shade-contract-template and shade-attestation.
 
 ---
