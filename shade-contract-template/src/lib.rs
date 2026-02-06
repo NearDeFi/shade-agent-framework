@@ -5,9 +5,9 @@ use near_sdk::{
     ext_contract,
     json_types::U64,
     log, near, require,
-    store::{IterableMap, IterableSet},
     serde::Serialize,
-    serde_json::json,
+    serde_json,
+    store::{IterableMap, IterableSet},
 };
 use shade_attestation::{
     attestation::DstackAttestation,
@@ -16,17 +16,18 @@ use shade_attestation::{
     tcb_info::HexBytes,
 };
 
-use events::{Event, AgentRemovalReason};
+use events::{AgentRemovalReason, Event};
 
 mod attestation;
 mod chainsig;
+mod events;
 mod helpers;
 mod update_contract;
 mod views;
-mod events;
+mod your_functions;
 
 // Re-export view types for use in tests
-pub use views::{ContractInfo, AgentView};
+pub use views::{AgentView, ContractInfo};
 
 #[cfg(test)]
 mod unit_tests;
@@ -113,7 +114,8 @@ impl Contract {
             ppid: &ppid,
             current_time_ms: U64::from(block_timestamp_ms()),
             valid_until_ms: U64::from(valid_until_ms),
-        }.emit();
+        }
+        .emit();
 
         // Agent is valid for the attestation expiration time
         // Register the agent
@@ -127,19 +129,6 @@ impl Contract {
         );
 
         true
-    }
-
-    // Request a signature for a transaction payload
-    pub fn request_signature(
-        &mut self,
-        path: String,
-        payload: String,
-        key_type: String,
-    ) -> Promise {
-        // Require the caller to be a valid agent
-        self.require_valid_agent();
-
-        self.internal_request_signature(path, payload, key_type)
     }
 
     // Owner methods

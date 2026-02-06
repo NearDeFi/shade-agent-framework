@@ -1,6 +1,6 @@
 use crate::*;
 use near_sdk::test_utils::{VMContextBuilder, accounts};
-use near_sdk::{testing_env, NearToken};
+use near_sdk::{NearToken, testing_env};
 use shade_attestation::{
     attestation::DstackAttestation,
     measurements::{FullMeasurementsHex, MeasurementsHex},
@@ -620,7 +620,8 @@ fn test_get_agent() {
     assert!(agent_info.ppid_is_approved);
 }
 
-// Test that request_signature removes agent if the agent is registered but not whitelisted for local
+// Test that request_signature removes agent if the agent is registered but not whitelisted for local.
+// Returns a failure promise (fail_on_invalid_agent) that resolves to panic; integration tests verify the promise resolves to error.
 #[test]
 fn test_request_signature_not_whitelisted() {
     let mut contract = setup_contract();
@@ -835,7 +836,8 @@ fn test_request_signature_measurements_removed() {
     assert!(contract.get_agent(agent).is_none());
 }
 
-// Test that request_signature removes agent when PPID is removed from the approved list
+// Test that request_signature removes agent when PPID is removed from the approved list.
+// Returns a failure promise (fail_on_invalid_agent) that resolves to panic; integration tests verify the promise resolves to error.
 #[test]
 fn test_request_signature_ppid_removed() {
     let mut contract = setup_contract();
@@ -941,7 +943,43 @@ fn test_request_signature_invalid_key_type() {
     );
 }
 
-// Test that require_valid_agent removes agent when attestation expires
+// Test that request_signature removes agent when attestation expires.
+#[test]
+fn test_request_signature_expired_attestation() {
+    let mut contract = setup_contract();
+    let agent = accounts(2);
+
+    contract.whitelist_agent_for_local(agent.clone());
+
+    // Register agent at timestamp 1000 ms
+    let context = get_context_with_deposit_and_timestamp(
+        agent.clone(),
+        false,
+        Some(DEPOSIT_005_NEAR),
+        Some(1000u64),
+    );
+    testing_env!(context.build());
+    contract.register_agent(DstackAttestation::default());
+
+    // Fast forward time past expiration (valid_until_ms = 1000 + 100000 = 101000)
+    let context =
+        get_context_with_deposit_and_timestamp(agent.clone(), false, None, Some(101001u64));
+    testing_env!(context.build());
+
+    // Call request_signature - should remove agent
+    // Promise will fail but this can't be tested in unit tests
+    let _promise = contract.request_signature(
+        "path".to_string(),
+        "payload".to_string(),
+        "Ecdsa".to_string(),
+    );
+    
+    // Agent should be removed from map
+    assert!(contract.get_agent(agent).is_none());
+}
+
+// Test that require_valid_agent removes agent when attestation expires.
+// When called via request_signature, returns a failure promise; integration tests verify the promise resolves to error.
 #[test]
 fn test_require_valid_agent_removes_on_expired_attestation() {
     let mut contract = setup_contract();
@@ -967,12 +1005,8 @@ fn test_require_valid_agent_removes_on_expired_attestation() {
     // Fast forward time past expiration (attestation_expiration_time_ms is 100000 ms = 100 seconds)
     // So valid_until_ms should be 1000 + 100000 = 101000
     // Set time to 101001 ms (1 ms past expiration)
-    let context = get_context_with_deposit_and_timestamp(
-        agent.clone(),
-        false,
-        None,
-        Some(101001u64),
-    );
+    let context =
+        get_context_with_deposit_and_timestamp(agent.clone(), false, None, Some(101001u64));
     testing_env!(context.build());
 
     // Call require_valid_agent - should remove agent and emit event (not panic)
@@ -1009,12 +1043,8 @@ fn test_get_agent_expiration_fields() {
     // Fast forward time past expiration
     // Note: We use is_view: false because contract drop needs to flush storage
     // View methods can still be called with is_view: false
-    let context = get_context_with_deposit_and_timestamp(
-        agent.clone(),
-        false,
-        None,
-        Some(101001u64),
-    );
+    let context =
+        get_context_with_deposit_and_timestamp(agent.clone(), false, None, Some(101001u64));
     testing_env!(context.build());
 
     // Check agent info - should have invalid timestamp (expired)
@@ -1057,12 +1087,7 @@ fn test_get_agents_expiration_fields() {
     // Check at timestamp 1001 ms - both should be valid
     // Note: We use is_view: false because contract drop needs to flush storage
     // View methods can still be called with is_view: false
-    let context = get_context_with_deposit_and_timestamp(
-        accounts(0),
-        false,
-        None,
-        Some(1001u64),
-    );
+    let context = get_context_with_deposit_and_timestamp(accounts(0), false, None, Some(1001u64));
     testing_env!(context.build());
 
     let agents = contract.get_agents(&None, &None);

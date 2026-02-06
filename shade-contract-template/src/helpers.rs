@@ -12,7 +12,8 @@ impl Contract {
 
     // Require the caller to be a valid agent or it is removed from the agents map
     // Just because an agent is registered does not mean it is currently valid
-    pub(crate) fn require_valid_agent(&mut self) {
+    // Returns Some(Promise) if agent is invalid (to fail the request), None if valid
+    pub(crate) fn require_valid_agent(&mut self) -> Option<Promise> {
         let account_id = env::predecessor_account_id();
 
         // Extract agent data and check if it is registered
@@ -46,14 +47,30 @@ impl Contract {
             }
         }
 
-        // If there are reasons to remove the agent, remove it
+        // If there are reasons to remove the agent, remove it and make a cross contract call to fail in the next block
         if !reasons.is_empty() {
             self.agents.remove(&account_id);
             Event::AgentRemoved {
                 account_id: &account_id,
-                reasons,
+                reasons: reasons.clone(),
             }
             .emit();
+            let args_json = serde_json::json!({
+                "reasons": reasons
+            });
+            let promise = Promise::new(env::current_account_id()).function_call(
+                "fail_on_invalid_agent".to_string(),
+                serde_json::to_vec(&args_json).expect("Failed to serialize reasons"),
+                NearToken::from_near(0),
+                Gas::from_tgas(10),
+            );
+            return Some(promise);
         }
+        None
+    }
+
+    #[private]
+    pub fn fail_on_invalid_agent(reasons: Vec<AgentRemovalReason>) {
+        env::panic_str(&format!("Invalid agent: {:?}", reasons));
     }
 }

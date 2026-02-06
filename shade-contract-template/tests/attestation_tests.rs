@@ -156,7 +156,7 @@ async fn test_measurements_and_ppid_lifecycle() -> Result<(), Box<dyn std::error
     }
 
     // Attempt to request a signature with removed measurements
-    // This will remove the agent and emit an event, then fail when calling MPC contract
+    // This will remove the agent, emit an event, and the Promise (fail_on_invalid_agent) resolves to panic
     let result = call_transaction(
         &contract_id,
         "request_signature",
@@ -171,6 +171,22 @@ async fn test_measurements_and_ppid_lifecycle() -> Result<(), Box<dyn std::error
         None,
     )
     .await?;
+
+    // Extract event logs before consuming result
+    let events = extract_event_logs(&result)?;
+
+    // Verify the promise resolves to an error (fail_on_invalid_agent panics with "Invalid agent")
+    match result.into_result() {
+        Ok(_) => panic!("Expected request_signature to fail (promise resolves to error) when agent has invalid measurements, but it succeeded"),
+        Err(e) => {
+            let error_str = format!("{:?}", e);
+            assert!(
+                error_str.contains("Invalid agent"),
+                "Expected 'Invalid agent' error when promise resolves, got: {:?}",
+                e
+            );
+        }
+    }
 
     // Verify agent is removed from map (require_valid_agent removed it)
     sleep(Duration::from_millis(200)).await;
@@ -187,7 +203,6 @@ async fn test_measurements_and_ppid_lifecycle() -> Result<(), Box<dyn std::error
     assert!(agent_info.data.is_none(), "Agent1 should be removed from map");
 
     // Check event logs to verify removal reason is InvalidMeasurements
-    let events = extract_event_logs(&result)?;
     let agent_removed_events: Vec<_> = events
         .iter()
         .filter(|e| {
@@ -442,7 +457,7 @@ async fn test_measurements_and_ppid_lifecycle() -> Result<(), Box<dyn std::error
     );
 
     // Attempt to request a signature with removed PPID using agent2
-    // This will remove agent2 and emit an event, then fail when calling MPC contract
+    // This will remove agent2, emit an event, and the Promise (fail_on_invalid_agent) resolves to panic
     let result = call_transaction(
         &contract_id,
         "request_signature",
@@ -457,6 +472,22 @@ async fn test_measurements_and_ppid_lifecycle() -> Result<(), Box<dyn std::error
         None,
     )
     .await?;
+
+    // Extract event logs before consuming result
+    let events = extract_event_logs(&result)?;
+
+    // Verify the promise resolves to an error (fail_on_invalid_agent panics with "Invalid agent")
+    match result.into_result() {
+        Ok(_) => panic!("Expected request_signature to fail (promise resolves to error) when agent has invalid PPID, but it succeeded"),
+        Err(e) => {
+            let error_str = format!("{:?}", e);
+            assert!(
+                error_str.contains("Invalid agent"),
+                "Expected 'Invalid agent' error when promise resolves, got: {:?}",
+                e
+            );
+        }
+    }
 
     // Verify agent2 is removed from map (require_valid_agent removed it)
     sleep(Duration::from_millis(200)).await;
@@ -473,7 +504,6 @@ async fn test_measurements_and_ppid_lifecycle() -> Result<(), Box<dyn std::error
     assert!(agent2_info.data.is_none(), "Agent2 should be removed from map");
 
     // Check event logs to verify removal reason is InvalidPpid
-    let events = extract_event_logs(&result)?;
     let agent_removed_events: Vec<_> = events
         .iter()
         .filter(|e| {
@@ -494,9 +524,6 @@ async fn test_measurements_and_ppid_lifecycle() -> Result<(), Box<dyn std::error
         "Event should contain 'InvalidPpid' reason, got: {:?}",
         reasons
     );
-
-    // The transaction may succeed (agent removed, event emitted) or fail later (MPC contract call)
-    // Either way, the important thing is that the agent was removed
 
     // Re-approve PPID
     let _ = call_transaction(
@@ -819,7 +846,8 @@ async fn test_attestation_expiration() -> Result<(), Box<dyn std::error::Error +
     assert_eq!(agent.timestamp_is_valid, false, "Agent timestamp should not be valid (expired)");
     assert_eq!(agent.is_valid, false, "Agent should not be valid");
 
-    // Try to request signature - should remove agent and emit event with ExpiredAttestation reason
+    // Try to request signature - should remove agent, emit event with ExpiredAttestation reason,
+    // and the Promise (fail_on_invalid_agent) resolves to panic
     let result = call_transaction(
         &contract_id,
         "request_signature",
@@ -834,6 +862,22 @@ async fn test_attestation_expiration() -> Result<(), Box<dyn std::error::Error +
         None,
     )
     .await?;
+
+    // Extract event logs before consuming result
+    let events = extract_event_logs(&result)?;
+
+    // Verify the promise resolves to an error (fail_on_invalid_agent panics with "Invalid agent")
+    match result.into_result() {
+        Ok(_) => panic!("Expected request_signature to fail (promise resolves to error) when agent attestation is expired, but it succeeded"),
+        Err(e) => {
+            let error_str = format!("{:?}", e);
+            assert!(
+                error_str.contains("Invalid agent"),
+                "Expected 'Invalid agent' error when promise resolves, got: {:?}",
+                e
+            );
+        }
+    }
 
     sleep(Duration::from_millis(200)).await;
 
@@ -851,7 +895,6 @@ async fn test_attestation_expiration() -> Result<(), Box<dyn std::error::Error +
     assert!(agent_info.data.is_none(), "Agent should be removed from map");
 
     // Check event logs to verify removal reason
-    let events = extract_event_logs(&result)?;
     let agent_removed_events: Vec<_> = events
         .iter()
         .filter(|e| {

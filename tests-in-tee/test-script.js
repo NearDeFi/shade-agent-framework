@@ -237,9 +237,10 @@ async function initializeContract() {
   console.log("Initializing contract...");
 
   const initArgs = {
+    requires_tee: true,
+    attestation_expiration_time_ms: "100000", // 100 seconds in milliseconds (as U64 string)
     owner_id: TESTNET_ACCOUNT_ID,
     mpc_contract_id: "v1.signer-prod.testnet", // testnet MPC contract
-    requires_tee: true,
   };
 
   try {

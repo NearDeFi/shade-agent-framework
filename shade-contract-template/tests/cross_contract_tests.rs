@@ -151,8 +151,7 @@ async fn test_cross_contract_call_to_mpc() -> Result<(), Box<dyn std::error::Err
     )
     .await?;
     assert_eq!(
-        contract_info.data.mpc_contract_id,
-        mpc_contract_id,
+        contract_info.data.mpc_contract_id, mpc_contract_id,
         "Initial MPC contract ID should match deployed mock MPC"
     );
 
@@ -183,8 +182,7 @@ async fn test_cross_contract_call_to_mpc() -> Result<(), Box<dyn std::error::Err
     .await?;
     let new_mpc_id: AccountId = "new-mpc-contract".parse().unwrap();
     assert_eq!(
-        contract_info.data.mpc_contract_id,
-        new_mpc_id,
+        contract_info.data.mpc_contract_id, new_mpc_id,
         "MPC contract ID should be updated to new-mpc-contract"
     );
 

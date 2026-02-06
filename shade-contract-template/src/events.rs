@@ -3,7 +3,8 @@ use crate::*;
 const EVENT_STANDARD: &str = "shade-contract-template";
 const EVENT_STANDARD_VERSION: &str = "1.0.0";
 
-#[derive(Serialize, Debug, Clone)]
+#[near(serializers = [json])]
+#[derive(Debug, Clone)]
 pub enum AgentRemovalReason {
     ManualRemoval,
     ExpiredAttestation,
@@ -34,8 +35,8 @@ pub enum Event<'a> {
 
 impl Event<'_> {
     pub fn emit(&self) {
-        let data = json!(self);
-        let event_json = json!({
+        let data = serde_json::json!(self);
+        let event_json = serde_json::json!({
             "standard": EVENT_STANDARD,
             "version": EVENT_STANDARD_VERSION,
             "event": data["event"],

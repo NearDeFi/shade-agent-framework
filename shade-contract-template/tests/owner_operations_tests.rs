@@ -37,8 +37,7 @@ async fn test_owner_transfer_and_new_owner_operations()
     )
     .await?;
     assert_eq!(
-        contract_info.data.owner_id,
-        genesis_account_id,
+        contract_info.data.owner_id, genesis_account_id,
         "Initial owner should be genesis account"
     );
 
@@ -68,8 +67,7 @@ async fn test_owner_transfer_and_new_owner_operations()
     )
     .await?;
     assert_eq!(
-        contract_info.data.owner_id,
-        new_owner_id,
+        contract_info.data.owner_id, new_owner_id,
         "Owner should be updated to new owner"
     );
 
@@ -123,7 +121,8 @@ async fn test_owner_transfer_and_new_owner_operations()
 
 /// Tests updating attestation expiration time
 #[tokio::test]
-async fn test_update_attestation_expiration_time() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn test_update_attestation_expiration_time()
+-> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let sandbox = near_sandbox::Sandbox::start_sandbox().await?;
     let network_config = create_network_config(&sandbox);
     let (genesis_account_id, genesis_signer) = setup_genesis_account().await;
@@ -143,8 +142,7 @@ async fn test_update_attestation_expiration_time() -> Result<(), Box<dyn std::er
     .await?;
 
     assert_eq!(
-        contract_info.data.attestation_expiration_time_ms.0,
-        100000u64,
+        contract_info.data.attestation_expiration_time_ms.0, 100000u64,
         "Initial expiration time should be 100000 ms"
     );
 
@@ -175,20 +173,17 @@ async fn test_update_attestation_expiration_time() -> Result<(), Box<dyn std::er
     .await?;
 
     assert_eq!(
-        contract_info.data.attestation_expiration_time_ms.0,
-        200000u64,
+        contract_info.data.attestation_expiration_time_ms.0, 200000u64,
         "Expiration time should be updated to 200000 ms"
     );
 
     // Verify other fields are unchanged
     assert_eq!(
-        contract_info.data.owner_id,
-        genesis_account_id,
+        contract_info.data.owner_id, genesis_account_id,
         "Owner ID should be unchanged"
     );
     assert_eq!(
-        contract_info.data.requires_tee,
-        false,
+        contract_info.data.requires_tee, false,
         "requires_tee should be unchanged"
     );
 
@@ -197,7 +192,8 @@ async fn test_update_attestation_expiration_time() -> Result<(), Box<dyn std::er
 
 /// Tests that non-owner cannot update attestation expiration time
 #[tokio::test]
-async fn test_update_attestation_expiration_time_not_owner() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn test_update_attestation_expiration_time_not_owner()
+-> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let sandbox = near_sandbox::Sandbox::start_sandbox().await?;
     let network_config = create_network_config(&sandbox);
     let (genesis_account_id, genesis_signer) = setup_genesis_account().await;
@@ -243,8 +239,7 @@ async fn test_update_attestation_expiration_time_not_owner() -> Result<(), Box<d
     .await?;
 
     assert_eq!(
-        contract_info.data.attestation_expiration_time_ms.0,
-        100000u64,
+        contract_info.data.attestation_expiration_time_ms.0, 100000u64,
         "Expiration time should still be 100000 ms"
     );
 
