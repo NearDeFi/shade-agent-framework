@@ -28,7 +28,7 @@ async fn test_update_contract() -> Result<(), Box<dyn std::error::Error + Send +
     let mut input = gas_value.to_le_bytes().to_vec();
     input.extend_from_slice(&wasm_bytes);
 
-    let result = call_transaction_raw(
+    call_transaction_raw(
         &contract_id,
         "update_contract",
         input,
@@ -37,9 +37,8 @@ async fn test_update_contract() -> Result<(), Box<dyn std::error::Error + Send +
         &network_config,
     )
     .await?
-    .into_result();
-
-    println!("result: {:?}", result);
+    .into_result()
+    .expect("update_contract should succeed");
 
     sleep(Duration::from_millis(200)).await;
 

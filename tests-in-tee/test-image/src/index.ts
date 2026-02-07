@@ -44,7 +44,7 @@ async function createAgent() {
       accountId: sponsorAccountId!,
       privateKey: sponsorPrivateKey!,
     },
-    derivationPath: sponsorPrivateKey, // Use same derivation path for consistent key generation
+    derivationPath: sponsorPrivateKey, // Most likely to cause same key so use 
   });
   // Fund the agent
   await newAgent.fund(0.3);

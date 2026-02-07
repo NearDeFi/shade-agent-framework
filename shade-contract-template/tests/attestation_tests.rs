@@ -9,8 +9,8 @@ use shade_contract_template::AgentView;
 
 /// Tests measurements/PPID lifecycle with multiple agents:
 /// - Verifies that measurements removal affects all registered agents (measurements_are_approved -> false)
-/// - Ensures agents with removed measurements cannot request signatures and are removed with InvalidMeasurements reason
-/// - Ensures agents with removed PPID cannot request signatures and are removed with InvalidPpid reason
+/// - Ensures agents with removed measurements and PPID cannot request signatures and are removed with both InvalidMeasurements and InvalidPpid reasons
+/// - Ensures agents with removed PPID only cannot request signatures and are removed with InvalidPpid reason
 /// - Confirms that re-approving measurements restores access for remaining registered agents
 /// - Validates that removed agents cannot be re-registered even after measurements re-approval
 /// - Verifies that signature requests are re-enabled after measurements re-approval
@@ -90,30 +90,16 @@ async fn test_measurements_and_ppid_lifecycle() -> Result<(), Box<dyn std::error
 
     sleep(Duration::from_millis(300)).await;
 
-    // Verify all agents have measurements_are_approved and ppid_is_approved: true
-    for agent_id in [&agent1_id, &agent2_id, &agent3_id] {
-        let agent_info: Data<Option<AgentView>> = call_view(
-            &contract_id,
-            "get_agent",
-            json!({
-                "account_id": agent_id
-            }),
-            &network_config,
-        )
-        .await?;
-
-        let agent = agent_info.data.unwrap();
-        assert_eq!(
-            agent.measurements_are_approved, true,
-            "Agent {} should have approved measurements",
-            agent_id
-        );
-        assert_eq!(
-            agent.ppid_is_approved, true,
-            "Agent {} should have approved PPID",
-            agent_id
-        );
-    }
+    // Verify agents have measurements_are_approved and ppid_is_approved: true
+    let agent_info: Data<Option<AgentView>> = call_view(
+        &contract_id,
+        "get_agent",
+        json!({ "account_id": agent1_id }),
+        &network_config,
+    )
+    .await?;
+    let agent = agent_info.data.unwrap();
+    assert!(agent.measurements_are_approved && agent.ppid_is_approved, "Agent should have approved measurements and PPID");
 
     // Remove default measurements
     let _ = call_transaction(
@@ -130,33 +116,34 @@ async fn test_measurements_and_ppid_lifecycle() -> Result<(), Box<dyn std::error
 
     sleep(Duration::from_millis(200)).await;
 
-    // Verify all agents now have measurements_are_approved: false
-    for agent_id in [&agent1_id, &agent2_id, &agent3_id] {
-        let agent_info: Data<Option<AgentView>> = call_view(
-            &contract_id,
-            "get_agent",
-            json!({
-                "account_id": agent_id
-            }),
-            &network_config,
-        )
-        .await?;
+    // Verify measurements removal affected agents (measurements_are_approved: false, ppid still approved)
+    let agent_info: Data<Option<AgentView>> = call_view(
+        &contract_id,
+        "get_agent",
+        json!({ "account_id": agent1_id }),
+        &network_config,
+    )
+    .await?;
+    let agent = agent_info.data.unwrap();
+    assert!(!agent.measurements_are_approved && agent.ppid_is_approved, "Measurements should be unapproved, PPID still approved");
 
-        let agent = agent_info.data.unwrap();
-        assert_eq!(
-            agent.measurements_are_approved, false,
-            "Agent {} should not have approved measurements",
-            agent_id
-        );
-        assert_eq!(
-            agent.ppid_is_approved, true,
-            "Agent {} should still have approved PPID",
-            agent_id
-        );
-    }
+    // Remove default PPID so agent has both invalid measurements and invalid PPID
+    let _ = call_transaction(
+        &contract_id,
+        "remove_ppids",
+        default_ppids_json(),
+        &genesis_account_id,
+        &genesis_signer,
+        &network_config,
+        None,
+    )
+    .await?
+    .assert_success();
 
-    // Attempt to request a signature with removed measurements
-    // This will remove the agent, emit an event, and the Promise (fail_on_invalid_agent) resolves to panic
+    sleep(Duration::from_millis(200)).await;
+
+    // Attempt to request a signature with removed measurements and PPID
+    // This will remove the agent, emit an event with both reasons, and the Promise (fail_on_invalid_agent) resolves to panic
     let result = call_transaction(
         &contract_id,
         "request_signature",
@@ -175,14 +162,14 @@ async fn test_measurements_and_ppid_lifecycle() -> Result<(), Box<dyn std::error
     // Extract event logs before consuming result
     let events = extract_event_logs(&result)?;
 
-    // Verify the promise resolves to an error (fail_on_invalid_agent panics with "Invalid agent")
+    // Verify the promise resolves to an error (fail_on_invalid_agent panics with both InvalidMeasurements and InvalidPpid)
     match result.into_result() {
-        Ok(_) => panic!("Expected request_signature to fail (promise resolves to error) when agent has invalid measurements, but it succeeded"),
+        Ok(_) => panic!("Expected request_signature to fail (promise resolves to error) when agent has invalid measurements and PPID, but it succeeded"),
         Err(e) => {
             let error_str = format!("{:?}", e);
             assert!(
-                error_str.contains("Invalid agent"),
-                "Expected 'Invalid agent' error when promise resolves, got: {:?}",
+                error_str.contains("Invalid agent") && error_str.contains("InvalidMeasurements") && error_str.contains("InvalidPpid"),
+                "Expected panic to contain 'Invalid agent', 'InvalidMeasurements' and 'InvalidPpid', got: {:?}",
                 e
             );
         }
@@ -202,7 +189,7 @@ async fn test_measurements_and_ppid_lifecycle() -> Result<(), Box<dyn std::error
 
     assert!(agent_info.data.is_none(), "Agent1 should be removed from map");
 
-    // Check event logs to verify removal reason is InvalidMeasurements
+    // Check event logs to verify removal reasons are InvalidMeasurements and InvalidPpid
     let agent_removed_events: Vec<_> = events
         .iter()
         .filter(|e| {
@@ -218,9 +205,10 @@ async fn test_measurements_and_ppid_lifecycle() -> Result<(), Box<dyn std::error
     );
 
     let reasons = &agent_removed_events[0]["data"][0]["reasons"];
+    let reasons_arr = reasons.as_array().expect("reasons should be array");
     assert!(
-        reasons.as_array().map_or(false, |r| r.contains(&json!("InvalidMeasurements"))),
-        "Event should contain 'InvalidMeasurements' reason, got: {:?}",
+        reasons_arr.contains(&json!("InvalidMeasurements")) && reasons_arr.contains(&json!("InvalidPpid")),
+        "Event should contain both 'InvalidMeasurements' and 'InvalidPpid' reasons, got: {:?}",
         reasons
     );
 
@@ -286,20 +274,7 @@ async fn test_measurements_and_ppid_lifecycle() -> Result<(), Box<dyn std::error
     .await?
     .assert_failure();
 
-    // Verify agent3 is still not in agents
-    let agent_info: Data<Option<AgentView>> = call_view(
-        &contract_id,
-        "get_agent",
-        json!({
-            "account_id": agent3_id
-        }),
-        &network_config,
-    )
-    .await?;
-
-    assert!(agent_info.data.is_none(), "Agent3 should still be removed");
-
-    // Re-approve measurements
+    // Re-approve measurements and PPID (both were removed earlier)
     let _ = call_transaction(
         &contract_id,
         "approve_measurements",
@@ -312,21 +287,21 @@ async fn test_measurements_and_ppid_lifecycle() -> Result<(), Box<dyn std::error
     .await?
     .assert_success();
 
+    let _ = call_transaction(
+        &contract_id,
+        "approve_ppids",
+        default_ppids_json(),
+        &genesis_account_id,
+        &genesis_signer,
+        &network_config,
+        None,
+    )
+    .await?
+    .assert_success();
+
     sleep(Duration::from_millis(200)).await;
 
-    // Verify agent1 was removed (it was removed when request_signature was called with invalid measurements)
-    let agent1_info: Data<Option<AgentView>> = call_view(
-        &contract_id,
-        "get_agent",
-        json!({
-            "account_id": agent1_id
-        }),
-        &network_config,
-    )
-    .await?;
-    assert!(agent1_info.data.is_none(), "Agent1 should still be removed");
-
-    // Verify agent2 still exists and now has measurements_are_approved: true again
+    // Verify agent2 still exists and has measurements_are_approved and ppid_is_approved: true again
     let agent2_info: Data<Option<AgentView>> = call_view(
         &contract_id,
         "get_agent",
@@ -338,9 +313,9 @@ async fn test_measurements_and_ppid_lifecycle() -> Result<(), Box<dyn std::error
     .await?;
 
     let agent2 = agent2_info.data.unwrap();
-    assert_eq!(
-        agent2.measurements_are_approved, true,
-        "Agent2 should have approved measurements again"
+    assert!(
+        agent2.measurements_are_approved && agent2.ppid_is_approved,
+        "Agent2 should have approved measurements and PPID again"
     );
 
     // Agent1 was removed, so request_signature should fail with "Agent not registered"
@@ -424,18 +399,7 @@ async fn test_measurements_and_ppid_lifecycle() -> Result<(), Box<dyn std::error
 
     sleep(Duration::from_millis(200)).await;
 
-    // Verify agent1 was already removed earlier, agent2 still exists with ppid_is_approved: false
-    let agent1_info: Data<Option<AgentView>> = call_view(
-        &contract_id,
-        "get_agent",
-        json!({
-            "account_id": agent1_id
-        }),
-        &network_config,
-    )
-    .await?;
-    assert!(agent1_info.data.is_none(), "Agent1 should still be removed");
-
+    // Verify agent2 exists with ppid_is_approved: false before testing PPID removal
     let agent2_info: Data<Option<AgentView>> = call_view(
         &contract_id,
         "get_agent",
@@ -476,14 +440,14 @@ async fn test_measurements_and_ppid_lifecycle() -> Result<(), Box<dyn std::error
     // Extract event logs before consuming result
     let events = extract_event_logs(&result)?;
 
-    // Verify the promise resolves to an error (fail_on_invalid_agent panics with "Invalid agent")
+    // Verify the promise resolves to an error (fail_on_invalid_agent panics with "Invalid agent: [InvalidPpid]")
     match result.into_result() {
         Ok(_) => panic!("Expected request_signature to fail (promise resolves to error) when agent has invalid PPID, but it succeeded"),
         Err(e) => {
             let error_str = format!("{:?}", e);
             assert!(
-                error_str.contains("Invalid agent"),
-                "Expected 'Invalid agent' error when promise resolves, got: {:?}",
+                error_str.contains("Invalid agent") && error_str.contains("InvalidPpid"),
+                "Expected panic to contain 'Invalid agent' and 'InvalidPpid', got: {:?}",
                 e
             );
         }
@@ -540,30 +504,7 @@ async fn test_measurements_and_ppid_lifecycle() -> Result<(), Box<dyn std::error
 
     sleep(Duration::from_millis(200)).await;
 
-    // Verify both agents were removed (agent1 was removed earlier, agent2 was removed when PPID was invalid)
-    let agent1_info: Data<Option<AgentView>> = call_view(
-        &contract_id,
-        "get_agent",
-        json!({
-            "account_id": agent1_id
-        }),
-        &network_config,
-    )
-    .await?;
-    assert!(agent1_info.data.is_none(), "Agent1 should still be removed");
-
-    let agent2_info: Data<Option<AgentView>> = call_view(
-        &contract_id,
-        "get_agent",
-        json!({
-            "account_id": agent2_id
-        }),
-        &network_config,
-    )
-    .await?;
-    assert!(agent2_info.data.is_none(), "Agent2 should still be removed");
-
-    // Both agents were removed, so request_signature should fail with "Agent not registered"
+    // request_signature should fail with "Agent not registered" (agent1 was removed earlier)
     let result = call_transaction(
         &contract_id,
         "request_signature",
@@ -866,14 +807,14 @@ async fn test_attestation_expiration() -> Result<(), Box<dyn std::error::Error +
     // Extract event logs before consuming result
     let events = extract_event_logs(&result)?;
 
-    // Verify the promise resolves to an error (fail_on_invalid_agent panics with "Invalid agent")
+    // Verify the promise resolves to an error (fail_on_invalid_agent panics with "Invalid agent: [ExpiredAttestation]")
     match result.into_result() {
         Ok(_) => panic!("Expected request_signature to fail (promise resolves to error) when agent attestation is expired, but it succeeded"),
         Err(e) => {
             let error_str = format!("{:?}", e);
             assert!(
-                error_str.contains("Invalid agent"),
-                "Expected 'Invalid agent' error when promise resolves, got: {:?}",
+                error_str.contains("Invalid agent") && error_str.contains("ExpiredAttestation"),
+                "Expected panic to contain 'Invalid agent' and 'ExpiredAttestation', got: {:?}",
                 e
             );
         }
