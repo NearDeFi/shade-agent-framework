@@ -1,9 +1,12 @@
+mod common;
+
 use std::str::FromStr;
 
-use attestation::collateral::{Collateral, CollateralError};
 use dcap_qvl::QuoteCollateralV3;
 use serde_json::json;
-use test_utils::attestation::collateral;
+use shade_attestation::collateral::{Collateral, CollateralError};
+
+use common::collateral;
 
 #[test]
 fn test_collateral_missing_field() {

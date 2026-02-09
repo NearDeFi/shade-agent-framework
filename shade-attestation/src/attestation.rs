@@ -536,6 +536,7 @@ impl GetSingleEvent for TcbInfo {
     }
 }
 
+// Tests are not relevant since we don't check the contense of the app compose
 // #[cfg(test)]
 // #[allow(non_snake_case)]
 // mod tests {

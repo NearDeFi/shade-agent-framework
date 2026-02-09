@@ -1,11 +1,13 @@
+mod common;
+
 use dstack_sdk_types::dstack::TcbInfo as DstackTcbInfo;
 use serde_json::Value;
 
-use attestation::app_compose::AppCompose;
-use test_utils::attestation::{
+use common::{
     TEST_APP_COMPOSE_STRING, TEST_APP_COMPOSE_WITH_SERVICES_STRING,
     TEST_LAUNCHER_IMAGE_COMPOSE_STRING, TEST_TCB_INFO_STRING,
 };
+use shade_attestation::app_compose::AppCompose;
 
 #[test]
 fn test_app_compose_deserialization() {
@@ -34,8 +36,11 @@ fn test_app_compose_deserialization() {
 #[test]
 fn test_app_compose_from_tcb_info() {
     let dstack_tcb_info: DstackTcbInfo = serde_json::from_str(TEST_TCB_INFO_STRING).unwrap();
-    let app_compose = dstack_tcb_info.app_compose;
-    assert_eq!(app_compose, TEST_APP_COMPOSE_STRING);
+    let app_compose_str = dstack_tcb_info.app_compose;
+    // Compare parsed JSON so formatting differences (e.g. minified vs pretty-printed) don't matter
+    let from_tcb: Value = serde_json::from_str(&app_compose_str).unwrap();
+    let expected: Value = serde_json::from_str(TEST_APP_COMPOSE_STRING).unwrap();
+    assert_eq!(from_tcb, expected);
 }
 
 #[test]
