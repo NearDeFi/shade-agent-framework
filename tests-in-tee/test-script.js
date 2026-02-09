@@ -1220,15 +1220,15 @@ async function test11(appUrl) {
         );
       }
       if (result.leakedInConsole) {
-        throw new Error("PRIVATE KEY LEAK: Private key detected in console output");
+        throw new Error(
+          "PRIVATE KEY LEAK: Private key detected in console output",
+        );
       }
       if (result.leakedInResponse) {
         throw new Error("PRIVATE KEY LEAK: Private key detected in response");
       }
       if (result.operations.fund1Million.ok) {
-        throw new Error(
-          "Expected fund(1000000) to fail, but it succeeded",
-        );
+        throw new Error("Expected fund(1000000) to fail, but it succeeded");
       }
       if (result.operations.callNonexistent.ok) {
         throw new Error(
@@ -1341,7 +1341,10 @@ async function main() {
     { name: "Test 8: PPID removed", fn: test8 },
     { name: "Test 9: Unique keys across agent instances", fn: test9 },
     { name: "Test 10: Attestation expiration", fn: test10 },
-    { name: "Test 11: Full operations with errors + leak detection", fn: test11 },
+    {
+      name: "Test 11: Full operations with errors + leak detection",
+      fn: test11,
+    },
   ];
 
   for (let i = 0; i < tests.length; i++) {

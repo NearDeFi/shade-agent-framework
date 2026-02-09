@@ -166,9 +166,7 @@ export async function removeKeysFromAccount(
       if (typeof txResult.status === "object" && txResult.status.Failure) {
         // Throw on final attempt, otherwise retry - generic message only
         if (attempt === maxRetries) {
-          throw new Error(
-            `Failed to remove keys after ${maxRetries} attempts`,
-          );
+          throw new Error(`Failed to remove keys after ${maxRetries} attempts`);
         }
         continue;
       } else {
@@ -178,9 +176,7 @@ export async function removeKeysFromAccount(
     } catch {
       // Throw on final attempt, otherwise retry - do not propagate error message to avoid leaking sensitive data
       if (attempt === maxRetries) {
-        throw new Error(
-          `Failed to remove keys after ${maxRetries} attempts`,
-        );
+        throw new Error(`Failed to remove keys after ${maxRetries} attempts`);
       }
     }
   }

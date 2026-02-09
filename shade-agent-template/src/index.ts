@@ -27,7 +27,7 @@ export const agent = await ShadeClient.create({
   networkId: "testnet",
   agentContractId: agentContractId, // Agent contract the agent will interact with
   sponsor: {
-    // Sponsor account that will fund the agent
+    // Sponsor account details that will fund the agent
     accountId: sponsorAccountId,
     privateKey: sponsorPrivateKey,
   },
@@ -72,7 +72,7 @@ while (true) {
 }
 
 // Re-register every 6 days
-const SIX_DAYS_MS = 6 * 24 * 60 * 60 * 1000; 
+const SIX_DAYS_MS = 6 * 24 * 60 * 60 * 1000;
 setInterval(async () => {
   try {
     const registered = await agent.register();

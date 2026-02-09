@@ -1,3 +1,35 @@
+# @neardefi/shade-agent-cli
+
+CLI for deploying and managing Shade Agent contracts and agent apps (either locally or in TEEs). Create the contract account, deploy the agent contract (from source, WASM, or global hash), approve measurements and PPIDs, build the Docker image and deploy to Phala Cloud.
+
+## Install
+
+```bash
+npm install -g @neardefi/shade-agent-cli
+```
+
+## Commands
+
+- **`shade deploy`** — Run the full deployment from your `deployment.yaml`.
+- **`shade plan`** — Show what the deployment will do without executing.
+- **`shade whitelist`** — Whitelist an agent account for local mode (`whitelist_agent_for_local`).
+- **`shade auth`** — Set NEAR credentials (master account per network) and optional Phala API key for TEE deploys.
+
+Run `shade` with no arguments for the interactive menu.
+
+## Setup
+
+1. Put a `deployment.yaml` in your project root (see example below).
+2. Run **`shade auth set`** to store the NEAR master account (and Phala key if using TEE).
+3. Run **`shade deploy`** from the project directory.
+
+## Example deployment.yaml
+
+Create `deployment.yaml` in your agent project root.
+
+The CLI replaces `<MASTER_ACCOUNT_ID>`, `<DEFAULT_MPC_CONTRACT_ID>`, `<REQUIRES_TEE>`, `<MEASUREMENTS>`, `<PPIDS>`, and `<AGENT_ACCOUNT_ID>` with default/calculated values automatically.
+
+```yaml
 # environment: local | TEE
 environment: local
 
@@ -27,12 +59,12 @@ agent_contract:
     # Choose ONE of the following:
     # Option 1: Build contract from source and deploy
     deploy_from_source:
-      enabled: false
-      source_path: ../shade-contract-template
+      enabled: true
+      source_path: ./shade-contract-template
     # Option 2: Use pre-built WASM file
     deploy_from_wasm:
-      enabled: true
-      wasm_path: ../shade-contract-template/target/near/shade_contract_template.wasm
+      enabled: false
+      wasm_path: ./shade-contract-template/target/near/shade_contract_template.wasm
     # Option 3: Use a deployed global contract, specifying it by its hash
     use_global_by_hash:
       enabled: false
@@ -92,7 +124,7 @@ build_docker_image:
   # Fill this out with the docker tag you want to use. For example: pivortex/my-first-agent
   tag:
   cache: true
-  dockerfile_path: ../Dockerfile
+  dockerfile_path: ./Dockerfile
 
 # Deploy the docker compose file to Phala Cloud with the specified environment variables
 # Optional, if not enabled the app will not be deployed to Phala Cloud
@@ -113,3 +145,4 @@ whitelist_agent_for_local:
       "account_id": <AGENT_ACCOUNT_ID>
     }
   # tgas: 30
+```

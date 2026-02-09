@@ -121,7 +121,10 @@ export async function manageKeySetup(
 
     if (numExistingAdditionalKeys < numAdditionalKeys) {
       // Need to add keys
-      const keysToAdd = keys.slice(numExistingAdditionalKeys, numAdditionalKeys);
+      const keysToAdd = keys.slice(
+        numExistingAdditionalKeys,
+        numAdditionalKeys,
+      );
       await addKeysToAccount(agentAccount, keysToAdd);
     } else if (numExistingAdditionalKeys > numAdditionalKeys) {
       // Need to remove excess keys

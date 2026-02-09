@@ -973,7 +973,7 @@ fn test_request_signature_expired_attestation() {
         "payload".to_string(),
         "Ecdsa".to_string(),
     );
-    
+
     // Agent should be removed from map
     assert!(contract.get_agent(agent).is_none());
 }

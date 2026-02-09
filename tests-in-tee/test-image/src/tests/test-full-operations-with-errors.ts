@@ -54,7 +54,9 @@ export default async function testFullOperationsWithErrors(): Promise<{
   const originalError = console.error;
 
   const capture = (method: typeof console.log, args: unknown[]) => {
-    const msg = args.map((a) => (typeof a === "object" ? JSON.stringify(a) : String(a))).join(" ");
+    const msg = args
+      .map((a) => (typeof a === "object" ? JSON.stringify(a) : String(a)))
+      .join(" ");
     consoleCapture.push(msg);
     method.apply(console, args);
   };
@@ -177,7 +179,10 @@ export default async function testFullOperationsWithErrors(): Promise<{
     // 8. Fund with 1 million NEAR - expect error (insufficient balance)
     try {
       await agent.fund(1_000_000);
-      result.operations.fund1Million = { ok: true, error: "Expected to fail but succeeded" };
+      result.operations.fund1Million = {
+        ok: true,
+        error: "Expected to fail but succeeded",
+      };
     } catch (e: unknown) {
       const err = e instanceof Error ? e.message : String(e);
       result.operations.fund1Million = { ok: false, error: err };
@@ -189,7 +194,10 @@ export default async function testFullOperationsWithErrors(): Promise<{
         methodName: "nonexistent_method_xyz",
         args: {},
       });
-      result.operations.callNonexistent = { ok: true, error: "Expected to fail but succeeded" };
+      result.operations.callNonexistent = {
+        ok: true,
+        error: "Expected to fail but succeeded",
+      };
     } catch (e: unknown) {
       const err = e instanceof Error ? e.message : String(e);
       result.operations.callNonexistent = { ok: false, error: err };
@@ -210,7 +218,9 @@ export default async function testFullOperationsWithErrors(): Promise<{
     console.error = originalError;
 
     // Check for private key leaks in console capture
-    result.leakedInConsole = consoleCapture.some((line) => containsPrivateKey(line));
+    result.leakedInConsole = consoleCapture.some((line) =>
+      containsPrivateKey(line),
+    );
 
     // Scan response for leaks (belt and suspenders - we never include keys)
     result.leakedInResponse = scanForPrivateKeyLeak(result);
@@ -235,7 +245,9 @@ export default async function testFullOperationsWithErrors(): Promise<{
     console.warn = originalWarn;
     console.error = originalError;
     result.error = e instanceof Error ? e.message : String(e);
-    result.leakedInConsole = consoleCapture.some((line) => containsPrivateKey(line));
+    result.leakedInConsole = consoleCapture.some((line) =>
+      containsPrivateKey(line),
+    );
     result.leakedInResponse = scanForPrivateKeyLeak(result);
     return result;
   }

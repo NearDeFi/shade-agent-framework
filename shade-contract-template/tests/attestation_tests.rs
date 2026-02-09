@@ -4,8 +4,8 @@ use helpers::*;
 use near_api::Data;
 use serde_json::json;
 use shade_attestation::attestation::DstackAttestation;
-use tokio::time::{Duration, sleep};
 use shade_contract_template::AgentView;
+use tokio::time::{Duration, sleep};
 
 /// Tests measurements/PPID lifecycle with multiple agents:
 /// - Verifies that measurements removal affects all registered agents (measurements_are_approved -> false)
@@ -15,7 +15,8 @@ use shade_contract_template::AgentView;
 /// - Validates that removed agents cannot be re-registered even after measurements re-approval
 /// - Verifies that signature requests are re-enabled after measurements re-approval
 #[tokio::test]
-async fn test_measurements_and_ppid_lifecycle() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+async fn test_measurements_and_ppid_lifecycle()
+-> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let sandbox = near_sandbox::Sandbox::start_sandbox().await?;
     let network_config = create_network_config(&sandbox);
     let (genesis_account_id, genesis_signer) = setup_genesis_account().await;
@@ -99,7 +100,10 @@ async fn test_measurements_and_ppid_lifecycle() -> Result<(), Box<dyn std::error
     )
     .await?;
     let agent = agent_info.data.unwrap();
-    assert!(agent.measurements_are_approved && agent.ppid_is_approved, "Agent should have approved measurements and PPID");
+    assert!(
+        agent.measurements_are_approved && agent.ppid_is_approved,
+        "Agent should have approved measurements and PPID"
+    );
 
     // Remove default measurements
     let _ = call_transaction(
@@ -125,7 +129,10 @@ async fn test_measurements_and_ppid_lifecycle() -> Result<(), Box<dyn std::error
     )
     .await?;
     let agent = agent_info.data.unwrap();
-    assert!(!agent.measurements_are_approved && agent.ppid_is_approved, "Measurements should be unapproved, PPID still approved");
+    assert!(
+        !agent.measurements_are_approved && agent.ppid_is_approved,
+        "Measurements should be unapproved, PPID still approved"
+    );
 
     // Remove default PPID so agent has both invalid measurements and invalid PPID
     let _ = call_transaction(
@@ -164,11 +171,15 @@ async fn test_measurements_and_ppid_lifecycle() -> Result<(), Box<dyn std::error
 
     // Verify the promise resolves to an error (fail_on_invalid_agent panics with both InvalidMeasurements and InvalidPpid)
     match result.into_result() {
-        Ok(_) => panic!("Expected request_signature to fail (promise resolves to error) when agent has invalid measurements and PPID, but it succeeded"),
+        Ok(_) => panic!(
+            "Expected request_signature to fail (promise resolves to error) when agent has invalid measurements and PPID, but it succeeded"
+        ),
         Err(e) => {
             let error_str = format!("{:?}", e);
             assert!(
-                error_str.contains("Invalid agent") && error_str.contains("InvalidMeasurements") && error_str.contains("InvalidPpid"),
+                error_str.contains("Invalid agent")
+                    && error_str.contains("InvalidMeasurements")
+                    && error_str.contains("InvalidPpid"),
                 "Expected panic to contain 'Invalid agent', 'InvalidMeasurements' and 'InvalidPpid', got: {:?}",
                 e
             );
@@ -187,7 +198,10 @@ async fn test_measurements_and_ppid_lifecycle() -> Result<(), Box<dyn std::error
     )
     .await?;
 
-    assert!(agent_info.data.is_none(), "Agent1 should be removed from map");
+    assert!(
+        agent_info.data.is_none(),
+        "Agent1 should be removed from map"
+    );
 
     // Check event logs to verify removal reasons are InvalidMeasurements and InvalidPpid
     let agent_removed_events: Vec<_> = events
@@ -207,7 +221,8 @@ async fn test_measurements_and_ppid_lifecycle() -> Result<(), Box<dyn std::error
     let reasons = &agent_removed_events[0]["data"][0]["reasons"];
     let reasons_arr = reasons.as_array().expect("reasons should be array");
     assert!(
-        reasons_arr.contains(&json!("InvalidMeasurements")) && reasons_arr.contains(&json!("InvalidPpid")),
+        reasons_arr.contains(&json!("InvalidMeasurements"))
+            && reasons_arr.contains(&json!("InvalidPpid")),
         "Event should contain both 'InvalidMeasurements' and 'InvalidPpid' reasons, got: {:?}",
         reasons
     );
@@ -442,7 +457,9 @@ async fn test_measurements_and_ppid_lifecycle() -> Result<(), Box<dyn std::error
 
     // Verify the promise resolves to an error (fail_on_invalid_agent panics with "Invalid agent: [InvalidPpid]")
     match result.into_result() {
-        Ok(_) => panic!("Expected request_signature to fail (promise resolves to error) when agent has invalid PPID, but it succeeded"),
+        Ok(_) => panic!(
+            "Expected request_signature to fail (promise resolves to error) when agent has invalid PPID, but it succeeded"
+        ),
         Err(e) => {
             let error_str = format!("{:?}", e);
             assert!(
@@ -465,7 +482,10 @@ async fn test_measurements_and_ppid_lifecycle() -> Result<(), Box<dyn std::error
     )
     .await?;
 
-    assert!(agent2_info.data.is_none(), "Agent2 should be removed from map");
+    assert!(
+        agent2_info.data.is_none(),
+        "Agent2 should be removed from map"
+    );
 
     // Check event logs to verify removal reason is InvalidPpid
     let agent_removed_events: Vec<_> = events
@@ -484,7 +504,9 @@ async fn test_measurements_and_ppid_lifecycle() -> Result<(), Box<dyn std::error
 
     let reasons = &agent_removed_events[0]["data"][0]["reasons"];
     assert!(
-        reasons.as_array().map_or(false, |r| r.contains(&json!("InvalidPpid"))),
+        reasons
+            .as_array()
+            .map_or(false, |r| r.contains(&json!("InvalidPpid"))),
         "Event should contain 'InvalidPpid' reason, got: {:?}",
         reasons
     );
@@ -762,7 +784,10 @@ async fn test_attestation_expiration() -> Result<(), Box<dyn std::error::Error +
     .await?;
 
     let agent = agent_info.data.unwrap();
-    assert_eq!(agent.timestamp_is_valid, true, "Agent timestamp should be valid (not expired)");
+    assert_eq!(
+        agent.timestamp_is_valid, true,
+        "Agent timestamp should be valid (not expired)"
+    );
     assert_eq!(agent.is_valid, true, "Agent should be valid");
 
     // Fast forward time past expiration (attestation_expiration_time_ms is 100000 ms = 100 seconds)
@@ -784,7 +809,10 @@ async fn test_attestation_expiration() -> Result<(), Box<dyn std::error::Error +
     .await?;
 
     let agent = agent_info.data.unwrap();
-    assert_eq!(agent.timestamp_is_valid, false, "Agent timestamp should not be valid (expired)");
+    assert_eq!(
+        agent.timestamp_is_valid, false,
+        "Agent timestamp should not be valid (expired)"
+    );
     assert_eq!(agent.is_valid, false, "Agent should not be valid");
 
     // Try to request signature - should remove agent, emit event with ExpiredAttestation reason,
@@ -809,7 +837,9 @@ async fn test_attestation_expiration() -> Result<(), Box<dyn std::error::Error +
 
     // Verify the promise resolves to an error (fail_on_invalid_agent panics with "Invalid agent: [ExpiredAttestation]")
     match result.into_result() {
-        Ok(_) => panic!("Expected request_signature to fail (promise resolves to error) when agent attestation is expired, but it succeeded"),
+        Ok(_) => panic!(
+            "Expected request_signature to fail (promise resolves to error) when agent attestation is expired, but it succeeded"
+        ),
         Err(e) => {
             let error_str = format!("{:?}", e);
             assert!(
@@ -833,7 +863,10 @@ async fn test_attestation_expiration() -> Result<(), Box<dyn std::error::Error +
     )
     .await?;
 
-    assert!(agent_info.data.is_none(), "Agent should be removed from map");
+    assert!(
+        agent_info.data.is_none(),
+        "Agent should be removed from map"
+    );
 
     // Check event logs to verify removal reason
     let agent_removed_events: Vec<_> = events
@@ -852,7 +885,9 @@ async fn test_attestation_expiration() -> Result<(), Box<dyn std::error::Error +
 
     let reasons = &agent_removed_events[0]["data"][0]["reasons"];
     assert!(
-        reasons.as_array().map_or(false, |r| r.contains(&json!("ExpiredAttestation"))),
+        reasons
+            .as_array()
+            .map_or(false, |r| r.contains(&json!("ExpiredAttestation"))),
         "Event should contain 'ExpiredAttestation' reason, got: {:?}",
         reasons
     );
@@ -917,8 +952,14 @@ async fn test_attestation_expiration() -> Result<(), Box<dyn std::error::Error +
     .await?;
 
     let agent = agent_info.data.unwrap();
-    assert_eq!(agent.timestamp_is_valid, true, "Agent timestamp should be valid after re-registration");
-    assert_eq!(agent.is_valid, true, "Agent should be valid after re-registration");
+    assert_eq!(
+        agent.timestamp_is_valid, true,
+        "Agent timestamp should be valid after re-registration"
+    );
+    assert_eq!(
+        agent.is_valid, true,
+        "Agent should be valid after re-registration"
+    );
 
     Ok(())
 }

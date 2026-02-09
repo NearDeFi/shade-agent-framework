@@ -263,7 +263,9 @@ describe("near utils", () => {
           1.0,
           mockProvider,
         ),
-      ).rejects.toThrow("Failed to fund agent account agent.testnet after 3 attempts");
+      ).rejects.toThrow(
+        "Failed to fund agent account agent.testnet after 3 attempts",
+      );
 
       expect(mockTransfer).toHaveBeenCalledTimes(3);
     });

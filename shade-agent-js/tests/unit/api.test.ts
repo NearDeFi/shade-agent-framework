@@ -578,7 +578,9 @@ describe("ShadeClient", () => {
 
       const client = await ShadeClient.create({});
 
-      await expect(client.getAttestation()).rejects.toThrow("Quote fetch failed");
+      await expect(client.getAttestation()).rejects.toThrow(
+        "Quote fetch failed",
+      );
     });
   });
 

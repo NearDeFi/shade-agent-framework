@@ -6,12 +6,7 @@ import { DeepRedact } from "@hackylabs/deep-redact/index.ts";
 
 const REDACTED = "[REDACTED]";
 
-const SENSITIVE_KEYS = [
-  "privateKey",
-  "private_key",
-  "secretKey",
-  "secret_key",
-];
+const SENSITIVE_KEYS = ["privateKey", "private_key", "secretKey", "secret_key"];
 
 const deepRedact = new DeepRedact({
   serialise: false,

@@ -7,9 +7,9 @@ describe("sanitize utils", () => {
       expect(sanitize("Error: key ed25519:5J7Xn8bB3dF2gH9kL failed")).toContain(
         "[REDACTED]",
       );
-      expect(sanitize("Error: key ed25519:5J7Xn8bB3dF2gH9kL failed")).not.toContain(
-        "ed25519:5J7Xn",
-      );
+      expect(
+        sanitize("Error: key ed25519:5J7Xn8bB3dF2gH9kL failed"),
+      ).not.toContain("ed25519:5J7Xn");
       expect(sanitize("secret_key validation failed")).toBe("[REDACTED]");
       expect(sanitize("Failed to fund agent account")).toBe(
         "Failed to fund agent account",
@@ -44,9 +44,9 @@ describe("sanitize utils", () => {
       expect(sanitize("Key secp256k1:5Kb8kLf9zg5QZ4mN3vB2xC6yT7")).toContain(
         "[REDACTED]",
       );
-      expect(sanitize("Key secp256k1:5Kb8kLf9zg5QZ4mN3vB2xC6yT7")).not.toContain(
-        "secp256k1:",
-      );
+      expect(
+        sanitize("Key secp256k1:5Kb8kLf9zg5QZ4mN3vB2xC6yT7"),
+      ).not.toContain("secp256k1:");
     });
 
     it("returns primitives that cannot contain keys as-is", () => {
@@ -149,7 +149,8 @@ describe("sanitize utils", () => {
       const objError = {
         message: "Config validation failed",
         config: {
-          privateKey: "ed25519:5J7Xn8bB3dF2gH9kL1mN4pQ7rStU3vW6xY9zA2bC5dE8fGhJkLmN",
+          privateKey:
+            "ed25519:5J7Xn8bB3dF2gH9kL1mN4pQ7rStU3vW6xY9zA2bC5dE8fGhJkLmN",
           accountId: "test.testnet",
         },
       };
