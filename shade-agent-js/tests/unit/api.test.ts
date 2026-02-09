@@ -272,6 +272,7 @@ describe("ShadeClient", () => {
           contractId: "agent.contract.testnet",
           methodName: "register_agent",
           args: { attestation: contractAttestation },
+          deposit: "5000000000000000000000", // 0.005 NEAR
           gas: BigInt("300000000000000"),
         }),
       );
@@ -336,6 +337,22 @@ describe("ShadeClient", () => {
       await expect(
         client.view({ methodName: "test", args: {} }),
       ).rejects.toThrow("agentContractId is required for view calls");
+    });
+
+    it("should sanitize error when view call fails", async () => {
+      setupClientMocks();
+      (mockProvider.callFunction as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new Error("RPC error"),
+      );
+
+      const client = await ShadeClient.create({
+        agentContractId: "agent.contract.testnet",
+        rpc: mockProvider,
+      });
+
+      await expect(
+        client.view({ methodName: "get_data", args: {} }),
+      ).rejects.toThrow("RPC error");
     });
   });
 
@@ -497,6 +514,22 @@ describe("ShadeClient", () => {
         client.call({ methodName: "test", args: {} }),
       ).rejects.toThrow("agentContractId is required for call functions");
     });
+
+    it("should sanitize error when call fails", async () => {
+      setupClientMocks();
+      (mockAccount.callFunction as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new Error("Transaction failed"),
+      );
+
+      const client = await ShadeClient.create({
+        agentContractId: "agent.contract.testnet",
+        rpc: mockProvider,
+      });
+
+      await expect(
+        client.call({ methodName: "update_data", args: {} }),
+      ).rejects.toThrow("Transaction failed");
+    });
   });
 
   describe("getAttestation", () => {
@@ -536,6 +569,19 @@ describe("ShadeClient", () => {
       );
       expect(result).toEqual(attestation);
     });
+
+    it("should sanitize error when attestation fetch fails", async () => {
+      setupClientMocks();
+      vi.mocked(internalGetAttestation).mockRejectedValue(
+        new Error("Quote fetch failed"),
+      );
+
+      const client = await ShadeClient.create({});
+
+      await expect(client.getAttestation()).rejects.toThrow(
+        "Quote fetch failed",
+      );
+    });
   });
 
   describe("fundAgent", () => {
@@ -569,6 +615,23 @@ describe("ShadeClient", () => {
       await expect(client.fund(10)).rejects.toThrow(
         "sponsor is required for funding the agent account",
       );
+    });
+
+    it("should sanitize error when fund fails", async () => {
+      setupClientMocks();
+      vi.mocked(internalFundAgent).mockRejectedValue(
+        new Error("Transfer failed"),
+      );
+
+      const client = await ShadeClient.create({
+        sponsor: {
+          accountId: "sponsor.testnet",
+          privateKey: "sponsor-key",
+        },
+        rpc: mockProvider,
+      });
+
+      await expect(client.fund(10)).rejects.toThrow("Transfer failed");
     });
   });
 
@@ -646,7 +709,12 @@ describe("ShadeClient", () => {
       setupClientMocks();
       (
         mockProvider.callFunction as ReturnType<typeof vi.fn>
-      ).mockResolvedValueOnce(true);
+      ).mockResolvedValueOnce({
+        requires_tee: true,
+        attestation_expiration_time_ms: "100000",
+        owner_id: "owner.testnet",
+        mpc_contract_id: "mpc.testnet",
+      });
 
       const client = await ShadeClient.create({
         agentContractId: "agent.contract.testnet",
@@ -657,7 +725,7 @@ describe("ShadeClient", () => {
 
       expect(mockProvider.callFunction).toHaveBeenCalledWith(
         "agent.contract.testnet",
-        "get_requires_tee",
+        "get_contract_info",
         {},
         undefined,
       );
@@ -667,7 +735,12 @@ describe("ShadeClient", () => {
     it("should return true when agent is whitelisted", async () => {
       setupClientMocks();
       (mockProvider.callFunction as ReturnType<typeof vi.fn>)
-        .mockResolvedValueOnce(false) // requires_tee = false
+        .mockResolvedValueOnce({
+          requires_tee: false,
+          attestation_expiration_time_ms: "100000",
+          owner_id: "owner.testnet",
+          mpc_contract_id: "mpc.testnet",
+        })
         .mockResolvedValueOnce([testAccountId, "other.agent.testnet"]); // whitelisted agents
 
       const client = await ShadeClient.create({
@@ -681,7 +754,7 @@ describe("ShadeClient", () => {
       expect(mockProvider.callFunction).toHaveBeenNthCalledWith(
         1,
         "agent.contract.testnet",
-        "get_requires_tee",
+        "get_contract_info",
         {},
         undefined,
       );
@@ -698,7 +771,12 @@ describe("ShadeClient", () => {
     it("should return false when agent is not whitelisted", async () => {
       setupClientMocks();
       (mockProvider.callFunction as ReturnType<typeof vi.fn>)
-        .mockResolvedValueOnce(false) // requires_tee = false
+        .mockResolvedValueOnce({
+          requires_tee: false,
+          attestation_expiration_time_ms: "100000",
+          owner_id: "owner.testnet",
+          mpc_contract_id: "mpc.testnet",
+        })
         .mockResolvedValueOnce([
           "other.agent.testnet",
           "another.agent.testnet",
@@ -712,6 +790,20 @@ describe("ShadeClient", () => {
       const result = await client.isWhitelisted();
 
       expect(result).toBe(false);
+    });
+
+    it("should sanitize error when isWhitelisted view fails", async () => {
+      setupClientMocks();
+      (mockProvider.callFunction as ReturnType<typeof vi.fn>).mockRejectedValue(
+        new Error("View call failed"),
+      );
+
+      const client = await ShadeClient.create({
+        agentContractId: "agent.contract.testnet",
+        rpc: mockProvider,
+      });
+
+      await expect(client.isWhitelisted()).rejects.toThrow("View call failed");
     });
   });
 });

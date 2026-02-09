@@ -5,6 +5,7 @@ import { Account } from "@near-js/accounts";
 import { KeyPair, KeyPairString } from "@near-js/crypto";
 import { NEAR } from "@near-js/tokens";
 import { actionCreators } from "@near-js/transactions";
+import { sanitize } from "./sanitize";
 
 // Creates a default JSON RPC provider for the specified network
 export function createDefaultProvider(networkId: string): JsonRpcProvider {
@@ -29,7 +30,12 @@ export function createAccountObject(
   provider: Provider,
   signer?: KeyPairSigner,
 ): Account {
-  return new Account(accountId, provider, signer);
+  try {
+    return new Account(accountId, provider, signer);
+  } catch (error) {
+    // return generic error to avoid leaking sensitive data
+    throw new Error(`Failed to create account object`);
+  }
 }
 
 // Transfers NEAR tokens from sponsor account to agent account
@@ -58,9 +64,12 @@ export async function internalFundAgent(
 
       // Check transaction status
       if (typeof fundResult.status === "object" && fundResult.status.Failure) {
-        const errorMsg =
+        const rawMsg =
           fundResult.status.Failure.error_message ||
           fundResult.status.Failure.error_type;
+        const sanitized = sanitize(String(rawMsg));
+        const errorMsg =
+          typeof sanitized === "string" ? sanitized : String(sanitized);
         const error = new Error(`Transfer transaction failed: ${errorMsg}`);
         // Throw on final attempt, otherwise retry
         if (attempt === maxRetries) {
@@ -71,11 +80,11 @@ export async function internalFundAgent(
         // Success - transaction completed without failure
         return;
       }
-    } catch (error) {
-      // Throw on final attempt, otherwise retry
+    } catch {
+      // Throw on final attempt, otherwise retry - do not propagate error message to avoid leaking sensitive data
       if (attempt === maxRetries) {
         throw new Error(
-          `Failed to fund agent account ${agentAccountId} (attempt ${attempt}/${maxRetries}): ${error instanceof Error ? error.message : String(error)}`,
+          `Failed to fund agent account ${agentAccountId} after ${maxRetries} attempts`,
         );
       }
     }
@@ -111,25 +120,19 @@ export async function addKeysToAccount(
 
       // Check transaction status
       if (typeof txResult.status === "object" && txResult.status.Failure) {
-        const errorMsg =
-          txResult.status.Failure.error_message ||
-          txResult.status.Failure.error_type;
-        const error = new Error(`Add keys transaction failed: ${errorMsg}`);
-        // Throw on final attempt, otherwise retry
+        // Throw on final attempt, otherwise retry - generic message only
         if (attempt === maxRetries) {
-          throw error;
+          throw new Error(`Failed to add keys after ${maxRetries} attempts`);
         }
         continue;
       } else {
         // Success - transaction completed without failure
         return;
       }
-    } catch (error) {
-      // Throw on final attempt, otherwise retry
+    } catch {
+      // Throw on final attempt, otherwise retry - do not propagate error message to avoid leaking sensitive data
       if (attempt === maxRetries) {
-        throw new Error(
-          `Failed to add keys (attempt ${attempt}/${maxRetries}): ${error instanceof Error ? error.message : String(error)}`,
-        );
+        throw new Error(`Failed to add keys after ${maxRetries} attempts`);
       }
     }
   }
@@ -161,25 +164,19 @@ export async function removeKeysFromAccount(
 
       // Check transaction status
       if (typeof txResult.status === "object" && txResult.status.Failure) {
-        const errorMsg =
-          txResult.status.Failure.error_message ||
-          txResult.status.Failure.error_type;
-        const error = new Error(`Remove keys transaction failed: ${errorMsg}`);
-        // Throw on final attempt, otherwise retry
+        // Throw on final attempt, otherwise retry - generic message only
         if (attempt === maxRetries) {
-          throw error;
+          throw new Error(`Failed to remove keys after ${maxRetries} attempts`);
         }
         continue;
       } else {
         // Success - transaction completed without failure
         return;
       }
-    } catch (error) {
-      // Throw on final attempt, otherwise retry
+    } catch {
+      // Throw on final attempt, otherwise retry - do not propagate error message to avoid leaking sensitive data
       if (attempt === maxRetries) {
-        throw new Error(
-          `Failed to remove keys (attempt ${attempt}/${maxRetries}): ${error instanceof Error ? error.message : String(error)}`,
-        );
+        throw new Error(`Failed to remove keys after ${maxRetries} attempts`);
       }
     }
   }

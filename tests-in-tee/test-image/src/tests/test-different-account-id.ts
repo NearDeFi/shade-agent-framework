@@ -21,7 +21,6 @@ import { NEAR } from "@near-js/tokens";
 export default async function testDifferentAccountId(
   agent: ShadeClient,
 ): Promise<{
-  success: boolean;
   agentAccountId: string;
   registrationError?: string;
   callError?: string;
@@ -46,7 +45,6 @@ export default async function testDifferentAccountId(
   const agentContractId = process.env.AGENT_CONTRACT_ID;
   if (!agentContractId) {
     return {
-      success: false,
       agentAccountId,
       registrationError: "AGENT_CONTRACT_ID not set",
     };
@@ -81,7 +79,7 @@ export default async function testDifferentAccountId(
     receiverId: differentAccountId,
   });
 
-  // Try to register with different account - should fail with WrongHash error
+  // Try to register with different account - script will check registrationError
   let registrationError: string | undefined;
   try {
     await differentAccount.callFunction({
@@ -90,16 +88,16 @@ export default async function testDifferentAccountId(
       args: {
         attestation: contractAttestation,
       },
+      deposit: NEAR.toUnits(0.005),
       gas: BigInt("300000000000000"), // 300 TGas
     });
     registrationError =
       "Registration with different account should have failed but succeeded";
   } catch (error: any) {
     registrationError = error.message || String(error);
-    // Expected to fail
   }
 
-  // Try to make a call from the different account - should fail with "Agent not registered"
+  // Try to make a call from the different account - script will check callError
   let callError: string | undefined;
   try {
     await differentAccount.callFunction({
@@ -115,20 +113,9 @@ export default async function testDifferentAccountId(
     callError = "Call from different account should have failed but succeeded";
   } catch (error: any) {
     callError = error.message || String(error);
-    // Expected to fail - this is good
   }
 
-  // Verify that errors occurred (as expected)
-  const success =
-    registrationError !== undefined &&
-    callError !== undefined &&
-    registrationError !==
-      "Registration with different account should have failed but succeeded" &&
-    callError !==
-      "Call from different account should have failed but succeeded";
-
   return {
-    success,
     agentAccountId,
     registrationError,
     callError,

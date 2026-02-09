@@ -2,8 +2,8 @@
  * Test 6: Can't do stuff if measurements are removed
  *
  * In script: Remove measurements
- * In TEE: Try to make call, check failed and reason why
- * In TEE: Return results to script
+ * In TEE: Try to make call, return raw result (no error checking)
+ * In script: Check callError contains InvalidMeasurements, verify agent removed from map
  */
 
 import { ShadeClient } from "@neardefi/shade-agent-js";
@@ -11,14 +11,13 @@ import { ShadeClient } from "@neardefi/shade-agent-js";
 export default async function testMeasurementsRemoved(
   agent: ShadeClient,
 ): Promise<{
-  success: boolean;
   agentAccountId: string;
   callError?: string;
 }> {
   const agentAccountId = agent.accountId();
 
   // Agent should already be registered (registration happens in the register-agent endpoint)
-  // Just try to make a call - should fail because measurements were removed
+  // Try to make a call - script will check error and agent removal
   let callError: string | undefined;
   try {
     await agent.call({
@@ -33,20 +32,9 @@ export default async function testMeasurementsRemoved(
     callError = "Call should have failed but succeeded";
   } catch (error: any) {
     callError = error?.message ?? String(error);
-    // Expected to fail - verify error mentions measurements
-    if (!callError?.toLowerCase().includes("measurement")) {
-      callError = `Call failed but error doesn't mention measurements: ${callError}`;
-    }
   }
 
-  // Verify that error occurred and mentions measurements
-  const success =
-    callError !== undefined &&
-    callError !== "Call should have failed but succeeded" &&
-    callError.toLowerCase().includes("measurement");
-
   return {
-    success,
     agentAccountId,
     callError,
   };

@@ -170,7 +170,7 @@ describe("tee utils", () => {
 
       await expect(
         internalGetAttestation(mockClient, "agent.testnet", true),
-      ).rejects.toThrow("Failed to get quote collateral: Network error");
+      ).rejects.toThrow("Failed to get quote collateral");
     });
 
     it("should handle non-Error exceptions in fetch", async () => {
@@ -179,7 +179,7 @@ describe("tee utils", () => {
 
       await expect(
         internalGetAttestation(mockClient, "agent.testnet", true),
-      ).rejects.toThrow("Failed to get quote collateral: String error");
+      ).rejects.toThrow("Failed to get quote collateral");
     });
 
     it("should handle non-ok fetch responses", async () => {
@@ -195,7 +195,7 @@ describe("tee utils", () => {
 
         await expect(
           internalGetAttestation(mockClient, "agent.testnet", true),
-        ).rejects.toThrow(`Failed to get quote collateral: HTTP ${status}`);
+        ).rejects.toThrow("Failed to get quote collateral");
 
         mockFetch.mockClear();
       }
@@ -300,7 +300,6 @@ describe("tee utils", () => {
       expect(rejectionError).not.toBeNull();
       const error = rejectionError as unknown as Error;
       expect(error.message).toContain("Failed to get quote collateral");
-      expect(error.message).toContain("The operation was aborted");
 
       // Restore original AbortController
       global.AbortController = originalAbortController;

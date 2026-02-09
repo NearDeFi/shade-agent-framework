@@ -53,7 +53,7 @@ const AGENT_CONTRACT_ID = `shade-test-contract.${TESTNET_ACCOUNT_ID}`;
 const TEST_APP_NAME = "shade-integration-tests";
 
 // Toggle to skip redeploying account, contract, and initialization (useful for reusing existing deployment)
-const SKIP_CONTRACT_DEPLOYMENT = false;
+const SKIP_CONTRACT_DEPLOYMENT = true;
 
 // Toggle to skip Phala deployment - ON if TEST_APP_URL is specified, OFF if empty
 // const TEST_APP_URL = "https://45034fea45a406a829feea099c77bbe6cf26faed-3000.dstack-pha-prod7.phala.network";
@@ -213,7 +213,7 @@ async function deployContract() {
     "shade-contract-template",
     "target",
     "near",
-    "shade_contract.wasm",
+    "shade_contract_template.wasm",
   );
 
   if (!fs.existsSync(wasmPath)) {
@@ -237,9 +237,10 @@ async function initializeContract() {
   console.log("Initializing contract...");
 
   const initArgs = {
+    requires_tee: true,
+    attestation_expiration_time_ms: "100000", // 100 seconds in milliseconds (as U64 string)
     owner_id: TESTNET_ACCOUNT_ID,
     mpc_contract_id: "v1.signer-prod.testnet", // testnet MPC contract
-    requires_tee: true,
   };
 
   try {
@@ -534,6 +535,18 @@ async function removePpids(ppids) {
   });
 }
 
+// Update attestation expiration time (owner only). Pass ms as number or string.
+async function updateAttestationExpirationTime(ms) {
+  const msStr = String(ms);
+  console.log(`Updating attestation expiration to ${msStr} ms...`);
+  await account.callFunction({
+    contractId: AGENT_CONTRACT_ID,
+    methodName: "update_attestation_expiration_time",
+    args: { attestation_expiration_time_ms: msStr },
+    gas: tgasToGas(30),
+  });
+}
+
 // Check if agent is registered
 async function isAgentRegistered(agentAccountId) {
   try {
@@ -577,8 +590,21 @@ async function waitForAppReady(baseUrl, maxAttempts = 20, delay = 10000) {
   );
 }
 
+// Patterns that indicate a private key leak (NEAR ed25519/secp256k1 format)
+const PRIVATE_KEY_PATTERNS = [
+  /ed25519:[1-9A-HJ-NP-Za-km-z]{40,}/,
+  /secp256k1:[1-9A-HJ-NP-Za-km-z]{40,}/,
+];
+
+function containsPrivateKey(text) {
+  if (!text || typeof text !== "string") return false;
+  return PRIVATE_KEY_PATTERNS.some((re) => re.test(text));
+}
+
 // Call test endpoint
-async function callTestEndpoint(baseUrl, testName) {
+// Options: { checkForPrivateKeyLeak: boolean } - when true, fails if response contains private key patterns
+async function callTestEndpoint(baseUrl, testName, options = {}) {
+  const { checkForPrivateKeyLeak = false } = options;
   const url = `${baseUrl}/test/${testName}`;
   console.log(`Calling test endpoint: ${url}`);
 
@@ -592,8 +618,16 @@ async function callTestEndpoint(baseUrl, testName) {
         headers: { "Content-Type": "application/json" },
       });
 
+      const responseText = await response.text();
+
+      if (checkForPrivateKeyLeak && containsPrivateKey(responseText)) {
+        throw new Error(
+          `PRIVATE KEY LEAK DETECTED: Response from ${testName} contains private key patterns`,
+        );
+      }
+
       if (response.ok) {
-        return await response.json();
+        return JSON.parse(responseText);
       }
 
       if (response.status === 404 && attempt < maxAttempts) {
@@ -602,7 +636,7 @@ async function callTestEndpoint(baseUrl, testName) {
         continue;
       }
 
-      throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+      throw new Error(`HTTP ${response.status}: ${responseText}`);
     } catch (e) {
       if (attempt === maxAttempts) {
         throw e;
@@ -671,7 +705,7 @@ function getWrongMeasurementsAppCompose() {
 }
 
 // Run a test (assumes appUrl is already available)
-async function runTest(appUrl, testName, setupFn, verifyFn) {
+async function runTest(appUrl, testName, setupFn, verifyFn, options = {}) {
   console.log(`\n${"=".repeat(70)}`);
   console.log(`Running test: ${testName}`);
   console.log("=".repeat(70));
@@ -685,16 +719,11 @@ async function runTest(appUrl, testName, setupFn, verifyFn) {
     }
 
     // Call test endpoint
-    const result = await callTestEndpoint(appUrl, testName);
+    const result = await callTestEndpoint(appUrl, testName, options);
 
-    // Verify
+    // Verify (script does all error checking)
     if (verifyFn) {
       await verifyFn(result);
-    }
-
-    // Check test result
-    if (!result.success) {
-      throw new Error(`Test failed: ${result.error || "Unknown error"}`);
     }
 
     console.log(`✓ Test ${testName} passed`);
@@ -1011,17 +1040,21 @@ async function test7(appUrl) {
     // Step 4: Try to make a call (should fail because measurements were removed)
     const result = await callTestEndpoint(appUrl, "measurements-removed");
 
-    // Verify error contains "Agent not registered with approved measurements"
+    // Verify error contains InvalidMeasurements reason (from AgentRemovalReason)
     const errorMsg = result.callError || "";
-    if (!errorMsg.includes("Agent not registered with approved measurements")) {
+    if (!errorMsg.includes("InvalidMeasurements")) {
       throw new Error(
-        `Expected error 'Agent not registered with approved measurements', got: ${errorMsg}`,
+        `Expected error with reason 'InvalidMeasurements', got: ${errorMsg}`,
       );
     }
 
-    // Verify test result
-    if (!result.success) {
-      throw new Error(`Test failed: ${result.error || "Unknown error"}`);
+    // Verify agent was removed from the contract's agent map
+    await new Promise((res) => setTimeout(res, 2000));
+    const agentStillRegistered = await isAgentRegistered(result.agentAccountId);
+    if (agentStillRegistered) {
+      throw new Error(
+        `Expected agent ${result.agentAccountId} to be removed from map after request_signature, but agent is still registered`,
+      );
     }
 
     // Cleanup: Remove PPIDs
@@ -1079,17 +1112,21 @@ async function test8(appUrl) {
     // Step 4: Try to make a call (should fail because PPID was removed)
     const result = await callTestEndpoint(appUrl, "ppid-removed");
 
-    // Verify error contains "Agent not registered with approved PPID"
+    // Verify error contains InvalidPpid reason (from AgentRemovalReason)
     const errorMsg = result.callError || "";
-    if (!errorMsg.includes("Agent not registered with approved PPID")) {
+    if (!errorMsg.includes("InvalidPpid")) {
       throw new Error(
-        `Expected error 'Agent not registered with approved PPID', got: ${errorMsg}`,
+        `Expected error with reason 'InvalidPpid', got: ${errorMsg}`,
       );
     }
 
-    // Verify test result
-    if (!result.success) {
-      throw new Error(`Test failed: ${result.error || "Unknown error"}`);
+    // Verify agent was removed from the contract's agent map
+    await new Promise((res) => setTimeout(res, 2000));
+    const agentStillRegistered = await isAgentRegistered(result.agentAccountId);
+    if (agentStillRegistered) {
+      throw new Error(
+        `Expected agent ${result.agentAccountId} to be removed from map after request_signature, but agent is still registered`,
+      );
     }
 
     // Cleanup: Remove measurements
@@ -1101,6 +1138,109 @@ async function test8(appUrl) {
     console.error(`✗ Test ppid-removed failed: ${error.message}`);
     throw error;
   }
+}
+
+// Test 10: Attestation expiration - set expiration to 10s; TEE registers, waits 12s, then request_signature fails with ExpiredAttestation
+async function test10(appUrl) {
+  const correctMeasurements = getCorrectMeasurements();
+  const correctPpids = await getCorrectPpids();
+
+  console.log(`\n${"=".repeat(70)}`);
+  console.log(`Running test: attestation-expired`);
+  console.log("=".repeat(70));
+
+  try {
+    // Step 1: Update attestation expiration to 10 seconds (10000 ms)
+    await updateAttestationExpirationTime(10000);
+    await new Promise((res) => setTimeout(res, 2000));
+
+    // Step 2: Approve measurements and PPIDs
+    await approveMeasurements(correctMeasurements);
+    await approvePpids(correctPpids);
+    await new Promise((res) => setTimeout(res, 2000));
+
+    // Step 3: Call attestation-expired - TEE registers, waits 12s, then attempts request_signature (call takes ~12+ sec)
+    const result = await callTestEndpoint(appUrl, "attestation-expired");
+
+    if (result.registrationError) {
+      throw new Error(
+        `Registration should have succeeded, got error: ${result.registrationError}`,
+      );
+    }
+
+    // Step 4: Verify error contains ExpiredAttestation reason (from AgentRemovalReason)
+    const errorMsg = result.callError || "";
+    if (!errorMsg.includes("ExpiredAttestation")) {
+      throw new Error(
+        `Expected error with reason 'ExpiredAttestation', got: ${errorMsg}`,
+      );
+    }
+
+    // Step 5: Verify agent was removed from the contract's agent map
+    await new Promise((res) => setTimeout(res, 2000));
+    const agentStillRegistered = await isAgentRegistered(result.agentAccountId);
+    if (agentStillRegistered) {
+      throw new Error(
+        `Expected agent ${result.agentAccountId} to be removed from map after request_signature, but agent is still registered`,
+      );
+    }
+
+    // Cleanup: Restore expiration to 100 seconds (for other tests if any run after)
+    await updateAttestationExpirationTime(100000);
+    await removeMeasurements(correctMeasurements);
+    await removePpids(correctPpids);
+
+    console.log(`✓ Test attestation-expired passed`);
+    return true;
+  } catch (error) {
+    console.error(`✗ Test attestation-expired failed: ${error.message}`);
+    throw error;
+  }
+}
+
+// Test 11: Full operations with errors + private key leak detection
+async function test11(appUrl) {
+  const correctMeasurements = getCorrectMeasurements();
+  const correctPpids = await getCorrectPpids();
+
+  await runTest(
+    appUrl,
+    "full-operations-with-errors",
+    async () => {
+      await approveMeasurements(correctMeasurements);
+      await approvePpids(correctPpids);
+    },
+    async (result) => {
+      if (result.error) {
+        throw new Error(`Test error: ${result.error}`);
+      }
+      if (!result.success) {
+        throw new Error(
+          `Expected success, got: ${JSON.stringify(result.operations)}`,
+        );
+      }
+      if (result.leakedInConsole) {
+        throw new Error(
+          "PRIVATE KEY LEAK: Private key detected in console output",
+        );
+      }
+      if (result.leakedInResponse) {
+        throw new Error("PRIVATE KEY LEAK: Private key detected in response");
+      }
+      if (result.operations.fund1Million.ok) {
+        throw new Error("Expected fund(1000000) to fail, but it succeeded");
+      }
+      if (result.operations.callNonexistent.ok) {
+        throw new Error(
+          "Expected call(nonexistent_method_xyz) to fail, but it succeeded",
+        );
+      }
+
+      await removeMeasurements(correctMeasurements);
+      await removePpids(correctPpids);
+    },
+    { checkForPrivateKeyLeak: true },
+  );
 }
 
 // Test 9: Verify that two agent instances generate different private keys
@@ -1200,6 +1340,11 @@ async function main() {
     { name: "Test 7: Measurements removed", fn: test7 },
     { name: "Test 8: PPID removed", fn: test8 },
     { name: "Test 9: Unique keys across agent instances", fn: test9 },
+    { name: "Test 10: Attestation expiration", fn: test10 },
+    {
+      name: "Test 11: Full operations with errors + leak detection",
+      fn: test11,
+    },
   ];
 
   for (let i = 0; i < tests.length; i++) {

@@ -24,10 +24,8 @@ function hexToBytes(hexStr: string | undefined): number[] {
   }
   try {
     return Array.from(Buffer.from(hexStr, "hex"));
-  } catch (error) {
-    throw new Error(
-      `Failed to decode hex string: ${error instanceof Error ? error.message : String(error)}`,
-    );
+  } catch {
+    throw new Error("Failed to decode hex string");
   }
 }
 

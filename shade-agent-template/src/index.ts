@@ -27,7 +27,7 @@ export const agent = await ShadeClient.create({
   networkId: "testnet",
   agentContractId: agentContractId, // Agent contract the agent will interact with
   sponsor: {
-    // Sponsor account that will fund the agent
+    // Sponsor account details that will fund the agent
     accountId: sponsorAccountId,
     privateKey: sponsorPrivateKey,
   },
@@ -70,6 +70,19 @@ while (true) {
   }
   await new Promise((resolve) => setTimeout(resolve, 10000));
 }
+
+// Re-register every 6 days
+const SIX_DAYS_MS = 6 * 24 * 60 * 60 * 1000;
+setInterval(async () => {
+  try {
+    const registered = await agent.register();
+    if (registered) {
+      console.log("Agent re-registered");
+    }
+  } catch (error) {
+    console.error("Error re-registering agent:", error);
+  }
+}, SIX_DAYS_MS);
 
 // Start server after registration is complete
 const port = Number(process.env.PORT || "3000");

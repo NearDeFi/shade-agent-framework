@@ -3,6 +3,7 @@ mod helpers;
 use helpers::*;
 use near_api::Data;
 use serde_json::json;
+use shade_contract_template::ContractInfo;
 use tokio::time::{Duration, sleep};
 
 /// Tests owner transfer and new owner operations
@@ -27,6 +28,19 @@ async fn test_owner_transfer_and_new_owner_operations()
     )
     .await?;
 
+    // Verify initial owner
+    let contract_info: Data<ContractInfo> = call_view(
+        &contract_id,
+        "get_contract_info",
+        json!({}),
+        &network_config,
+    )
+    .await?;
+    assert_eq!(
+        contract_info.data.owner_id, genesis_account_id,
+        "Initial owner should be genesis account"
+    );
+
     // Transfer ownership
     let _ = call_transaction(
         &contract_id,
@@ -43,6 +57,19 @@ async fn test_owner_transfer_and_new_owner_operations()
     .assert_success();
 
     sleep(Duration::from_millis(500)).await;
+
+    // Verify owner was updated using get_contract_info
+    let contract_info: Data<ContractInfo> = call_view(
+        &contract_id,
+        "get_contract_info",
+        json!({}),
+        &network_config,
+    )
+    .await?;
+    assert_eq!(
+        contract_info.data.owner_id, new_owner_id,
+        "Owner should be updated to new owner"
+    );
 
     // Verify old owner cannot approve measurements
     let _ = call_transaction(

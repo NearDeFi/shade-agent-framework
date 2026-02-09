@@ -14,6 +14,26 @@ near-sdk = "5.21.0"
 serde = { version = "1.0.217", features = ["derive"] }
 shade-attestation = { path = "../shade-attestation" }
 
+[[test]]
+name = "attestation_tests"
+path = "tests/attestation_tests.rs"
+
+[[test]]
+name = "cross_contract_tests"
+path = "tests/cross_contract_tests.rs"
+
+[[test]]
+name = "large_num_agents_tests"
+path = "tests/large_num_agents_tests.rs"
+
+[[test]]
+name = "owner_operations_tests"
+path = "tests/owner_operations_tests.rs"
+
+[[test]]
+name = "update_contract_tests"
+path = "tests/update_contract_tests.rs"
+
 [dev-dependencies]
 near-api = "0.8.2"
 near-api-types = "0.8.2"

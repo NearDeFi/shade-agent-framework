@@ -282,6 +282,7 @@ export async function initContract() {
         ? "v1.signer"
         : "v1.signer-prod.testnet";
     replacements["<REQUIRES_TEE>"] = config.deployment.environment === "TEE";
+    replacements["<7_DAYS>"] = "604800000"; // 7 days in milliseconds (7 * 24 * 60 * 60 * 1000)
     const args = replacePlaceholders(initCfg.args, replacements);
 
     const result = await contractAccount.callFunctionRaw({

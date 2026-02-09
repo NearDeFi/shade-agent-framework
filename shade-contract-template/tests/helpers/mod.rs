@@ -9,10 +9,14 @@ use shade_attestation::measurements::FullMeasurementsHex;
 use std::sync::Arc;
 use tokio::time::{Duration, sleep};
 
+// Deposit constants for integration tests
+#[allow(dead_code)]
+pub const DEPOSIT_005_NEAR: NearToken = NearToken::from_yoctonear(5_000_000_000_000_000_000_000); // 0.005 NEAR
+
 #[allow(dead_code)]
 pub const CONTRACT_WASM_PATH: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
-    "/target/near/shade_contract.wasm"
+    "/target/near/shade_contract_template.wasm"
 );
 #[allow(dead_code)]
 pub const MOCK_MPC_WASM_PATH: &str =
@@ -161,6 +165,7 @@ pub async fn deploy_contract_default(
     let owner = genesis_account_id.clone();
     let mpc_contract: AccountId = "mpc-contract".parse().unwrap();
 
+    // Use a short expiration time for tests: 100 seconds = 100000 ms
     let contract_id = deploy_contract(
         network_config,
         genesis_account_id,
@@ -170,7 +175,8 @@ pub async fn deploy_contract_default(
         Some(json!({
             "owner_id": owner,
             "mpc_contract_id": mpc_contract,
-            "requires_tee": false
+            "requires_tee": false,
+            "attestation_expiration_time_ms": "100000"
         })),
         None,
     )
@@ -366,4 +372,28 @@ pub async fn deploy_mock_mpc_contract(
     .await?;
 
     Ok(mpc_contract_id)
+}
+
+/// Extract and parse EVENT_JSON logs from a transaction result
+/// Returns a vector of parsed event JSON objects
+#[allow(dead_code)]
+pub fn extract_event_logs(
+    result: &ExecutionFinalResult,
+) -> Result<Vec<serde_json::Value>, Box<dyn std::error::Error + Send + Sync>> {
+    let mut events = Vec::new();
+
+    // Use the public logs() method to get all logs from transaction and receipt outcomes
+    for log in result.logs() {
+        // Look for EVENT_JSON: prefix
+        if let Some(event_json) = log.strip_prefix("EVENT_JSON:") {
+            match serde_json::from_str::<serde_json::Value>(event_json) {
+                Ok(event) => events.push(event),
+                Err(e) => {
+                    eprintln!("Failed to parse event JSON: {} - {}", event_json, e);
+                }
+            }
+        }
+    }
+
+    Ok(events)
 }

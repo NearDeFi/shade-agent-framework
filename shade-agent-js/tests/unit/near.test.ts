@@ -11,6 +11,7 @@ import {
   createMockAccount,
   createMockSigner,
 } from "../mocks";
+import { Account } from "@near-js/accounts";
 import { JsonRpcProvider } from "@near-js/providers";
 import { NEAR } from "@near-js/tokens";
 import {
@@ -18,6 +19,11 @@ import {
   createMockBehavior,
   setSendTransactionBehavior,
 } from "../test-utils";
+import { sanitize } from "../../src/utils/sanitize";
+
+vi.mock("../../src/utils/sanitize", () => ({
+  sanitize: vi.fn(),
+}));
 
 vi.mock("@near-js/providers", () => ({
   JsonRpcProvider: vi.fn(),
@@ -55,6 +61,7 @@ describe("near utils", () => {
     vi.clearAllMocks();
     accountMockOverrides.transfer = null;
     accountMockOverrides.createSignedTransaction = null;
+    vi.mocked(sanitize).mockImplementation((v) => v as string);
   });
 
   // Helper function for internalFundAgent tests
@@ -124,6 +131,16 @@ describe("near utils", () => {
 
       expect(account).toBeDefined();
       expect(account.accountId).toBe("test.testnet");
+    });
+
+    it("should throw generic error when Account constructor fails", () => {
+      vi.mocked(Account).mockImplementationOnce(function () {
+        throw new Error("Invalid account");
+      });
+
+      expect(() =>
+        createAccountObject("test.testnet", createMockProvider()),
+      ).toThrow("Failed to create account object");
     });
   });
 
@@ -207,6 +224,32 @@ describe("near utils", () => {
       expect(mockTransfer).toHaveBeenCalledTimes(3);
     });
 
+    it("should handle sanitize returning non-string (defensive branch)", async () => {
+      vi.mocked(sanitize).mockReturnValue({ code: 123 } as any);
+
+      const { mockProvider, mockTransfer } = setupFundAgentMocks({
+        status: { Failure: { error_message: "Some error" } },
+      });
+
+      const errorSpy = vi.spyOn(global, "Error");
+
+      await expect(
+        internalFundAgent(
+          "agent.testnet",
+          "sponsor.testnet",
+          generateTestKey("sponsor-key"),
+          1.0,
+          mockProvider,
+        ),
+      ).rejects.toThrow("Failed to fund agent account agent.testnet");
+
+      expect(errorSpy).toHaveBeenCalledWith(
+        "Transfer transaction failed: [object Object]",
+      );
+      expect(mockTransfer).toHaveBeenCalledTimes(3);
+      errorSpy.mockRestore();
+    });
+
     it("should throw error with error_type after retries when no error_message", async () => {
       const { mockProvider, mockTransfer } = setupFundAgentMocks({
         status: { Failure: { error_type: "TypeOnlyError" } },
@@ -220,7 +263,9 @@ describe("near utils", () => {
           1.0,
           mockProvider,
         ),
-      ).rejects.toThrow("Transfer transaction failed: TypeOnlyError");
+      ).rejects.toThrow(
+        "Failed to fund agent account agent.testnet after 3 attempts",
+      );
 
       expect(mockTransfer).toHaveBeenCalledTimes(3);
     });
@@ -322,7 +367,7 @@ describe("near utils", () => {
 
       await expect(
         addKeysToAccount(mockAccount, [generateTestKey("key1")]),
-      ).rejects.toThrow("Add keys transaction failed: TxnError");
+      ).rejects.toThrow("Failed to add keys after 3 attempts");
 
       expect(mockAccount.provider.sendTransaction).toHaveBeenCalledTimes(3);
     });
@@ -424,7 +469,7 @@ describe("near utils", () => {
 
       await expect(
         removeKeysFromAccount(mockAccount, [generateTestKey("key1")]),
-      ).rejects.toThrow("Remove keys transaction failed: TxnError");
+      ).rejects.toThrow("Failed to remove keys after 3 attempts");
 
       expect(mockAccount.provider.sendTransaction).toHaveBeenCalledTimes(3);
     });

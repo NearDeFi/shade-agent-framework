@@ -145,13 +145,12 @@ describe("attestation-transform", () => {
       expect(Array.isArray(result.tcb_info_signature)).toBe(true);
     });
 
-    it("should throw error when hex decoding fails with Error object", () => {
-      // Mock Buffer.from to throw an Error to test error handling path
+    it("should throw error when hex decoding fails", () => {
+      // Mock Buffer.from to throw to test error handling path (does not propagate upstream error to avoid leaking sensitive data)
       const originalFrom = Buffer.from;
-      const mockError = new Error("Invalid hex character");
       vi.spyOn(Buffer, "from").mockImplementationOnce((...args: any[]) => {
         if (args.length > 1 && args[1] === "hex") {
-          throw mockError;
+          throw new Error("Invalid hex character");
         }
         return originalFrom.apply(Buffer, args as any);
       });
@@ -161,27 +160,7 @@ describe("attestation-transform", () => {
       });
 
       expect(() => transformCollateral(rawCollateral)).toThrow(
-        "Failed to decode hex string: Invalid hex character",
-      );
-    });
-
-    it("should throw error when hex decoding fails with non-Error object", () => {
-      // Mock Buffer.from to throw a non-Error to test String(error) branch
-      const originalFrom = Buffer.from;
-      const mockError = "String error";
-      vi.spyOn(Buffer, "from").mockImplementationOnce((...args: any[]) => {
-        if (args.length > 1 && args[1] === "hex") {
-          throw mockError;
-        }
-        return originalFrom.apply(Buffer, args as any);
-      });
-
-      const rawCollateral = createMockQuoteCollateral({
-        root_ca_crl: "deadbeef",
-      });
-
-      expect(() => transformCollateral(rawCollateral)).toThrow(
-        "Failed to decode hex string: String error",
+        "Failed to decode hex string",
       );
     });
   });

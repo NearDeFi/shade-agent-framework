@@ -6,6 +6,7 @@ import { KeyPairSigner } from "@near-js/signers";
 import { addKeysToAccount, removeKeysFromAccount } from "./near";
 import { Account } from "@near-js/accounts";
 import { Provider } from "@near-js/providers";
+import { toThrowable } from "./sanitize";
 
 // Generates an agent account ID and private key
 export async function generateAgent(
@@ -16,18 +17,23 @@ export async function generateAgent(
   agentPrivateKey: string;
   derivedWithTEE: boolean;
 }> {
-  const { hash, usedTEE } = await deriveHash(dstackClient, derivationPath);
-  const seedInfo = generateSeedPhrase(hash);
+  try {
+    const { hash, usedTEE } = await deriveHash(dstackClient, derivationPath);
+    const seedInfo = generateSeedPhrase(hash);
 
-  const accountId = Buffer.from(PublicKey.from(seedInfo.publicKey).data)
-    .toString("hex")
-    .toLowerCase();
+    const accountId = Buffer.from(PublicKey.from(seedInfo.publicKey).data)
+      .toString("hex")
+      .toLowerCase();
 
-  return {
-    accountId,
-    agentPrivateKey: seedInfo.secretKey,
-    derivedWithTEE: usedTEE,
-  };
+    return {
+      accountId,
+      agentPrivateKey: seedInfo.secretKey,
+      derivedWithTEE: usedTEE,
+    };
+  } catch {
+    // Throw generic error to avoid leaking hash
+    throw new Error("Failed to create agent");
+  }
 }
 
 // Derives a hash from a derivation path (for deterministic key generation)
@@ -50,7 +56,6 @@ async function deriveHashForTEE(dstackClient: DstackClient): Promise<Buffer> {
   crypto.getRandomValues(randomArray);
   const randomString = Buffer.from(randomArray).toString("hex");
 
-  // This entropy is fixed for a given TEE hardware and user, stays the same for updating the docker image on phala
   const keyFromTee = (await dstackClient.getKey(randomString)).key;
 
   // Hash of JS crypto random and TEE entropy
@@ -97,39 +102,46 @@ export async function manageKeySetup(
   dstackClient: DstackClient | undefined,
   derivationPath: string | undefined,
 ): Promise<{ keysToSave: string[]; allDerivedWithTEE: boolean }> {
-  // Get the number of keys on the account already
-  const keysOnAccount = await agentAccount.getAccessKeyList();
-  const numKeysOnAccount = keysOnAccount.keys.length;
-  const numExistingAdditionalKeys = numKeysOnAccount - 1; // Subtract the first key
+  try {
+    // Get the number of keys on the account already
+    const keysOnAccount = await agentAccount.getAccessKeyList();
+    const numKeysOnAccount = keysOnAccount.keys.length;
+    const numExistingAdditionalKeys = numKeysOnAccount - 1; // Subtract the first key
 
-  // Derive keys using the higher number (needed for both adding and removing cases)
-  const numKeysToDerive = Math.max(
-    numAdditionalKeys,
-    numExistingAdditionalKeys,
-  );
-  const { keys, allDerivedWithTEE } = await deriveAdditionalKeys(
-    numKeysToDerive,
-    dstackClient,
-    derivationPath,
-  );
+    // Derive keys using the higher number (needed for both adding and removing cases)
+    const numKeysToDerive = Math.max(
+      numAdditionalKeys,
+      numExistingAdditionalKeys,
+    );
+    const { keys, allDerivedWithTEE } = await deriveAdditionalKeys(
+      numKeysToDerive,
+      dstackClient,
+      derivationPath,
+    );
 
-  if (numExistingAdditionalKeys < numAdditionalKeys) {
-    // Need to add keys
-    const keysToAdd = keys.slice(numExistingAdditionalKeys, numAdditionalKeys);
-    await addKeysToAccount(agentAccount, keysToAdd);
-  } else if (numExistingAdditionalKeys > numAdditionalKeys) {
-    // Need to remove excess keys
-    const excessKeys = keys.slice(numAdditionalKeys);
-    await removeKeysFromAccount(agentAccount, excessKeys);
+    if (numExistingAdditionalKeys < numAdditionalKeys) {
+      // Need to add keys
+      const keysToAdd = keys.slice(
+        numExistingAdditionalKeys,
+        numAdditionalKeys,
+      );
+      await addKeysToAccount(agentAccount, keysToAdd);
+    } else if (numExistingAdditionalKeys > numAdditionalKeys) {
+      // Need to remove excess keys
+      const excessKeys = keys.slice(numAdditionalKeys);
+      await removeKeysFromAccount(agentAccount, excessKeys);
+    }
+
+    // Return only the desired number of keys
+    const keysToSave = keys.slice(0, numAdditionalKeys);
+
+    return {
+      keysToSave: keysToSave,
+      allDerivedWithTEE,
+    };
+  } catch (error) {
+    throw toThrowable(error);
   }
-
-  // Return only the desired number of keys
-  const keysToSave = keys.slice(0, numAdditionalKeys);
-
-  return {
-    keysToSave: keysToSave,
-    allDerivedWithTEE,
-  };
 }
 
 // Derives additional keys for the agent account
@@ -168,25 +180,31 @@ export function getAgentSigner(
   agentPrivateKeys: string[],
   currentKeyIndex: number,
 ): { signer: KeyPairSigner; keyIndex: number } {
-  if (agentPrivateKeys.length === 0) {
-    throw new Error("No agent keys available");
-  }
-  if (agentPrivateKeys.length === 1) {
+  try {
+    if (agentPrivateKeys.length === 0) {
+      throw new Error("No agent keys available");
+    }
+    if (agentPrivateKeys.length === 1) {
+      return {
+        signer: KeyPairSigner.fromSecretKey(
+          agentPrivateKeys[0] as KeyPairString,
+        ),
+        keyIndex: 0,
+      };
+    }
+    currentKeyIndex++;
+    if (currentKeyIndex > agentPrivateKeys.length - 1) {
+      currentKeyIndex = 0;
+    }
     return {
-      signer: KeyPairSigner.fromSecretKey(agentPrivateKeys[0] as KeyPairString),
-      keyIndex: 0,
+      signer: KeyPairSigner.fromSecretKey(
+        agentPrivateKeys[currentKeyIndex] as KeyPairString,
+      ),
+      keyIndex: currentKeyIndex,
     };
+  } catch (error) {
+    throw toThrowable(error);
   }
-  currentKeyIndex++;
-  if (currentKeyIndex > agentPrivateKeys.length - 1) {
-    currentKeyIndex = 0;
-  }
-  return {
-    signer: KeyPairSigner.fromSecretKey(
-      agentPrivateKeys[currentKeyIndex] as KeyPairString,
-    ),
-    keyIndex: currentKeyIndex,
-  };
 }
 
 // Ensures keys are set up correctly on the account, adding or removing keys as needed
@@ -200,28 +218,32 @@ export async function ensureKeysSetup(
   keysDerivedWithTEE: boolean,
   keysChecked: boolean,
 ): Promise<{ keysToAdd: string[]; wasChecked: boolean }> {
-  if (keysChecked) {
-    return { keysToAdd: [], wasChecked: true };
-  }
-
-  const signer = KeyPairSigner.fromSecretKey(
-    agentPrivateKeys[0] as KeyPairString,
-  );
-  const agentAccount = new Account(agentAccountId, rpc, signer);
-  const { keysToSave, allDerivedWithTEE } = await manageKeySetup(
-    agentAccount,
-    numKeys - 1,
-    dstackClient,
-    derivationPath,
-  );
-
-  if (!allDerivedWithTEE) {
-    if (keysDerivedWithTEE) {
-      throw new Error(
-        "First key was derived with TEE but additional keys were not. Something went wrong with the key derivation.",
-      );
+  try {
+    if (keysChecked) {
+      return { keysToAdd: [], wasChecked: true };
     }
-  }
 
-  return { keysToAdd: keysToSave, wasChecked: true };
+    const signer = KeyPairSigner.fromSecretKey(
+      agentPrivateKeys[0] as KeyPairString,
+    );
+    const agentAccount = new Account(agentAccountId, rpc, signer);
+    const { keysToSave, allDerivedWithTEE } = await manageKeySetup(
+      agentAccount,
+      numKeys - 1,
+      dstackClient,
+      derivationPath,
+    );
+
+    if (!allDerivedWithTEE) {
+      if (keysDerivedWithTEE) {
+        throw new Error(
+          "First key was derived with TEE but additional keys were not. Something went wrong with the key derivation.",
+        );
+      }
+    }
+
+    return { keysToAdd: keysToSave, wasChecked: true };
+  } catch (error) {
+    throw toThrowable(error);
+  }
 }

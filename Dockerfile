@@ -1,7 +1,7 @@
 # Stage 1: Dependencies
 FROM node:22-alpine AS deps
 WORKDIR /app
-COPY agent-template/package.json agent-template/package-lock.json ./
+COPY shade-agent-template/package.json shade-agent-template/package-lock.json ./
 # Copy built shade-agent-js package so npm can link to it (package.json expects file:../shade-agent-js)
 # Create the parent directory structure and copy the package
 RUN mkdir -p /shade-agent-js
@@ -10,14 +10,14 @@ COPY shade-agent-js/package.json shade-agent-js/package-lock.json /shade-agent-j
 # Install shade-agent-js dependencies
 WORKDIR /shade-agent-js
 RUN npm ci --only=production
-# Install agent-template dependencies
+# Install shade-agent-template dependencies
 WORKDIR /app
 RUN npm ci --only=production
 
 # Stage 2: Build
 FROM node:22-alpine AS builder
 WORKDIR /app
-COPY agent-template/package.json agent-template/package-lock.json agent-template/tsconfig.json ./
+COPY shade-agent-template/package.json shade-agent-template/package-lock.json shade-agent-template/tsconfig.json ./
 # Copy built shade-agent-js package so npm can link to it (package.json expects file:../shade-agent-js)
 # Create the parent directory structure and copy the package
 RUN mkdir -p /shade-agent-js
@@ -26,10 +26,10 @@ COPY shade-agent-js/package.json shade-agent-js/package-lock.json /shade-agent-j
 # Install shade-agent-js dependencies
 WORKDIR /shade-agent-js
 RUN npm ci --only=production
-# Install agent-template dependencies
+# Install shade-agent-template dependencies
 WORKDIR /app
 RUN npm ci --include=dev
-COPY agent-template/src/ ./src/
+COPY shade-agent-template/src/ ./src/
 RUN npm run build
 
 # Stage 3: Production

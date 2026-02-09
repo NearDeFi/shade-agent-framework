@@ -1,7 +1,0 @@
-Because the contract has shade-attestation as a local dependency we need to build the contract at the monorepos root
-
-docker run --rm \
-  -v "$(pwd)":/workspace \
-  -w "/workspace/shade-contract-template" \
-  pivortex/near-builder@sha256:cdffded38c6cff93a046171269268f99d517237fac800f58e5ad1bcd8d6e2418 \
-  cargo near build non-reproducible-wasm --no-abi

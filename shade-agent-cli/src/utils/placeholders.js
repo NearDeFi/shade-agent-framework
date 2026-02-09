@@ -73,12 +73,16 @@ export function replacePlaceholders(args, replacements) {
       }
     }
 
+    // Trim whitespace and newlines before parsing (YAML multiline strings may have trailing newlines)
+    result = result.trim();
+
     // Now try to parse the JSON
     try {
       result = JSON.parse(result);
     } catch (e) {
       // If it's still not valid JSON, exit with error
       console.log(chalk.red(`Error: Invalid JSON in args: ${result}`));
+      console.log(chalk.red(`Parse error: ${e.message}`));
       process.exit(1);
     }
   } else {

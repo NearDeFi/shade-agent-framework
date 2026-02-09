@@ -79,6 +79,17 @@ describe("agent utils", () => {
       expect(result).toHaveProperty("derivedWithTEE", true);
       expect(dstackClient.getKey).toHaveBeenCalled();
     });
+
+    it("should throw generic error when TEE getKey fails", async () => {
+      const dstackClient = createMockDstackClient();
+      vi.mocked(dstackClient.getKey).mockRejectedValue(
+        new Error("TEE unavailable"),
+      );
+
+      await expect(generateAgent(dstackClient, undefined)).rejects.toThrow(
+        "Failed to create agent",
+      );
+    });
   });
 
   describe("manageKeySetup", () => {
@@ -137,6 +148,32 @@ describe("agent utils", () => {
       expect(addKeysToAccount).not.toHaveBeenCalled();
       expect(removeKeysFromAccount).not.toHaveBeenCalled();
       expect(result.keysToSave).toHaveLength(1);
+    });
+
+    it("should sanitize error when addKeysToAccount fails", async () => {
+      const mockAccount = createMockAccountWithKeys([{ public_key: "key1" }]);
+      vi.mocked(addKeysToAccount).mockRejectedValueOnce(
+        new Error("Add keys failed"),
+      );
+
+      await expect(
+        manageKeySetup(mockAccount as any, 2, undefined, undefined),
+      ).rejects.toThrow("Add keys failed");
+    });
+
+    it("should sanitize error when removeKeysFromAccount fails", async () => {
+      const mockAccount = createMockAccountWithKeys([
+        { public_key: "key1" },
+        { public_key: "key2" },
+        { public_key: "key3" },
+      ]);
+      vi.mocked(removeKeysFromAccount).mockRejectedValueOnce(
+        new Error("Remove keys failed"),
+      );
+
+      await expect(
+        manageKeySetup(mockAccount as any, 1, undefined, undefined),
+      ).rejects.toThrow("Remove keys failed");
     });
 
     it("should use TEE when dstackClient is provided", async () => {

@@ -1,11 +1,9 @@
 /**
- * Test: Verify that two agent instances generate different private keys
+ * Test 9: Verify that two agent instances generate different private keys
  *
- * In TEE: Create two agent instances with numKeys=3
- * In TEE: Register both agents (adds keys)
- * In TEE: Get all private keys from both agents
- * In TEE: Verify all 6 keys are unique (no duplicates)
- * In TEE: Cross-check all key combinations
+ * In TEE: Create two agents, register, get keys, verify uniqueness (MUST stay in TEE:
+ * private keys cannot leave the TEE, so validation cannot move to script)
+ * In script: Verify allKeysUnique, key counts
  */
 
 import { ShadeClient } from "@neardefi/shade-agent-js";

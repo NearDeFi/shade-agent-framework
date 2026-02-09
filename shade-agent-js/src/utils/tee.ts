@@ -145,10 +145,8 @@ export async function internalGetAttestation(
 
     const resHelper = (await response.json()) as QuoteCollateralResponse;
     collateral = transformCollateral(resHelper.quote_collateral);
-  } catch (error) {
-    throw new Error(
-      `Failed to get quote collateral: ${error instanceof Error ? error.message : String(error)}`,
-    );
+  } catch {
+    throw new Error("Failed to get quote collateral");
   }
 
   // Transform tcb_info from dstack response to contract interface structure

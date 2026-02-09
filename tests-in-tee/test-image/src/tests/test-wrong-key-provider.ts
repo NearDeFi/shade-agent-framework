@@ -1,12 +1,9 @@
 /**
- * Test 2: Can't verify with wrong key provider
+ * Test 3: Can't verify with wrong key provider
  *
  * In script: Add correct measurements except key provider
- * In TEE: Try to register, check it fails
- * In TEE: Try to make a call, check it fails and the reason why
- * In TEE: Return results to script
- * In script: Check that not registered
- * In script: Remove measurements
+ * In TEE: Try to register, try to make call - return raw result (no error checking)
+ * In script: Check registrationError, callError, verify not registered
  */
 
 import { ShadeClient } from "@neardefi/shade-agent-js";
@@ -14,24 +11,20 @@ import { ShadeClient } from "@neardefi/shade-agent-js";
 export default async function testWrongKeyProvider(
   agent: ShadeClient,
 ): Promise<{
-  success: boolean;
   agentAccountId: string;
   registrationError?: string;
   callError?: string;
 }> {
   const agentAccountId = agent.accountId();
 
-  // Try to register - should fail
   let registrationError: string | undefined;
   try {
     await agent.register();
     registrationError = "Registration should have failed but succeeded";
   } catch (error: any) {
     registrationError = error.message || String(error);
-    // Expected to fail
   }
 
-  // Try to make a call - should fail
   let callError: string | undefined;
   try {
     await agent.call({
@@ -46,18 +39,9 @@ export default async function testWrongKeyProvider(
     callError = "Call should have failed but succeeded";
   } catch (error: any) {
     callError = error.message || String(error);
-    // Expected to fail
   }
 
-  // Verify that errors occurred (as expected)
-  const success =
-    registrationError !== undefined &&
-    callError !== undefined &&
-    registrationError !== "Registration should have failed but succeeded" &&
-    callError !== "Call should have failed but succeeded";
-
   return {
-    success,
     agentAccountId,
     registrationError,
     callError,

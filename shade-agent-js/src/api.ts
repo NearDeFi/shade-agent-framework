@@ -1,6 +1,7 @@
 import { Provider } from "@near-js/providers";
 import { internalFundAgent, createAccountObject } from "./utils/near";
-import { getDstackClient, internalGetAttestation, TcbInfo } from "./utils/tee";
+import { getDstackClient, internalGetAttestation } from "./utils/tee";
+import { toThrowable } from "./utils/sanitize";
 import { type DstackAttestationForContract } from "./utils/attestation-transform";
 import { DstackClient } from "@phala/dstack-sdk";
 import { ensureKeysSetup, generateAgent, getAgentSigner } from "./utils/agent";
@@ -30,6 +31,20 @@ export interface FullMeasurements {
   key_provider_event_digest: string;
   /** Expected app_compose hash payload. */
   app_compose_hash_payload: string;
+}
+
+/**
+ * Contract information returned by get_contract_info
+ */
+export interface ContractInfo {
+  /** Whether the contract requires TEE for registration */
+  requires_tee: boolean;
+  /** Attestation expiration time in milliseconds (as string, U64 serialized) */
+  attestation_expiration_time_ms: string;
+  /** Owner account ID */
+  owner_id: string;
+  /** MPC contract ID */
+  mpc_contract_id: string;
 }
 
 /**
@@ -88,28 +103,29 @@ export class ShadeClient {
    * @throws Error if configuration is invalid, network ID mismatch, or key generation fails
    */
   static async create(config: ShadeConfig): Promise<ShadeClient> {
-    // Validate and normalize configuration
-    await validateShadeConfig(config);
+    try {
+      // Validate and normalize configuration
+      await validateShadeConfig(config);
 
-    // Detect if running in a TEE
-    const dstackClient = await getDstackClient();
+      // Detect if running in a TEE
+      const dstackClient = await getDstackClient();
 
-    // Generate agent account ID and private key
-    const agentPrivateKeys: string[] = [];
-    const { accountId, agentPrivateKey, derivedWithTEE } = await generateAgent(
-      dstackClient,
-      config.derivationPath,
-    );
-    agentPrivateKeys.push(agentPrivateKey);
+      // Generate agent account ID and private key
+      const agentPrivateKeys: string[] = [];
+      const { accountId, agentPrivateKey, derivedWithTEE } =
+        await generateAgent(dstackClient, config.derivationPath);
+      agentPrivateKeys.push(agentPrivateKey);
 
-    // Return agent instance
-    return new ShadeClient(
-      config,
-      dstackClient,
-      accountId,
-      agentPrivateKeys,
-      derivedWithTEE,
-    );
+      return new ShadeClient(
+        config,
+        dstackClient,
+        accountId,
+        agentPrivateKeys,
+        derivedWithTEE,
+      );
+    } catch (error) {
+      throw toThrowable(error);
+    }
   }
 
   /**
@@ -130,13 +146,13 @@ export class ShadeClient {
     try {
       const balance = await account.getBalance();
       return parseFloat(NEAR.toDecimal(balance));
-    } catch (error: any) {
+    } catch (error: unknown) {
       // If the account doesn't exist, return 0 instead of throwing
-      if (error?.type === "AccountDoesNotExist") {
+      const err = error as { type?: string };
+      if (err?.type === "AccountDoesNotExist") {
         return 0;
       }
-      // Re-throw other errors
-      throw error;
+      throw toThrowable(error);
     }
   }
 
@@ -150,21 +166,27 @@ export class ShadeClient {
       throw new Error("agentContractId is required for registering the agent");
     }
 
-    // Get attestation in contract format
-    const contractAttestation = await internalGetAttestation(
-      this.dstackClient,
-      this.agentAccountId,
-      this.keysDerivedWithTEE,
-    );
+    try {
+      // Get attestation in contract format
+      const contractAttestation = await internalGetAttestation(
+        this.dstackClient,
+        this.agentAccountId,
+        this.keysDerivedWithTEE,
+      );
 
-    // Call the register_agent function on the agent contract
-    return await this.call({
-      methodName: "register_agent",
-      args: {
-        attestation: contractAttestation,
-      },
-      gas: BigInt("300000000000000"), // 300 TGas
-    });
+      // Call the register_agent function on the agent contract
+      // Attach 0.005 NEAR deposit (5_000_000_000_000_000_000_000 yoctoNEAR) for storage cost
+      return await this.call({
+        methodName: "register_agent",
+        args: {
+          attestation: contractAttestation,
+        },
+        deposit: "5000000000000000000000", // 0.005 NEAR
+        gas: BigInt("300000000000000"), // 300 TGas
+      });
+    } catch (error) {
+      throw toThrowable(error);
+    }
   }
 
   /**
@@ -185,13 +207,16 @@ export class ShadeClient {
       throw new Error("agentContractId is required for view calls");
     }
 
-    // Call the view function on the agent contract
-    return await this.config.rpc!.callFunction(
-      this.config.agentContractId,
-      params.methodName,
-      params.args,
-      params.blockQuery,
-    );
+    try {
+      return await this.config.rpc!.callFunction(
+        this.config.agentContractId,
+        params.methodName,
+        params.args,
+        params.blockQuery,
+      );
+    } catch (error) {
+      throw toThrowable(error);
+    }
   }
 
   /**
@@ -216,43 +241,46 @@ export class ShadeClient {
       throw new Error("agentContractId is required for call functions");
     }
 
-    // Check keys are the correct number and adjust if needed
-    const { keysToAdd, wasChecked } = await ensureKeysSetup(
-      this.agentAccountId,
-      this.agentPrivateKeys,
-      this.config.rpc!,
-      this.config.numKeys!,
-      this.dstackClient,
-      this.config.derivationPath,
-      this.keysDerivedWithTEE,
-      this.keysChecked,
-    );
-    this.agentPrivateKeys.push(...keysToAdd);
-    if (wasChecked) {
-      this.keysChecked = true;
+    try {
+      // Check keys are the correct number and adjust if needed
+      const { keysToAdd, wasChecked } = await ensureKeysSetup(
+        this.agentAccountId,
+        this.agentPrivateKeys,
+        this.config.rpc!,
+        this.config.numKeys!,
+        this.dstackClient,
+        this.config.derivationPath,
+        this.keysDerivedWithTEE,
+        this.keysChecked,
+      );
+      this.agentPrivateKeys.push(...keysToAdd);
+      if (wasChecked) {
+        this.keysChecked = true;
+      }
+
+      // Get the signer for the current key and create an account object with this signer
+      const { signer, keyIndex } = getAgentSigner(
+        this.agentPrivateKeys,
+        this.currentKeyIndex,
+      );
+      this.currentKeyIndex = keyIndex;
+      const account = createAccountObject(
+        this.agentAccountId,
+        this.config.rpc!,
+        signer,
+      );
+
+      return await account.callFunction({
+        contractId: this.config.agentContractId,
+        methodName: params.methodName,
+        args: params.args,
+        gas: params.gas,
+        deposit: params.deposit,
+        waitUntil: params.waitUntil,
+      });
+    } catch (error) {
+      throw toThrowable(error);
     }
-
-    // Get the signer for the current key and create an account object with this signer
-    const { signer, keyIndex } = getAgentSigner(
-      this.agentPrivateKeys,
-      this.currentKeyIndex,
-    );
-    this.currentKeyIndex = keyIndex;
-    const account = createAccountObject(
-      this.agentAccountId,
-      this.config.rpc!,
-      signer,
-    );
-
-    // Call the function on the agent contract
-    return await account.callFunction({
-      contractId: this.config.agentContractId,
-      methodName: params.methodName,
-      args: params.args,
-      gas: params.gas,
-      deposit: params.deposit,
-      waitUntil: params.waitUntil,
-    });
   }
 
   /**
@@ -261,11 +289,15 @@ export class ShadeClient {
    * @throws Error if fetching quote collateral fails (network errors, HTTP errors, timeouts)
    */
   async getAttestation(): Promise<DstackAttestationForContract> {
-    return internalGetAttestation(
-      this.dstackClient,
-      this.agentAccountId,
-      this.keysDerivedWithTEE,
-    );
+    try {
+      return await internalGetAttestation(
+        this.dstackClient,
+        this.agentAccountId,
+        this.keysDerivedWithTEE,
+      );
+    } catch (error) {
+      throw toThrowable(error);
+    }
   }
 
   /**
@@ -279,13 +311,17 @@ export class ShadeClient {
       throw new Error("sponsor is required for funding the agent account");
     }
 
-    await internalFundAgent(
-      this.agentAccountId,
-      this.config.sponsor.accountId,
-      this.config.sponsor.privateKey,
-      fundAmount,
-      this.config.rpc!,
-    );
+    try {
+      await internalFundAgent(
+        this.agentAccountId,
+        this.config.sponsor.accountId,
+        this.config.sponsor.privateKey,
+        fundAmount,
+        this.config.rpc!,
+      );
+    } catch (error) {
+      throw toThrowable(error);
+    }
   }
 
   /**
@@ -319,21 +355,25 @@ export class ShadeClient {
       );
     }
 
-    const res = await this.view<boolean>({
-      methodName: "get_requires_tee",
-      args: {},
-    });
+    try {
+      const res = (await this.view<ContractInfo>({
+        methodName: "get_contract_info",
+        args: {},
+      })) as ContractInfo;
 
-    // If the agent contract requires TEE return null
-    if (res === true) {
-      return null;
+      // If the agent contract requires TEE return null
+      if (res.requires_tee) {
+        return null;
+      }
+
+      const whitelisted_agents = await this.view<string[]>({
+        methodName: "get_whitelisted_agents_for_local",
+        args: {},
+      });
+
+      return whitelisted_agents.includes(this.agentAccountId);
+    } catch (error) {
+      throw toThrowable(error);
     }
-
-    const whitelisted_agents = await this.view<string[]>({
-      methodName: "get_whitelisted_agents_for_local",
-      args: {},
-    });
-
-    return whitelisted_agents.includes(this.agentAccountId);
   }
 }
