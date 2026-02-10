@@ -7,10 +7,10 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-// Get current version from package.json
+// Get current version from package.json 
 function getCurrentVersion() {
   try {
-    const packagePath = join(__dirname, "..", "..", "package.json");
+    const packagePath = join(__dirname, "..", "..", "..", "package.json");
     const packageJson = JSON.parse(readFileSync(packagePath, "utf8"));
     return packageJson.version;
   } catch (error) {
