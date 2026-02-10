@@ -71,7 +71,7 @@ while (true) {
   await new Promise((resolve) => setTimeout(resolve, 10000));
 }
 
-// Re-register every 6 days (bind so timer callback always has correct `this`)
+// Re-register every 6 days
 const SIX_DAYS_MS = 6 * 24 * 60 * 60 * 1000;
 const reRegister = agent.register.bind(agent);
 setInterval(async () => {
