@@ -13,6 +13,7 @@
     "@near-js/providers": "^2.5.1",
     "@near-js/signers": "^2.5.1",
     "dotenv": "^16.4.5",
-    "yaml": "^2.4.1"
+    "yaml": "^2.4.1",
+    "phala": "1.1.2"
   }
 }

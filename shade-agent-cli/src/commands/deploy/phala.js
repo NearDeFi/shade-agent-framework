@@ -1,109 +1,10 @@
-import { execSync } from "child_process";
-import path from "path";
-import { fileURLToPath } from "url";
-import fs from "fs";
 import chalk from "chalk";
 import { getConfig } from "../../utils/config.js";
 import { extractAllowedEnvs } from "../../utils/measurements.js";
+import { deployToPhala as deployToPhalaSdk } from "../../utils/phala-deploy.js";
 
 // Use native fetch (available in Node.js 18+)
 const fetchFn = globalThis.fetch;
-
-// Resolve the locally installed phala binary (installed via npm)
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Get the expected phala version from package.json
-function getExpectedPhalaVersion() {
-  const cliPackageJsonPath = path.resolve(
-    __dirname,
-    "..",
-    "..",
-    "..",
-    "package.json",
-  );
-  try {
-    const cliPkgJson = JSON.parse(fs.readFileSync(cliPackageJsonPath, "utf8"));
-    const phalaVersion =
-      cliPkgJson.dependencies?.phala || cliPkgJson.devDependencies?.phala;
-    return phalaVersion;
-  } catch (e) {
-    return null;
-  }
-}
-
-function getPhalaBin() {
-  // Get the expected version from package.json
-  const expectedVersion = getExpectedPhalaVersion();
-  const cliRoot = path.resolve(__dirname, "..", "..", "..");
-  const phalaPkgPath = path.resolve(cliRoot, "node_modules", "phala");
-
-  // First, verify the phala package exists and check its version
-  if (!fs.existsSync(phalaPkgPath)) {
-    const versionMsg = expectedVersion ? ` (expected ${expectedVersion})` : "";
-    console.log(
-      chalk.red(`Phala package not found in node_modules${versionMsg}.`),
-    );
-    process.exit(1);
-  }
-
-  // Verify version matches if we have an expected version
-  if (expectedVersion) {
-    try {
-      const phalaPkgJson = JSON.parse(
-        fs.readFileSync(path.join(phalaPkgPath, "package.json"), "utf8"),
-      );
-      const installedVersion = phalaPkgJson.version;
-      // Extract version from dependency spec (e.g., "1.0.35" from "^1.0.35" or "1.0.35")
-      const expectedVersionNum = expectedVersion.replace(/^[\^~]/, "");
-
-      if (
-        installedVersion !== expectedVersionNum &&
-        !expectedVersion.startsWith("^") &&
-        !expectedVersion.startsWith("~")
-      ) {
-        console.log(
-          chalk.yellow(
-            `Warning: Installed phala version (${installedVersion}) does not match expected version (${expectedVersionNum})`,
-          ),
-        );
-      }
-    } catch (e) {
-      // Continue if we can't read version
-    }
-  }
-
-  // Try to find the binary in node_modules/.bin first (preferred)
-  const cliBin = path.resolve(cliRoot, "node_modules", ".bin", "phala");
-  if (fs.existsSync(cliBin)) {
-    return cliBin;
-  }
-
-  // If not found in .bin, get the bin path from phala's package.json
-  try {
-    const phalaPkgJson = JSON.parse(
-      fs.readFileSync(path.join(phalaPkgPath, "package.json"), "utf8"),
-    );
-    const binPath = phalaPkgJson.bin?.phala || phalaPkgJson.bin?.pha;
-    if (binPath) {
-      const fullBinPath = path.resolve(phalaPkgPath, binPath);
-      if (fs.existsSync(fullBinPath)) {
-        return fullBinPath;
-      }
-    }
-  } catch (e) {
-    // Continue to error
-  }
-
-  const versionMsg = expectedVersion ? ` (expected ${expectedVersion})` : "";
-  console.log(
-    chalk.red(`Phala binary not found in node_modules${versionMsg}.`),
-  );
-  console.log(chalk.yellow(`Make sure phala is installed: npm install`));
-  process.exit(1);
-}
-
-const PHALA_COMMAND = getPhalaBin();
 
 // Get the app name from the deployment.yaml file
 async function getAppNameFromDeployment() {
@@ -120,7 +21,7 @@ async function getAppNameFromDeployment() {
 
 // Deploy the app to Phala Cloud
 export async function deployToPhala() {
-  // Deploys the app to Phala Cloud using phala CLI
+  // Deploys the app to Phala Cloud using @phala/cloud SDK
   console.log("Deploying to Phala Cloud");
   const appName = await getAppNameFromDeployment();
 
@@ -135,112 +36,41 @@ export async function deployToPhala() {
   try {
     const config = await getConfig();
     const phalaKey = config.phalaKey;
-
-    const composePath = config.deployment.docker_compose_path;
-    const envFilePath = config.deployment?.deploy_to_phala?.env_file_path;
-
-    // Extract allowed environment variables from docker-compose.yaml
-    const allowedEnvs = extractAllowedEnvs(composePath);
-
-    // Build environment variable flags for Phala CLI
-    // Only include env vars that are allowed in docker-compose.yaml
-    let envFlags = "";
-    if (envFilePath && allowedEnvs.length > 0) {
-      // Resolve env file path relative to current working directory (where deployment.yaml is)
-      const resolvedEnvFilePath = path.isAbsolute(envFilePath)
-        ? envFilePath
-        : path.resolve(process.cwd(), envFilePath);
-
-      // Read the env file and extract values for allowed env vars (allowed envs in the docker compose are decided by the ones specified in the env file not the ones defined by the docker compose file)
-      if (!fs.existsSync(resolvedEnvFilePath)) {
-        console.log(
-          chalk.yellow(
-            `Warning: Env file not found at ${resolvedEnvFilePath}, skipping environment variables`,
-          ),
-        );
-      } else {
-        const envFileContent = fs.readFileSync(resolvedEnvFilePath, "utf8");
-        const envVars = {};
-
-        // Parse .env file (simple key=value format)
-        envFileContent.split("\n").forEach((line) => {
-          line = line.trim();
-          // Skip comments and empty lines
-          if (line && !line.startsWith("#")) {
-            const match = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
-            if (match) {
-              const [, key, value] = match;
-              // Remove quotes if present (handles both single and double quotes)
-              const cleanValue = value.replace(/^["']|["']$/g, "");
-              envVars[key] = cleanValue;
-            }
-          }
-        });
-
-        // Build -e KEY=VALUE flags for allowed env vars only
-        // Escape values that contain spaces or special characters
-        const envFlagArray = allowedEnvs
-          .filter((key) => envVars.hasOwnProperty(key))
-          .map((key) => {
-            const value = envVars[key];
-            // Quote value if it contains spaces or special characters
-            const escapedValue =
-              value.includes(" ") || value.includes("$") || value.includes("`")
-                ? `"${value.replace(/"/g, '\\"')}"`
-                : value;
-            return `-e ${key}=${escapedValue}`;
-          });
-
-        if (envFlagArray.length > 0) {
-          envFlags = envFlagArray.join(" ");
-        }
-      }
-    }
-
-    const result = execSync(
-      `${PHALA_COMMAND} deploy --name ${appName} --api-token ${phalaKey} --compose ${composePath} ${envFlags} --image dstack-0.5.5`,
-      { encoding: "utf-8", stdio: "pipe" },
-    );
-
-    // Parse JSON response from phala deploy command
-    let deployResult;
-    try {
-      // Extract JSON from output (may have text before/after)
-      const jsonMatch = result.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) {
-        throw new Error("No JSON found in output");
-      }
-      deployResult = JSON.parse(jsonMatch[0]);
-    } catch (e) {
-      console.log(
-        chalk.red(`Failed to parse deployment response: ${e.message}`),
-      );
-      console.log(chalk.gray(`Output: ${result}`));
+    if (!phalaKey) {
+      console.log(chalk.red("Phala API key is required. Run `shade auth set` to configure it."));
       process.exit(1);
     }
 
-    // Check if deployment was successful
+    const composePath = config.deployment.docker_compose_path;
+    const envFilePath = config.deployment?.deploy_to_phala?.env_file_path;
+    const allowedEnvs = extractAllowedEnvs(composePath);
+
+    const deployResult = await deployToPhalaSdk({
+      appName,
+      apiKey: phalaKey,
+      composePath,
+      envFilePath,
+      allowedEnvKeys: allowedEnvs,
+    });
+
     if (!deployResult.success) {
       console.log(chalk.red("Deployment failed"));
       process.exit(1);
     }
 
-    // Display dashboard URL
     if (deployResult.dashboard_url) {
       console.log(
         `\nPhala Application Dashboard URL: ${deployResult.dashboard_url}`,
       );
     }
 
-    // Return vm_uuid for API calls (getAppUrl uses it in the URL path)
     if (deployResult.vm_uuid) {
       return deployResult.vm_uuid;
-    } else {
-      console.log(
-        chalk.red("Could not extract vm_uuid from deployment response"),
-      );
-      process.exit(1);
     }
+    console.log(
+      chalk.red("Could not extract vm_uuid from deployment response"),
+    );
+    process.exit(1);
   } catch (e) {
     console.log(chalk.red(`Error deploying to Phala Cloud: ${e.message}`));
     process.exit(1);

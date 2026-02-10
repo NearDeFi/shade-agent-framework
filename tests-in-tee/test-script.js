@@ -347,8 +347,7 @@ async function buildAndPushTestImage() {
 
 // Get Phala CLI binary
 function getPhalaBin() {
-  const cliRoot = resolve(__dirname, "..", "shade-agent-cli");
-  const phalaBin = resolve(cliRoot, "node_modules", ".bin", "phala");
+  const phalaBin = resolve(__dirname, "node_modules", ".bin", "phala");
   if (fs.existsSync(phalaBin)) {
     return phalaBin;
   }
@@ -421,7 +420,11 @@ async function deployToPhala() {
 
   const result = execSync(
     `${phalaBin} deploy --name ${TEST_APP_NAME} --api-token ${PHALA_API_KEY} --compose ${composePath} ${envFlags} --image dstack-0.5.5`,
-    { encoding: "utf-8", stdio: "pipe" },
+    {
+      encoding: "utf-8",
+      stdio: "pipe",
+      env: { ...process.env, PHALA_CLOUD_API_KEY: PHALA_API_KEY },
+    },
   );
 
   const jsonMatch = result.match(/\{[\s\S]*\}/);
