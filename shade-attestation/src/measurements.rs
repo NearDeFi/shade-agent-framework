@@ -30,17 +30,6 @@ pub struct Measurements {
     pub rtmr2: [u8; 48],
 }
 
-impl Default for Measurements {
-    fn default() -> Self {
-        Self {
-            mrtd: [0; 48],
-            rtmr0: [0; 48],
-            rtmr1: [0; 48],
-            rtmr2: [0; 48],
-        }
-    }
-}
-
 #[serde_as]
 #[derive(Debug, Clone, Copy, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct FullMeasurements {
@@ -81,17 +70,6 @@ pub struct MeasurementsHex {
     pub rtmr1: HexBytes<48>,
     /// RTMR2 (Runtime Measurement Register 2) - typically measures the OS application.
     pub rtmr2: HexBytes<48>,
-}
-
-impl Default for MeasurementsHex {
-    fn default() -> Self {
-        Self {
-            mrtd: HexBytes::from([0; 48]),
-            rtmr0: HexBytes::from([0; 48]),
-            rtmr1: HexBytes::from([0; 48]),
-            rtmr2: HexBytes::from([0; 48]),
-        }
-    }
 }
 
 impl From<MeasurementsHex> for Measurements {
@@ -141,13 +119,17 @@ pub struct FullMeasurementsHex {
     pub app_compose_hash_payload: HexBytes<32>,
 }
 
-impl Default for FullMeasurementsHex {
-    fn default() -> Self {
-        Self {
-            rtmrs: MeasurementsHex::default(),
-            key_provider_event_digest: HexBytes::from([0; 48]),
-            app_compose_hash_payload: HexBytes::from([0; 32]),
-        }
+/// Produces mock full measurements (all zeros) for tests
+pub fn create_mock_full_measurements_hex() -> FullMeasurementsHex {
+    FullMeasurementsHex {
+        rtmrs: MeasurementsHex {
+            mrtd: HexBytes::from([0; 48]),
+            rtmr0: HexBytes::from([0; 48]),
+            rtmr1: HexBytes::from([0; 48]),
+            rtmr2: HexBytes::from([0; 48]),
+        },
+        key_provider_event_digest: HexBytes::from([0; 48]),
+        app_compose_hash_payload: HexBytes::from([0; 32]),
     }
 }
 

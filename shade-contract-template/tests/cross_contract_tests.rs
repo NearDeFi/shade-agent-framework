@@ -3,7 +3,7 @@ mod helpers;
 use helpers::*;
 use near_api::{AccountId, Data};
 use serde_json::json;
-use shade_attestation::attestation::DstackAttestation;
+use shade_attestation::attestation::create_mock_dstack_attestation;
 use shade_contract_template::ContractInfo;
 use tokio::time::{Duration, sleep};
 
@@ -96,7 +96,7 @@ async fn test_cross_contract_call_to_mpc() -> Result<(), Box<dyn std::error::Err
         &contract_id,
         "register_agent",
         json!({
-            "attestation": serde_json::to_value(DstackAttestation::default()).unwrap()
+            "attestation": serde_json::to_value(create_mock_dstack_attestation()).unwrap()
         }),
         &agent_id,
         &agent_signer,

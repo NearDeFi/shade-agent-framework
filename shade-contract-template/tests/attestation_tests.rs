@@ -3,7 +3,7 @@ mod helpers;
 use helpers::*;
 use near_api::Data;
 use serde_json::json;
-use shade_attestation::attestation::DstackAttestation;
+use shade_attestation::attestation::create_mock_dstack_attestation;
 use shade_contract_template::AgentView;
 use tokio::time::{Duration, sleep};
 
@@ -78,7 +78,7 @@ async fn test_measurements_and_ppid_lifecycle()
             &contract_id,
             "register_agent",
             json!({
-                "attestation": serde_json::to_value(DstackAttestation::default()).unwrap()
+                "attestation": serde_json::to_value(create_mock_dstack_attestation()).unwrap()
             }),
             agent_id,
             agent_signer,
@@ -279,7 +279,7 @@ async fn test_measurements_and_ppid_lifecycle()
         &contract_id,
         "register_agent",
         json!({
-            "attestation": serde_json::to_value(DstackAttestation::default()).unwrap()
+            "attestation": serde_json::to_value(create_mock_dstack_attestation()).unwrap()
         }),
         &agent3_id,
         &agent3_signer,
@@ -628,7 +628,7 @@ async fn test_register_fails_without_default_measurements_or_ppid()
         &contract_id,
         "register_agent",
         json!({
-            "attestation": serde_json::to_value(DstackAttestation::default()).unwrap()
+            "attestation": serde_json::to_value(create_mock_dstack_attestation()).unwrap()
         }),
         &agent_id,
         &agent_signer,
@@ -695,7 +695,7 @@ async fn test_register_fails_without_default_measurements_or_ppid()
         &contract_id,
         "register_agent",
         json!({
-            "attestation": serde_json::to_value(DstackAttestation::default()).unwrap()
+            "attestation": serde_json::to_value(create_mock_dstack_attestation()).unwrap()
         }),
         &agent_id,
         &agent_signer,
@@ -760,7 +760,7 @@ async fn test_attestation_expiration() -> Result<(), Box<dyn std::error::Error +
         &contract_id,
         "register_agent",
         json!({
-            "attestation": serde_json::to_value(DstackAttestation::default()).unwrap()
+            "attestation": serde_json::to_value(create_mock_dstack_attestation()).unwrap()
         }),
         &agent_id,
         &agent_signer,
@@ -928,7 +928,7 @@ async fn test_attestation_expiration() -> Result<(), Box<dyn std::error::Error +
         &contract_id,
         "register_agent",
         json!({
-            "attestation": serde_json::to_value(DstackAttestation::default()).unwrap()
+            "attestation": serde_json::to_value(create_mock_dstack_attestation()).unwrap()
         }),
         &agent_id,
         &agent_signer,

@@ -113,36 +113,33 @@ impl fmt::Debug for DstackAttestation {
     }
 }
 
-impl Default for DstackAttestation {
-    /// Produces a valid dummy attestation for unit tests (e.g. when `requires_tee = false`).
-    fn default() -> Self {
-        let collateral_json = json!({
-            "tcb_info_issuer_chain": "",
-            "tcb_info": "",
-            "tcb_info_signature": "",
-            "qe_identity_issuer_chain": "",
-            "qe_identity": "",
-            "qe_identity_signature": "",
-            "pck_crl_issuer_chain": "",
-            "root_ca_crl": "",
-            "pck_crl": ""
-        });
-        let collateral =
-            Collateral::try_from_json(collateral_json).expect("default collateral is valid");
-        let tcb_info = TcbInfo {
-            mrtd: HexBytes::default(),
-            rtmr0: HexBytes::default(),
-            rtmr1: HexBytes::default(),
-            rtmr2: HexBytes::default(),
-            rtmr3: HexBytes::default(),
-            os_image_hash: None,
-            compose_hash: HexBytes::default(),
-            device_id: HexBytes::default(),
-            app_compose: String::new(),
-            event_log: Vec::new(),
-        };
-        DstackAttestation::new(QuoteBytes::from(Vec::new()), collateral, tcb_info)
-    }
+/// Produces a valid dummy attestation for tests
+pub fn create_mock_dstack_attestation() -> DstackAttestation {
+    let collateral_json = json!({
+        "tcb_info_issuer_chain": "",
+        "tcb_info": "",
+        "tcb_info_signature": "",
+        "qe_identity_issuer_chain": "",
+        "qe_identity": "",
+        "qe_identity_signature": "",
+        "pck_crl_issuer_chain": "",
+        "root_ca_crl": "",
+        "pck_crl": ""
+    });
+    let collateral = Collateral::try_from_json(collateral_json).expect("mock collateral is valid");
+    let tcb_info = TcbInfo {
+        mrtd: HexBytes::default(),
+        rtmr0: HexBytes::default(),
+        rtmr1: HexBytes::default(),
+        rtmr2: HexBytes::default(),
+        rtmr3: HexBytes::default(),
+        os_image_hash: None,
+        compose_hash: HexBytes::default(),
+        device_id: HexBytes::default(),
+        app_compose: String::new(),
+        event_log: Vec::new(),
+    };
+    DstackAttestation::new(QuoteBytes::from(Vec::new()), collateral, tcb_info)
 }
 
 impl DstackAttestation {

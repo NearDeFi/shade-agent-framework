@@ -5,7 +5,7 @@ use near_api::{
 use near_api_types::transaction::result::ExecutionFinalResult;
 use near_sandbox::{GenesisAccount, Sandbox};
 use serde_json::json;
-use shade_attestation::measurements::FullMeasurementsHex;
+use shade_attestation::measurements::create_mock_full_measurements_hex;
 use std::sync::Arc;
 use tokio::time::{Duration, sleep};
 
@@ -216,12 +216,12 @@ pub async fn deploy_contract_default(
     Ok(contract_id)
 }
 
-/// Returns JSON for FullMeasurementsHex::default() (all zeros). Used for local mode registration.
+/// Returns JSON for mock full measurements (all zeros). Used for local mode registration.
 /// Uses the same type as the contract so serialization matches exactly.
 #[allow(dead_code)]
 pub fn default_measurements_json() -> serde_json::Value {
-    serde_json::to_value(FullMeasurementsHex::default())
-        .expect("FullMeasurementsHex::default() serializes")
+    serde_json::to_value(create_mock_full_measurements_hex())
+        .expect("create_mock_full_measurements_hex() serializes")
 }
 
 /// Args for approve_measurements with default measurements (parameter name required by contract).

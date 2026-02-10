@@ -11,7 +11,7 @@ use near_sdk::{
 };
 use shade_attestation::{
     attestation::DstackAttestation,
-    measurements::{FullMeasurements, FullMeasurementsHex},
+    measurements::{FullMeasurements, FullMeasurementsHex, create_mock_full_measurements_hex},
     report_data::ReportData,
     tcb_info::HexBytes,
 };

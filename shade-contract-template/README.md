@@ -41,6 +41,8 @@ cargo near build non-reproducible-wasm --no-abi
 
 ## Testing
 
+You need to build the contract first
+
 ```bash
 cargo test
 ```

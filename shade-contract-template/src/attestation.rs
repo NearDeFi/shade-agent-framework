@@ -62,7 +62,7 @@ impl Contract {
                         .contains(&env::predecessor_account_id()),
                     "Agent needs to be whitelisted for local mode"
                 );
-                let default_measurements = FullMeasurementsHex::default();
+                let default_measurements = create_mock_full_measurements_hex();
                 require!(
                     self.approved_measurements.contains(&default_measurements),
                     "Default measurements must be approved for local mode"

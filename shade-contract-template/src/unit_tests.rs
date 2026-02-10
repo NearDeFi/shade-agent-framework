@@ -2,8 +2,8 @@ use crate::*;
 use near_sdk::test_utils::{VMContextBuilder, accounts};
 use near_sdk::{NearToken, testing_env};
 use shade_attestation::{
-    attestation::DstackAttestation,
-    measurements::{FullMeasurementsHex, MeasurementsHex},
+    attestation::create_mock_dstack_attestation,
+    measurements::{FullMeasurementsHex, MeasurementsHex, create_mock_full_measurements_hex},
     tcb_info::HexBytes,
 };
 
@@ -84,7 +84,7 @@ fn setup_contract() -> Contract {
         owner,
         mpc_contract,
     );
-    contract.approve_measurements(FullMeasurementsHex::default());
+    contract.approve_measurements(create_mock_full_measurements_hex());
     contract.approve_ppids(vec![Ppid::default()]);
     contract
 }
@@ -122,7 +122,7 @@ fn test_new() {
 fn test_approve_measurements() {
     let mut contract = setup_contract();
 
-    let measurements = FullMeasurementsHex::default();
+    let measurements = create_mock_full_measurements_hex();
     contract.approve_measurements(measurements.clone());
 
     assert!(
@@ -142,7 +142,7 @@ fn test_approve_measurements_not_owner() {
     let context = get_context(non_owner, false);
     testing_env!(context.build());
 
-    contract.approve_measurements(FullMeasurementsHex::default());
+    contract.approve_measurements(create_mock_full_measurements_hex());
 }
 
 // Test that owner can remove measurements from the approved list
@@ -150,7 +150,7 @@ fn test_approve_measurements_not_owner() {
 fn test_remove_measurements() {
     let mut contract = setup_contract();
 
-    let extra = FullMeasurementsHex::default();
+    let extra = create_mock_full_measurements_hex();
     contract.approve_measurements(extra.clone());
     let count_before = contract.get_approved_measurements(&None, &None).len();
     assert_eq!(count_before, 1);
@@ -169,11 +169,11 @@ fn test_remove_measurements() {
 fn test_remove_measurements_not_owner() {
     let mut contract = setup_contract();
     let non_owner = accounts(2);
-    contract.approve_measurements(FullMeasurementsHex::default());
+    contract.approve_measurements(create_mock_full_measurements_hex());
 
     let context = get_context(non_owner, false);
     testing_env!(context.build());
-    contract.remove_measurements(FullMeasurementsHex::default());
+    contract.remove_measurements(create_mock_full_measurements_hex());
 }
 
 // Test that remove_measurements panics when measurements are not in the approved list
@@ -233,7 +233,7 @@ fn test_whitelist_agent_after_registration() {
     // Register agent (default measurements and PPID already approved in setup)
     let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
-    contract.register_agent(DstackAttestation::default());
+    contract.register_agent(create_mock_dstack_attestation());
 
     // Verify agent is registered
     let agent_info = contract.get_agent(agent.clone()).unwrap();
@@ -311,7 +311,7 @@ fn test_remove_agent() {
     contract.whitelist_agent_for_local(agent.clone());
     let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
-    contract.register_agent(DstackAttestation::default());
+    contract.register_agent(create_mock_dstack_attestation());
     assert!(contract.get_agent(agent.clone()).is_some());
 
     let context = get_context(accounts(0), false);
@@ -340,7 +340,7 @@ fn test_remove_agent_not_owner() {
     contract.whitelist_agent_for_local(agent.clone());
     let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
-    contract.register_agent(DstackAttestation::default());
+    contract.register_agent(create_mock_dstack_attestation());
 
     let context = get_context(non_owner, false);
     testing_env!(context.build());
@@ -360,7 +360,7 @@ fn test_register_agent_without_tee() {
     let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
 
-    let result = contract.register_agent(DstackAttestation::default());
+    let result = contract.register_agent(create_mock_dstack_attestation());
     assert!(result);
 
     let agent_info = contract.get_agent(agent.clone()).unwrap();
@@ -381,7 +381,7 @@ fn test_register_agent_twice() {
     // Register agent first time with 0.005 NEAR deposit
     let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
-    let result = contract.register_agent(DstackAttestation::default());
+    let result = contract.register_agent(create_mock_dstack_attestation());
     assert!(result);
 
     let agent_info = contract.get_agent(agent.clone()).unwrap();
@@ -391,7 +391,7 @@ fn test_register_agent_twice() {
     // Register agent again with 0.005 NEAR deposit
     let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
-    let result = contract.register_agent(DstackAttestation::default());
+    let result = contract.register_agent(create_mock_dstack_attestation());
     assert!(result);
 
     let agent_info = contract.get_agent(agent.clone()).unwrap();
@@ -408,7 +408,7 @@ fn test_register_agent_not_whitelisted() {
     let context = get_context_with_deposit(agent, false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
 
-    contract.register_agent(DstackAttestation::default());
+    contract.register_agent(create_mock_dstack_attestation());
 }
 
 // Test that register_agent fails with insufficient deposit (0 NEAR)
@@ -424,7 +424,7 @@ fn test_register_agent_insufficient_deposit_zero() {
     let context = get_context_with_deposit(agent, false, Some(DEPOSIT_ZERO));
     testing_env!(context.build());
 
-    contract.register_agent(DstackAttestation::default());
+    contract.register_agent(create_mock_dstack_attestation());
 }
 
 // Test that register_agent fails with insufficient deposit (0.003 NEAR)
@@ -440,7 +440,7 @@ fn test_register_agent_insufficient_deposit_low() {
     let context = get_context_with_deposit(agent, false, Some(DEPOSIT_003_NEAR));
     testing_env!(context.build());
 
-    contract.register_agent(DstackAttestation::default());
+    contract.register_agent(create_mock_dstack_attestation());
 }
 
 // Test that owner can update the owner ID
@@ -529,7 +529,7 @@ fn test_get_contract_info() {
 fn test_get_approved_measurements() {
     let mut contract = setup_contract();
 
-    let default = FullMeasurementsHex::default();
+    let default = create_mock_full_measurements_hex();
     contract.approve_measurements(default.clone());
 
     let all = contract.get_approved_measurements(&None, &None);
@@ -559,11 +559,11 @@ fn test_get_agents() {
     // Register agent1 and agent2; agent3 remains unregistered
     let context = get_context_with_deposit(agent1.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
-    contract.register_agent(DstackAttestation::default());
+    contract.register_agent(create_mock_dstack_attestation());
 
     let context = get_context_with_deposit(agent2.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
-    contract.register_agent(DstackAttestation::default());
+    contract.register_agent(create_mock_dstack_attestation());
 
     assert!(contract.get_agent(agent3.clone()).is_none());
 
@@ -584,7 +584,7 @@ fn test_get_agents() {
     // Remove default measurements; approval flags should update
     let context = get_context(accounts(0), false);
     testing_env!(context.build());
-    contract.remove_measurements(FullMeasurementsHex::default());
+    contract.remove_measurements(create_mock_full_measurements_hex());
 
     let agents = contract.get_agents(&None, &None);
     let agent1_info = agents.iter().find(|a| a.account_id == agent1).unwrap();
@@ -612,7 +612,7 @@ fn test_get_agent() {
     // Register agent
     let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
-    contract.register_agent(DstackAttestation::default());
+    contract.register_agent(create_mock_dstack_attestation());
 
     let agent_info = contract.get_agent(agent.clone()).unwrap();
     assert_eq!(agent_info.account_id, agent);
@@ -631,7 +631,7 @@ fn test_request_signature_not_whitelisted() {
     contract.whitelist_agent_for_local(agent.clone());
     let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
-    contract.register_agent(DstackAttestation::default());
+    contract.register_agent(create_mock_dstack_attestation());
 
     // Verify agent is registered
     assert!(contract.get_agent(agent.clone()).is_some());
@@ -683,7 +683,7 @@ fn test_require_valid_agent_removes_on_invalid_measurements() {
     // Register agent
     let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
-    contract.register_agent(DstackAttestation::default());
+    contract.register_agent(create_mock_dstack_attestation());
 
     // Verify agent is registered
     assert!(contract.get_agent(agent.clone()).is_some());
@@ -691,7 +691,7 @@ fn test_require_valid_agent_removes_on_invalid_measurements() {
     // Remove measurements from approved list
     let context = get_context(accounts(0), false);
     testing_env!(context.build());
-    contract.remove_measurements(FullMeasurementsHex::default());
+    contract.remove_measurements(create_mock_full_measurements_hex());
 
     // Call require_valid_agent - should remove agent and emit event (not panic)
     let context = get_context(agent.clone(), false);
@@ -713,7 +713,7 @@ fn test_require_valid_agent_removes_on_invalid_ppid() {
     // Register agent
     let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
-    contract.register_agent(DstackAttestation::default());
+    contract.register_agent(create_mock_dstack_attestation());
 
     // Verify agent is registered
     assert!(contract.get_agent(agent.clone()).is_some());
@@ -743,7 +743,7 @@ fn test_require_valid_agent_removes_on_not_whitelisted() {
     // Register agent
     let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
-    contract.register_agent(DstackAttestation::default());
+    contract.register_agent(create_mock_dstack_attestation());
 
     // Verify agent is registered
     assert!(contract.get_agent(agent.clone()).is_some());
@@ -773,7 +773,7 @@ fn test_require_valid_agent_removes_with_multiple_reasons() {
     // Register agent
     let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
-    contract.register_agent(DstackAttestation::default());
+    contract.register_agent(create_mock_dstack_attestation());
 
     // Verify agent is registered
     assert!(contract.get_agent(agent.clone()).is_some());
@@ -781,7 +781,7 @@ fn test_require_valid_agent_removes_with_multiple_reasons() {
     // Remove measurements, PPID, and whitelist to trigger multiple reasons
     let context = get_context(accounts(0), false);
     testing_env!(context.build());
-    contract.remove_measurements(FullMeasurementsHex::default());
+    contract.remove_measurements(create_mock_full_measurements_hex());
     contract.remove_ppids(vec![Ppid::default()]);
     contract.remove_agent_from_whitelist_for_local(agent.clone());
 
@@ -804,7 +804,7 @@ fn test_request_signature_measurements_removed() {
 
     let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
-    contract.register_agent(DstackAttestation::default());
+    contract.register_agent(create_mock_dstack_attestation());
 
     let context = get_context(agent.clone(), false);
     testing_env!(context.build());
@@ -817,7 +817,7 @@ fn test_request_signature_measurements_removed() {
     // Remove default measurements from approved list
     let context = get_context(accounts(0), false);
     testing_env!(context.build());
-    contract.remove_measurements(FullMeasurementsHex::default());
+    contract.remove_measurements(create_mock_full_measurements_hex());
 
     let agent_info = contract.get_agent(agent.clone()).unwrap();
     assert!(!agent_info.measurements_are_approved);
@@ -847,7 +847,7 @@ fn test_request_signature_ppid_removed() {
 
     let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
-    contract.register_agent(DstackAttestation::default());
+    contract.register_agent(create_mock_dstack_attestation());
 
     let context = get_context(agent.clone(), false);
     testing_env!(context.build());
@@ -889,7 +889,7 @@ fn test_request_signature_success() {
 
     let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
-    contract.register_agent(DstackAttestation::default());
+    contract.register_agent(create_mock_dstack_attestation());
 
     let context = get_context(agent, false);
     testing_env!(context.build());
@@ -910,7 +910,7 @@ fn test_request_signature_with_eddsa() {
 
     let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
-    contract.register_agent(DstackAttestation::default());
+    contract.register_agent(create_mock_dstack_attestation());
 
     let context = get_context(agent, false);
     testing_env!(context.build());
@@ -932,7 +932,7 @@ fn test_request_signature_invalid_key_type() {
 
     let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
-    contract.register_agent(DstackAttestation::default());
+    contract.register_agent(create_mock_dstack_attestation());
 
     let context = get_context(agent, false);
     testing_env!(context.build());
@@ -959,7 +959,7 @@ fn test_request_signature_expired_attestation() {
         Some(1000u64),
     );
     testing_env!(context.build());
-    contract.register_agent(DstackAttestation::default());
+    contract.register_agent(create_mock_dstack_attestation());
 
     // Fast forward time past expiration (valid_until_ms = 1000 + 100000 = 101000)
     let context =
@@ -995,7 +995,7 @@ fn test_require_valid_agent_removes_on_expired_attestation() {
         Some(1000u64),
     );
     testing_env!(context.build());
-    contract.register_agent(DstackAttestation::default());
+    contract.register_agent(create_mock_dstack_attestation());
 
     // Verify agent is registered and has valid timestamp
     let agent_info = contract.get_agent(agent.clone()).unwrap();
@@ -1032,7 +1032,7 @@ fn test_get_agent_expiration_fields() {
         Some(1000u64),
     );
     testing_env!(context.build());
-    contract.register_agent(DstackAttestation::default());
+    contract.register_agent(create_mock_dstack_attestation());
 
     // Check agent info - should not be expired
     let agent_info = contract.get_agent(agent.clone()).unwrap();
@@ -1072,7 +1072,7 @@ fn test_get_agents_expiration_fields() {
         Some(1000u64),
     );
     testing_env!(context.build());
-    contract.register_agent(DstackAttestation::default());
+    contract.register_agent(create_mock_dstack_attestation());
 
     // Register agent2 at timestamp 2000 ms
     let context = get_context_with_deposit_and_timestamp(
@@ -1082,7 +1082,7 @@ fn test_get_agents_expiration_fields() {
         Some(2000u64),
     );
     testing_env!(context.build());
-    contract.register_agent(DstackAttestation::default());
+    contract.register_agent(create_mock_dstack_attestation());
 
     // Check at timestamp 1001 ms - both should be valid
     // Note: We use is_view: false because contract drop needs to flush storage

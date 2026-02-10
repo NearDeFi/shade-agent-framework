@@ -43,6 +43,6 @@ The measurements and PPID are returned from the verify function.
 
 There is a hex implementation of the measurements structs for easier identification.
 
-### Defaults 
+### Mock attestation, measurements and HexBytes
 
-There is a default implementation of the measurements structs and HexBytes for easier mocking of attestations and PPID.
+There are functions for creating zero arrays for DstacKAttestation, measurements and HexBytes for easier local flow.

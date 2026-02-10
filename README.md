@@ -1,6 +1,6 @@
 # shade-agent-framework
 
-The Shade Agent Framework is built to enable verifiable and trustless Web3 agents that can sign transactions across most chains. At the core the framework is the verification of trusted execution environments (TEE) in NEAR Protocol smart contracts and the usage of smart contract transaction singing via chain signatures. Guardrails can be implemented at the smart contract level to stop the execution of unauthorized actions even if the TEE is compromised.
+The Shade Agent Framework is built to enable verifiable and trust minimized Web3 agents that can sign transactions across most chains. At the core the framework is the verification of trusted execution environments (TEE) in NEAR Protocol smart contracts and the usage of smart contract transaction singing via chain signatures. Guardrails can be implemented at the smart contract level to stop the execution of unauthorized actions even if the TEE is compromised.
 
 This monorepo contains all the tooling for the Shade Agent Framework. It contains:
 

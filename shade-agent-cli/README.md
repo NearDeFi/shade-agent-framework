@@ -27,7 +27,7 @@ Run `shade` with no arguments for the interactive menu.
 
 Create `deployment.yaml` in your agent project root.
 
-The CLI replaces `<MASTER_ACCOUNT_ID>`, `<DEFAULT_MPC_CONTRACT_ID>`, `<REQUIRES_TEE>`, `<MEASUREMENTS>`, `<PPIDS>`, and `<AGENT_ACCOUNT_ID>` with default/calculated values automatically.
+The CLI replaces `<MASTER_ACCOUNT_ID>`, `<DEFAULT_MPC_CONTRACT_ID>`, `<REQUIRES_TEE>`, `<7_DAYS>`, `<MEASUREMENTS>`, `<PPIDS>`, and `<AGENT_ACCOUNT_ID>` with default/calculated values automatically.
 
 ```yaml
 # environment: local | TEE
@@ -74,13 +74,14 @@ agent_contract:
     init:
       enabled: true
       method_name: new
+      # <REQUIRES_TEE> will be replaced wil true or false depending on the environment selected
+      # <7_DAYS> will be replaced with 7 days in milliseconds
       # <MASTER_ACCOUNT_ID> will be replaced with the master account set up in the auth of the CLI
       # <DEFAULT_MPC_CONTRACT_ID> will be replaced with the MPC contract address depending on the network selected
-      # <REQUIRES_TEE> will be replaced wil true or false depending on the environment selected
       args: |
         {
           "requires_tee": <REQUIRES_TEE>,
-          "attestation_expiration_time_ms": "100000",
+          "attestation_expiration_time_ms": "<7_DAYS>",
           "owner_id": <MASTER_ACCOUNT_ID>,
           "mpc_contract_id": <DEFAULT_MPC_CONTRACT_ID>
         }
