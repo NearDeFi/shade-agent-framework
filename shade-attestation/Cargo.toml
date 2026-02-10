@@ -4,6 +4,9 @@ version = "0.1.0"
 edition = "2024"
 description = "Attestation crate for the Shade Agent Framework"
 license = "MIT"
+repository = "https://github.com/neardefi/shade-agent-framework"
+homepage = "https://github.com/neardefi/shade-agent-framework/tree/main/shade-attestation"
+readme = "README.md"
 
 [dependencies]
 borsh = { version = "1.6.0", features = ["derive"] }

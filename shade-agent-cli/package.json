@@ -1,6 +1,6 @@
 {
   "name": "@neardefi/shade-agent-cli",
-  "version": "1.0.2",
+  "version": "2.0.0",
   "description": "A CLI for deploying Shade Agents",
   "author": "Matt Lockyer <github.com/mattlockyer>",
   "license": "Apache-2.0",
