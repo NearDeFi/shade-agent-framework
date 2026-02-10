@@ -28,17 +28,17 @@ Redistributions of this project, whether modified or unmodified, must:
 3. Preserve all SPDX identifiers and copyright headers in individual files.
 
 -------------------------------------------------------------------------------
+Project fork
+-------------------------------------------------------------------------------
+
+This package is derived from the https://github.com/near/mpc project, originally authored by Near One Limited and licensed under the MIT License.
+Modifications by Proximity Labs include minor structural and compatibility changes.
+
+-------------------------------------------------------------------------------
 Third-Party Dependencies
 -------------------------------------------------------------------------------
 
-This project depends on third-party packages under various open-source licenses, including 0BSD, Apache-2.0, BSD-2-Clause, BSD-3-Clause, CC-BY-4.0, CC0-1.0, ISC, LGPL-3.0-only, MIT, Unicode-3.0, Unlicense, and Zlib. A full list of dependencies and their licenses can be found in the sbom.cyclonedx.json file.
-
--------------------------------------------------------------------------------
-Sub licenses
--------------------------------------------------------------------------------
-
-Except as otherwise noted, this repository is licensed under the Apache License, Version 2.0.
-Certain subcomponents are licensed under different terms; see the LICENSE files in the relevant subdirectories.
+This project depends on third-party packages under various open-source licenses, including Apache-2.0, BSD-3-Clause, ISC, MIT, Unicode-3.0 and Zlib. A full list of dependencies and their licenses can be found in the sbom.cyclonedx.json file.
 
 -------------------------------------------------------------------------------
 End of NOTICE
