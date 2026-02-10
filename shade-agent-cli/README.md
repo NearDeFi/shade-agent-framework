@@ -81,7 +81,7 @@ agent_contract:
       args: |
         {
           "requires_tee": <REQUIRES_TEE>,
-          "attestation_expiration_time_ms": "<7_DAYS>",
+          "attestation_expiration_time_ms": <7_DAYS>,
           "owner_id": <MASTER_ACCOUNT_ID>,
           "mpc_contract_id": <DEFAULT_MPC_CONTRACT_ID>
         }
