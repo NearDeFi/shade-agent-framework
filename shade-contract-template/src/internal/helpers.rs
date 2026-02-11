@@ -1,6 +1,5 @@
 use crate::*;
 
-#[near]
 impl Contract {
     // Require the caller to be the owner
     pub(crate) fn require_owner(&mut self) {
@@ -10,7 +9,7 @@ impl Contract {
         );
     }
 
-    // Require the caller to be a valid agent or it is removed from the agents map
+    // Require the caller to be a valid agent or remove it from the agents map
     // Just because an agent is registered does not mean it is currently valid
     // Returns Some(Promise) if agent is invalid (to fail the request), None if valid
     pub(crate) fn require_valid_agent(&mut self) -> Option<Promise> {
@@ -47,7 +46,7 @@ impl Contract {
             }
         }
 
-        // If there are reasons to remove the agent, remove it and make a cross contract call to fail in the next block
+        // If there are reasons to remove the agent, remove it and return a promise to panic
         if !reasons.is_empty() {
             self.agents.remove(&account_id);
             Event::AgentRemoved {
@@ -68,7 +67,10 @@ impl Contract {
         }
         None
     }
+}
 
+#[near]
+impl Contract {
     #[private]
     pub fn fail_on_invalid_agent(reasons: Vec<AgentRemovalReason>) {
         env::panic_str(&format!("Invalid agent: {:?}", reasons));

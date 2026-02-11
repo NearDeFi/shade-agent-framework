@@ -1,5 +1,7 @@
 use crate::*;
 
+// Write your own functions here
+
 // Request a signature for a transaction payload if its a valid agent
 #[near]
 impl Contract {

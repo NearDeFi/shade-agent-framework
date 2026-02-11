@@ -25,7 +25,7 @@ pub enum Event<'a> {
         ppid: &'a Ppid,
         current_time_ms: U64,
         valid_until_ms: U64,
-        // Cannot log attestation, its too large
+        // Cannot log attestation, it's too large
     },
     AgentRemoved {
         account_id: &'a AccountId,

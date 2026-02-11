@@ -23,7 +23,7 @@ pub struct AgentView {
 
 #[near]
 impl Contract {
-    // Get whether the contract requires TEE for registration
+    // Get the contract info
     pub fn get_contract_info(&self) -> ContractInfo {
         ContractInfo {
             requires_tee: self.requires_tee,

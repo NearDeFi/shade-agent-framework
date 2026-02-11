@@ -1,6 +1,6 @@
 use crate::*;
 use near_sdk::test_utils::{VMContextBuilder, accounts};
-use near_sdk::{NearToken, testing_env};
+use near_sdk::{AccountId, NearToken, testing_env};
 use shade_attestation::{
     attestation::create_mock_dstack_attestation,
     measurements::{FullMeasurementsHex, MeasurementsHex, create_mock_full_measurements_hex},

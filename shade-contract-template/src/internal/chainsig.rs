@@ -22,7 +22,6 @@ trait MPCContract {
 const GAS: Gas = Gas::from_tgas(15);
 const ATTACHED_DEPOSIT: NearToken = NearToken::from_yoctonear(1);
 
-#[near]
 impl Contract {
     pub(crate) fn internal_request_signature(
         &self,

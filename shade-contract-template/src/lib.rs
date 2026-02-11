@@ -16,23 +16,15 @@ use shade_attestation::{
     tcb_info::HexBytes,
 };
 
-use events::{AgentRemovalReason, Event};
-
-mod attestation;
-mod chainsig;
-mod events;
-mod helpers;
-mod update_contract;
-mod views;
-mod your_functions;
-
-// Re-export view types for use in tests
+pub use internal::events::{AgentRemovalReason, Event};
 pub use views::{AgentView, ContractInfo};
 
-#[cfg(test)]
-mod unit_tests;
+mod internal;
+mod owner;
+pub mod views;
+mod your_functions;
 
-type Ppid = HexBytes<16>;
+pub type Ppid = HexBytes<16>;
 
 #[near(contract_state)]
 #[derive(PanicOnDefault)]
@@ -91,7 +83,7 @@ impl Contract {
     #[payable]
     pub fn register_agent(&mut self, attestation: DstackAttestation) -> bool {
         // Require the agent to pay for the storage cost
-        // You should update the storage_bytes if you store more data
+        // You should update the STORAGE_BYTES_TO_REGISTER const if you store more data
         let storage_cost = env::storage_byte_cost()
             .checked_mul(STORAGE_BYTES_TO_REGISTER)
             .unwrap();
@@ -103,7 +95,7 @@ impl Contract {
             )
         );
 
-        // Verify the attestation and get the measurements and PPID
+        // Verify the attestation and get the measurements and PPID for the agent
         let (measurements, ppid) = self.verify_attestation(attestation.clone());
 
         let valid_until_ms = block_timestamp_ms() + self.attestation_expiration_time_ms;
@@ -117,7 +109,6 @@ impl Contract {
         }
         .emit();
 
-        // Agent is valid for the attestation expiration time
         // Register the agent
         self.agents.insert(
             env::predecessor_account_id(),
@@ -129,94 +120,5 @@ impl Contract {
         );
 
         true
-    }
-
-    // Owner methods
-
-    // Update the attestation expiration time
-    pub fn update_attestation_expiration_time(&mut self, attestation_expiration_time_ms: U64) {
-        self.require_owner();
-        self.attestation_expiration_time_ms = attestation_expiration_time_ms.into();
-    }
-
-    // Update owner ID
-    pub fn update_owner_id(&mut self, owner_id: AccountId) {
-        self.require_owner();
-        self.owner_id = owner_id;
-    }
-
-    // Update the MPC contract ID
-    pub fn update_mpc_contract_id(&mut self, mpc_contract_id: AccountId) {
-        self.require_owner();
-        self.mpc_contract_id = mpc_contract_id;
-    }
-
-    // Add a new measurements to the approved list
-    pub fn approve_measurements(&mut self, measurements: FullMeasurementsHex) {
-        self.require_owner();
-        self.approved_measurements.insert(measurements);
-    }
-
-    // Remove a measurements from the approved list
-    pub fn remove_measurements(&mut self, measurements: FullMeasurementsHex) {
-        self.require_owner();
-        require!(
-            self.approved_measurements.remove(&measurements),
-            "Measurements not in approved list"
-        );
-    }
-
-    // Add one or more PPIDs to the approved list
-    pub fn approve_ppids(&mut self, ppids: Vec<HexBytes<16>>) {
-        self.require_owner();
-        for id in ppids {
-            self.approved_ppids.insert(id);
-        }
-    }
-
-    // Remove one or more PPIDs from the approved list.
-    pub fn remove_ppids(&mut self, ppids: Vec<HexBytes<16>>) {
-        self.require_owner();
-        for id in ppids {
-            require!(self.approved_ppids.remove(&id), "PPID not in approved list");
-        }
-    }
-
-    // Remove an agent from the approved list
-    pub fn remove_agent(&mut self, account_id: AccountId) {
-        self.require_owner();
-        require!(
-            self.agents.remove(&account_id).is_some(),
-            "Agent not registered"
-        );
-        Event::AgentRemoved {
-            account_id: &account_id,
-            reasons: vec![AgentRemovalReason::ManualRemoval],
-        }
-        .emit();
-    }
-
-    // Local only functions
-
-    // Whitelist an agent, it will still need to register
-    pub fn whitelist_agent_for_local(&mut self, account_id: AccountId) {
-        if self.requires_tee {
-            panic!("Whitelisting agents is not supported for TEE");
-        }
-        self.require_owner();
-        // Only insert if not already whitelisted
-        self.whitelisted_agents_for_local.insert(account_id);
-    }
-
-    // Remove an agent from the list of agents
-    pub fn remove_agent_from_whitelist_for_local(&mut self, account_id: AccountId) {
-        if self.requires_tee {
-            panic!("Removing agents is not supported for TEE");
-        }
-        self.require_owner();
-        require!(
-            self.whitelisted_agents_for_local.remove(&account_id),
-            "Agent not in whitelist for local"
-        );
     }
 }

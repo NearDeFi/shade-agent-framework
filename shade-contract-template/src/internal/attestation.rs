@@ -1,6 +1,5 @@
 use crate::*;
 
-#[near]
 impl Contract {
     pub(crate) fn verify_attestation(
         &self,
@@ -28,7 +27,7 @@ impl Contract {
                 report_data_bytes[..32].copy_from_slice(&account_id_bytes);
                 let expected_report_data = ReportData::from(report_data_bytes);
 
-                // Convert IterableSet to Vec and convert to FullMeasurements
+                // Convert measurements to Vec and convert to FullMeasurements
                 let expected_measurements: Vec<FullMeasurements> = self
                     .approved_measurements
                     .iter()
@@ -36,7 +35,7 @@ impl Contract {
                     .map(Into::into)
                     .collect();
 
-                // Convert IterableSet to Vec
+                // Convert PPIDs to Vec
                 let approved_ppids: Vec<Ppid> = self.approved_ppids.iter().cloned().collect();
 
                 // Verify the attestation
@@ -47,7 +46,6 @@ impl Contract {
                     &approved_ppids,
                 ) {
                     Ok((verified_measurements, verified_ppid)) => {
-                        log!("Attestation verified successfully");
                         (verified_measurements.into(), verified_ppid)
                     }
                     Err(e) => {
