@@ -1,5 +1,5 @@
 # Deploy a pre approved agent
-# Use when there exists an agent contract that has approved measurements
+# Deploying an agent to an existing Shade Agent system with approved measurements
 
 # Copy the Docker Compose file for the approved measurements to copied-docker-compose.yaml
 

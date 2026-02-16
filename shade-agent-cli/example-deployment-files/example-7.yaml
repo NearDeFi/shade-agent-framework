@@ -3,7 +3,7 @@
 
 # You should manually pre calculate the measurements and manually deploy to Phala Cloud
 
-environment: local
+environment: TEE
 network: testnet
 docker_compose_path: ./docker-compose.yaml
 
