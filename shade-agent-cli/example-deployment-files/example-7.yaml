@@ -1,0 +1,83 @@
+# Custom measurements and custom Phala configuration
+# Use when you want to deploy an agent with custom Phala configuration 
+
+# You should manually pre calculate the measurements and manually deploy to Phala Cloud
+
+environment: local
+network: testnet
+docker_compose_path: ./docker-compose.yaml
+
+agent_contract: 
+  contract_id: example-contract-123.testnet
+
+  deploy_custom:
+    enabled: true
+    funding_amount: 8
+    delete_key: false
+
+    deploy_from_source:
+      enabled: true
+      source_path: ./agent-contract
+    deploy_from_wasm:
+      enabled: false
+      wasm_path: ./agent-contract/target/near/shade-contract-template.wasm
+    use_global_by_hash:
+      enabled: false
+      global_hash: 8eHvv9q4eovoUgDXYEduwv3dbcfXkCyPP9TSmhUSxkcm
+
+    init:
+      enabled: true
+      method_name: new
+      args: |
+        {
+          "requires_tee": <REQUIRES_TEE>,
+          "attestation_expiration_time_ms": <7_DAYS>,
+          "owner_id": <MASTER_ACCOUNT_ID>,
+          "mpc_contract_id": <DEFAULT_MPC_CONTRACT_ID>
+        }
+
+approve_measurements:
+  enabled: true
+  method_name: approve_measurements
+  args: |
+    {
+      "measurements": {
+        "rtmrs": {
+          "mrtd": "a3f2c91e8b4d7601f5e9c2a8d7b3f0e6c1a4d9b2e5f8c7a0d3b6e9f2c5a8d1b4e7c0f3a6d9b2e5c8a1f4d7b0e3c6a9",
+          "rtmr0": "b4e3d02f9c5a8712e6f0d3b9e8c4a1f7d2b5e0a3c6f9d8b1e4a7c0d3f6b9e2a5d8c1f4b7e0a3d6c9f2b5e8a1d4c7f0b3e6",
+          "rtmr1": "c5f4e13a0d6b9823f7a1e4c0d9b5a2f8e3c6b1d4a7f0e9c2b5d8a1f4c7e0b3d6a9f2c5e8b1d4a7f0c3e6b9d2a5f8c1e4b7a0",
+          "rtmr2": "d6a5f24b1e7c0934a8b2f5d1e0c6b3a9f4e7c2d5b8a1f0e3c6d9b2a5f8e1c4b7d0a3f6c9e2b5d8a1f4c7e0b3d6a9f2c5e8b1d4"
+        },
+        "key_provider_event_digest": "e7b6a35c2f8d1045b9c3a6e1f4d7b0a8e2c5b8d1f4a7e0c3b6d9f2a5e8c1b4d7a0e3c6f9b2d5a8e1c4f7b0d3a6e9c2f5b8d1a4",
+        "app_compose_hash_payload": "f8c7b46d3a9e2156c0d4b7f2e5a8d1c9f3e6b9a2d5f8c1e4b7a0d3f6c9e2b5a8"
+      }
+    }
+  # tgas: 30
+
+approve_ppids:
+  enabled: true
+  method_name: approve_ppids
+  args: |
+    {
+      "ppids": <PPIDS>
+    }
+  # tgas: 30
+
+build_docker_image:
+  enabled: true
+  tag: username/my-first-agent
+  cache: true
+  dockerfile_path: ./Dockerfile
+
+deploy_to_phala:
+  enabled: false
+  app_name: my-first-agent
+  env_file_path: ./.env
+
+whitelist_agent_for_local:
+  method_name: whitelist_agent_for_local
+  args: |
+    {
+      "account_id": <AGENT_ACCOUNT_ID>
+    }
+  # tgas: 30

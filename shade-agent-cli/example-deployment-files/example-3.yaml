@@ -1,0 +1,77 @@
+# Production deployment 
+
+# Deploys the agent contract to mainnet 
+# Removes the contract key after deployment to lock the contract account
+# Deploys to Phala Cloud 
+
+# You should then manually deploy a multisig to the master account ID set in auth and remove the key from it
+
+environment: TEE
+network: mainnet
+docker_compose_path: ./docker-compose.yaml
+
+agent_contract: 
+  contract_id: example-contract-123.near
+
+  deploy_custom:
+    enabled: true
+    funding_amount: 8
+    delete_key: true
+
+    deploy_from_source:
+      enabled: true
+      source_path: ./agent-contract
+    deploy_from_wasm:
+      enabled: false
+      wasm_path: ./agent-contract/target/near/shade-contract-template.wasm
+    use_global_by_hash:
+      enabled: false
+      global_hash: 8eHvv9q4eovoUgDXYEduwv3dbcfXkCyPP9TSmhUSxkcm
+
+    init:
+      enabled: true
+      method_name: new
+      args: |
+        {
+          "requires_tee": <REQUIRES_TEE>,
+          "attestation_expiration_time_ms": <7_DAYS>,
+          "owner_id": <MASTER_ACCOUNT_ID>",
+          "mpc_contract_id": <DEFAULT_MPC_CONTRACT_ID>
+        }
+
+approve_measurements:
+  enabled: true
+  method_name: approve_measurements
+  args: |
+    {
+      "measurements": <MEASUREMENTS>
+    }
+  # tgas: 30
+
+approve_ppids:
+  enabled: true
+  method_name: approve_ppids
+  args: |
+    {
+      "ppids": <PPIDS>
+    }
+  # tgas: 30
+
+build_docker_image:
+  enabled: true
+  tag: username/my-first-agent
+  cache: true
+  dockerfile_path: ./Dockerfile
+
+deploy_to_phala:
+  enabled: true
+  app_name: my-first-agent
+  env_file_path: ./.env
+
+whitelist_agent_for_local:
+  method_name: whitelist_agent_for_local
+  args: |
+    {
+      "account_id": <AGENT_ACCOUNT_ID>
+    }
+  # tgas: 30
