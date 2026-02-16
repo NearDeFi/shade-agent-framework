@@ -16,3 +16,4 @@ Run `shade deploy` (or `shade plan`) from the directory that contains your `depl
 | [example-6.yaml](./example-6.yaml) | **Refresh agent contract (local).** Same contract account but redeploy contract from a pre-built WASM file. |
 | [example-7.yaml](./example-7.yaml) | **Custom measurements / Phala config.** Manual measurements (no `<MEASUREMENTS>` placeholder). Replace the hex values with your pre-calculated measurements and deploy to Phala manually. |
 | [example-8.yaml](./example-8.yaml) | **Custom attestation expiration.** Same as a typical local/testnet setup but with attestation expiration set to 1 day (`86400000` ms) instead of 7 days. |
+| [example-9.yaml](./example-9.yaml) | **Additional initialization arguments.** Same as a typical local/testnet setup but with additional arguments on init. |
