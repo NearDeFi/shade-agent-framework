@@ -199,7 +199,7 @@ export async function deployCustomContractFromSource() {
 
     const sudoPrefix = getSudoPrefix();
     execSync(
-      `${sudoPrefix}docker run --rm -v "${absoluteSourcePath}":/workspace pivortex/near-builder@sha256:cdffded38c6cff93a046171269268f99d517237fac800f58e5ad1bcd8d6e2418 cargo near build non-reproducible-wasm --no-abi`,
+      `${sudoPrefix}docker run --rm -v "${absoluteSourcePath}":/workspace pivortex/near-builder@sha256:dad9153f487ec993334d11900b2a9a769c542dd8feecb71c9cd453f29300e156 cargo near build non-reproducible-wasm --no-abi`,
       { stdio: "pipe" },
     );
 

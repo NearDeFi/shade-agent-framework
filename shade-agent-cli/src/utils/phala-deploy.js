@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { createClient, deployAppAuth, encryptEnvVars, parseEnvVars } from "@phala/cloud";
+import { buildAppComposeForDeploy } from "./measurements.js";
 
 const CLOUD_URL = "https://cloud.phala.com";
 
@@ -73,15 +74,17 @@ async function deploy_new_cvm(client, docker_compose_yml, env_vars, args) {
 
   //
   // Step 2: Provision CVM (automatic resource selection)
+  // Use the same app compose structure as measurements.js so Phala's compose_hash
+  // matches the hash used for agent contract approved measurements.
   //
+  const allowed_envs = env_vars.map((e) => e.key);
+  const compose_file = buildAppComposeForDeploy(docker_compose_yml, allowed_envs);
+
   const provision_payload = /** @type {import('@phala/cloud').ProvisionCvmRequest} */ (
     removeUndefined({
       name,
       instance_type,
-      compose_file: {
-        docker_compose_file: docker_compose_yml,
-        allowed_envs: env_vars.map((e) => e.key),
-      },
+      compose_file,
       disk_size,
       region,
       image: os_image,
