@@ -1,5 +1,5 @@
 # environment: local | TEE
-environment: local
+environment: TEE
 
 # network: testnet | mainnet
 network: testnet
@@ -12,7 +12,7 @@ agent_contract:
   # Fill this out with a unique contract id for your agent contract
   # This account should not already be in use
   # For example: example-contract-123.testnet
-  contract_id: 
+  contract_id: asdofjoiasdjddf.testnet
 
   # Optional, if not enabled the contract will not be deployed
   # and it's assumed the agent contract is already deployed to the contract_id
@@ -20,7 +20,7 @@ agent_contract:
   deploy_custom:
     enabled: true
     # Amount to fund the agent contract with in NEAR
-    funding_amount: 10
+    funding_amount: 8
     # If true the key for contract account will be deleted after deployment locking it
     delete_key: false
 
@@ -91,7 +91,7 @@ approve_ppids:
 build_docker_image:
   enabled: true
   # Fill this out with the docker tag you want to use. For example: pivortex/my-first-agent
-  tag:
+  tag: pivortex/shade-test-agent
   cache: true
   dockerfile_path: ../Dockerfile
 
@@ -100,7 +100,7 @@ build_docker_image:
 # Only applicable if the environment is TEE
 deploy_to_phala:
   enabled: true
-  app_name: my-first-agent
+  app_name: my-test-agent
   env_file_path: ./.env
 
 # Helper command to whitelist an agent for local mode

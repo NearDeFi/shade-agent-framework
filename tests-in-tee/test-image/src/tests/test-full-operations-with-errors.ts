@@ -205,7 +205,7 @@ export default async function testFullOperationsWithErrors(): Promise<{
 
     // 10. getPrivateKeys - exercise the path; we NEVER include keys in response
     try {
-      agent.getPrivateKeys(true);
+      agent.getPrivateKeys({ acknowledgeRisk: true });
       result.operations.getPrivateKeysCalled = { ok: true };
     } catch (e: unknown) {
       const err = e instanceof Error ? e.message : String(e);

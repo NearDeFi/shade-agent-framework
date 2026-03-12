@@ -112,7 +112,7 @@ fn test_new() {
     assert_eq!(contract_info.requires_tee, false);
     assert_eq!(contract_info.attestation_expiration_time_ms.0, 100000u64);
     assert_eq!(contract.get_approved_measurements(&None, &None).len(), 0);
-    assert_eq!(contract.get_approved_ppids().len(), 0);
+    assert_eq!(contract.get_approved_ppids(&None, &None).len(), 0);
     assert_eq!(contract.get_agents(&None, &None).len(), 0);
     assert_eq!(contract.get_whitelisted_agents_for_local().len(), 0);
 }
@@ -235,20 +235,18 @@ fn test_whitelist_agent_after_registration() {
     testing_env!(context.build());
     contract.register_agent(create_mock_dstack_attestation());
 
-    // Verify agent is registered
+    // Verify agent is registered and valid
     let agent_info = contract.get_agent(agent.clone()).unwrap();
-    assert!(agent_info.measurements_are_approved);
-    assert!(agent_info.ppid_is_approved);
+    assert!(matches!(agent_info.validity, AgentValidity::Valid));
 
     // Whitelist agent again (should not unregister)
     let context = get_context(accounts(0), false);
     testing_env!(context.build());
     contract.whitelist_agent_for_local(agent.clone());
 
-    // Verify agent is still registered
+    // Verify agent is still registered and valid
     let agent_info = contract.get_agent(agent.clone()).unwrap();
-    assert!(agent_info.measurements_are_approved);
-    assert!(agent_info.ppid_is_approved);
+    assert!(matches!(agent_info.validity, AgentValidity::Valid));
 }
 
 // Test that non-owner cannot whitelist an agent
@@ -364,10 +362,7 @@ fn test_register_agent_without_tee() {
     assert!(result);
 
     let agent_info = contract.get_agent(agent.clone()).unwrap();
-    assert!(agent_info.measurements_are_approved);
-    assert!(agent_info.ppid_is_approved);
-    assert!(agent_info.timestamp_is_valid);
-    assert!(agent_info.is_valid);
+    assert!(matches!(agent_info.validity, AgentValidity::Valid));
 }
 
 // Test that an agent can register twice and the registration is updated
@@ -385,8 +380,7 @@ fn test_register_agent_twice() {
     assert!(result);
 
     let agent_info = contract.get_agent(agent.clone()).unwrap();
-    assert!(agent_info.measurements_are_approved);
-    assert!(agent_info.ppid_is_approved);
+    assert!(matches!(agent_info.validity, AgentValidity::Valid));
 
     // Register agent again with 0.005 NEAR deposit
     let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
@@ -395,8 +389,7 @@ fn test_register_agent_twice() {
     assert!(result);
 
     let agent_info = contract.get_agent(agent.clone()).unwrap();
-    assert!(agent_info.measurements_are_approved);
-    assert!(agent_info.ppid_is_approved);
+    assert!(matches!(agent_info.validity, AgentValidity::Valid));
 }
 
 // Test that an agent cannot register if not whitelisted for local
@@ -541,7 +534,7 @@ fn test_get_approved_measurements() {
     assert_eq!(first_two.len(), 1);
 }
 
-// Test that get_agents returns only registered agents, pagination works, and measurements_are_approved / ppid_is_approved reflect current approvals
+// Test that get_agents returns only registered agents, pagination works, and validity reflects current approvals
 #[test]
 fn test_get_agents() {
     let mut contract = setup_contract();
@@ -571,12 +564,10 @@ fn test_get_agents() {
     assert_eq!(agents.len(), 2);
 
     let agent1_info = agents.iter().find(|a| a.account_id == agent1).unwrap();
-    assert!(agent1_info.measurements_are_approved);
-    assert!(agent1_info.ppid_is_approved);
+    assert!(matches!(agent1_info.validity, AgentValidity::Valid));
 
     let agent2_info = agents.iter().find(|a| a.account_id == agent2).unwrap();
-    assert!(agent2_info.measurements_are_approved);
-    assert!(agent2_info.ppid_is_approved);
+    assert!(matches!(agent2_info.validity, AgentValidity::Valid));
 
     // Pagination
     assert_eq!(contract.get_agents(&Some(0), &Some(1)).len(), 1);
@@ -588,12 +579,14 @@ fn test_get_agents() {
 
     let agents = contract.get_agents(&None, &None);
     let agent1_info = agents.iter().find(|a| a.account_id == agent1).unwrap();
-    assert!(!agent1_info.measurements_are_approved);
-    assert!(agent1_info.ppid_is_approved);
+    assert!(
+        matches!(agent1_info.validity, AgentValidity::Invalid(ref r) if r.contains(&AgentRemovalReason::InvalidMeasurements))
+    );
 
     let agent2_info = agents.iter().find(|a| a.account_id == agent2).unwrap();
-    assert!(!agent2_info.measurements_are_approved);
-    assert!(agent2_info.ppid_is_approved);
+    assert!(
+        matches!(agent2_info.validity, AgentValidity::Invalid(ref r) if r.contains(&AgentRemovalReason::InvalidMeasurements))
+    );
 }
 
 // Test that get_agent returns correct agent information (None when not registered, Some when registered)
@@ -616,8 +609,7 @@ fn test_get_agent() {
 
     let agent_info = contract.get_agent(agent.clone()).unwrap();
     assert_eq!(agent_info.account_id, agent);
-    assert!(agent_info.measurements_are_approved);
-    assert!(agent_info.ppid_is_approved);
+    assert!(matches!(agent_info.validity, AgentValidity::Valid));
 }
 
 // Test that request_signature removes agent if the agent is registered but not whitelisted for local.
@@ -820,7 +812,9 @@ fn test_request_signature_measurements_removed() {
     contract.remove_measurements(create_mock_full_measurements_hex());
 
     let agent_info = contract.get_agent(agent.clone()).unwrap();
-    assert!(!agent_info.measurements_are_approved);
+    assert!(
+        matches!(agent_info.validity, AgentValidity::Invalid(ref r) if r.contains(&AgentRemovalReason::InvalidMeasurements))
+    );
 
     // Call request_signature - should remove agent and emit event, then continue
     // The agent is removed, so on next call it will panic
@@ -863,7 +857,9 @@ fn test_request_signature_ppid_removed() {
     contract.remove_ppids(vec![Ppid::default()]);
 
     let agent_info = contract.get_agent(agent.clone()).unwrap();
-    assert!(!agent_info.ppid_is_approved);
+    assert!(
+        matches!(agent_info.validity, AgentValidity::Invalid(ref r) if r.contains(&AgentRemovalReason::InvalidPpid))
+    );
 
     // Call request_signature - should remove agent and emit event, then continue
     // The agent is removed, so on next call it will panic
@@ -997,10 +993,9 @@ fn test_require_valid_agent_removes_on_expired_attestation() {
     testing_env!(context.build());
     contract.register_agent(create_mock_dstack_attestation());
 
-    // Verify agent is registered and has valid timestamp
+    // Verify agent is registered and valid
     let agent_info = contract.get_agent(agent.clone()).unwrap();
-    assert!(agent_info.timestamp_is_valid);
-    assert!(agent_info.is_valid);
+    assert!(matches!(agent_info.validity, AgentValidity::Valid));
 
     // Fast forward time past expiration (attestation_expiration_time_ms is 100000 ms = 100 seconds)
     // So valid_until_ms should be 1000 + 100000 = 101000
@@ -1016,7 +1011,7 @@ fn test_require_valid_agent_removes_on_expired_attestation() {
     assert!(contract.get_agent(agent).is_none());
 }
 
-// Test that get_agent shows timestamp_is_valid and is_valid correctly
+// Test that get_agent shows validity correctly (Valid vs Invalid with ExpiredAttestation)
 #[test]
 fn test_get_agent_expiration_fields() {
     let mut contract = setup_contract();
@@ -1034,10 +1029,9 @@ fn test_get_agent_expiration_fields() {
     testing_env!(context.build());
     contract.register_agent(create_mock_dstack_attestation());
 
-    // Check agent info - should not be expired
+    // Check agent info - should be valid (not expired)
     let agent_info = contract.get_agent(agent.clone()).unwrap();
-    assert!(agent_info.timestamp_is_valid);
-    assert!(agent_info.is_valid);
+    assert!(matches!(agent_info.validity, AgentValidity::Valid));
     assert_eq!(agent_info.valid_until_ms.0, 101000u64); // 1000 + 100000
 
     // Fast forward time past expiration
@@ -1047,14 +1041,15 @@ fn test_get_agent_expiration_fields() {
         get_context_with_deposit_and_timestamp(agent.clone(), false, None, Some(101001u64));
     testing_env!(context.build());
 
-    // Check agent info - should have invalid timestamp (expired)
+    // Check agent info - should be invalid (expired)
     let agent_info = contract.get_agent(agent.clone()).unwrap();
-    assert!(!agent_info.timestamp_is_valid);
-    assert!(!agent_info.is_valid);
+    assert!(
+        matches!(agent_info.validity, AgentValidity::Invalid(ref r) if r.contains(&AgentRemovalReason::ExpiredAttestation))
+    );
     assert_eq!(agent_info.valid_until_ms.0, 101000u64);
 }
 
-// Test that get_agents shows timestamp_is_valid and is_valid correctly
+// Test that get_agents shows validity correctly
 #[test]
 fn test_get_agents_expiration_fields() {
     let mut contract = setup_contract();
@@ -1093,8 +1088,7 @@ fn test_get_agents_expiration_fields() {
     let agents = contract.get_agents(&None, &None);
     assert_eq!(agents.len(), 2);
     for agent_info in &agents {
-        assert!(agent_info.timestamp_is_valid);
-        assert!(agent_info.is_valid);
+        assert!(matches!(agent_info.validity, AgentValidity::Valid));
     }
 
     // Fast forward past agent1 expiration but not agent2
@@ -1112,8 +1106,8 @@ fn test_get_agents_expiration_fields() {
     assert_eq!(agents.len(), 2);
     let agent1_info = agents.iter().find(|a| a.account_id == agent1).unwrap();
     let agent2_info = agents.iter().find(|a| a.account_id == agent2).unwrap();
-    assert!(!agent1_info.timestamp_is_valid);
-    assert!(!agent1_info.is_valid);
-    assert!(agent2_info.timestamp_is_valid);
-    assert!(agent2_info.is_valid);
+    assert!(
+        matches!(agent1_info.validity, AgentValidity::Invalid(ref r) if r.contains(&AgentRemovalReason::ExpiredAttestation))
+    );
+    assert!(matches!(agent2_info.validity, AgentValidity::Valid));
 }

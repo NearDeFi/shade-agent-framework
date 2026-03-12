@@ -4,11 +4,11 @@ use helpers::*;
 use near_api::Data;
 use serde_json::json;
 use shade_attestation::attestation::create_mock_dstack_attestation;
-use shade_contract_template::AgentView;
+use shade_contract_template::{AgentRemovalReason, AgentValidity, AgentView};
 use tokio::time::{Duration, sleep};
 
 /// Tests measurements/PPID lifecycle with multiple agents:
-/// - Verifies that measurements removal affects all registered agents (measurements_are_approved -> false)
+/// - Verifies that measurements removal affects all registered agents (validity -> Invalid with InvalidMeasurements)
 /// - Ensures agents with removed measurements and PPID cannot request signatures and are removed with both InvalidMeasurements and InvalidPpid reasons
 /// - Ensures agents with removed PPID only cannot request signatures and are removed with InvalidPpid reason
 /// - Confirms that re-approving measurements restores access for remaining registered agents
@@ -91,7 +91,7 @@ async fn test_measurements_and_ppid_lifecycle()
 
     sleep(Duration::from_millis(300)).await;
 
-    // Verify agents have measurements_are_approved and ppid_is_approved: true
+    // Verify agent is valid (approved measurements and PPID)
     let agent_info: Data<Option<AgentView>> = call_view(
         &contract_id,
         "get_agent",
@@ -101,7 +101,7 @@ async fn test_measurements_and_ppid_lifecycle()
     .await?;
     let agent = agent_info.data.unwrap();
     assert!(
-        agent.measurements_are_approved && agent.ppid_is_approved,
+        matches!(agent.validity, AgentValidity::Valid),
         "Agent should have approved measurements and PPID"
     );
 
@@ -120,7 +120,7 @@ async fn test_measurements_and_ppid_lifecycle()
 
     sleep(Duration::from_millis(200)).await;
 
-    // Verify measurements removal affected agents (measurements_are_approved: false, ppid still approved)
+    // Verify measurements removal affected agent (invalid due to measurements, not PPID)
     let agent_info: Data<Option<AgentView>> = call_view(
         &contract_id,
         "get_agent",
@@ -130,7 +130,7 @@ async fn test_measurements_and_ppid_lifecycle()
     .await?;
     let agent = agent_info.data.unwrap();
     assert!(
-        !agent.measurements_are_approved && agent.ppid_is_approved,
+        matches!(agent.validity, AgentValidity::Invalid(ref r) if r.contains(&AgentRemovalReason::InvalidMeasurements)),
         "Measurements should be unapproved, PPID still approved"
     );
 
@@ -316,7 +316,7 @@ async fn test_measurements_and_ppid_lifecycle()
 
     sleep(Duration::from_millis(200)).await;
 
-    // Verify agent2 still exists and has measurements_are_approved and ppid_is_approved: true again
+    // Verify agent2 still exists and is valid again
     let agent2_info: Data<Option<AgentView>> = call_view(
         &contract_id,
         "get_agent",
@@ -329,7 +329,7 @@ async fn test_measurements_and_ppid_lifecycle()
 
     let agent2 = agent2_info.data.unwrap();
     assert!(
-        agent2.measurements_are_approved && agent2.ppid_is_approved,
+        matches!(agent2.validity, AgentValidity::Valid),
         "Agent2 should have approved measurements and PPID again"
     );
 
@@ -414,7 +414,7 @@ async fn test_measurements_and_ppid_lifecycle()
 
     sleep(Duration::from_millis(200)).await;
 
-    // Verify agent2 exists with ppid_is_approved: false before testing PPID removal
+    // Verify agent2 exists with invalid validity (InvalidPpid) before testing PPID removal
     let agent2_info: Data<Option<AgentView>> = call_view(
         &contract_id,
         "get_agent",
@@ -426,13 +426,9 @@ async fn test_measurements_and_ppid_lifecycle()
     .await?;
 
     let agent2 = agent2_info.data.unwrap();
-    assert_eq!(
-        agent2.measurements_are_approved, true,
-        "Agent2 should still have approved measurements"
-    );
-    assert_eq!(
-        agent2.ppid_is_approved, false,
-        "Agent2 should not have approved PPID"
+    assert!(
+        matches!(agent2.validity, AgentValidity::Invalid(ref r) if r.contains(&AgentRemovalReason::InvalidPpid) && !r.contains(&AgentRemovalReason::InvalidMeasurements)),
+        "Agent2 should have approved measurements but not approved PPID"
     );
 
     // Attempt to request a signature with removed PPID using agent2
@@ -784,11 +780,10 @@ async fn test_attestation_expiration() -> Result<(), Box<dyn std::error::Error +
     .await?;
 
     let agent = agent_info.data.unwrap();
-    assert_eq!(
-        agent.timestamp_is_valid, true,
-        "Agent timestamp should be valid (not expired)"
+    assert!(
+        matches!(agent.validity, AgentValidity::Valid),
+        "Agent should be valid (not expired)"
     );
-    assert_eq!(agent.is_valid, true, "Agent should be valid");
 
     // Fast forward time past expiration (attestation_expiration_time_ms is 100000 ms = 100 seconds)
     // NEAR blocks are produced roughly every 1 second, so we need at least 100 blocks for 100 seconds
@@ -809,11 +804,10 @@ async fn test_attestation_expiration() -> Result<(), Box<dyn std::error::Error +
     .await?;
 
     let agent = agent_info.data.unwrap();
-    assert_eq!(
-        agent.timestamp_is_valid, false,
-        "Agent timestamp should not be valid (expired)"
+    assert!(
+        matches!(agent.validity, AgentValidity::Invalid(ref r) if r.contains(&AgentRemovalReason::ExpiredAttestation)),
+        "Agent should not be valid (expired)"
     );
-    assert_eq!(agent.is_valid, false, "Agent should not be valid");
 
     // Try to request signature - should remove agent, emit event with ExpiredAttestation reason,
     // and the Promise (fail_on_invalid_agent) resolves to panic
@@ -952,12 +946,8 @@ async fn test_attestation_expiration() -> Result<(), Box<dyn std::error::Error +
     .await?;
 
     let agent = agent_info.data.unwrap();
-    assert_eq!(
-        agent.timestamp_is_valid, true,
-        "Agent timestamp should be valid after re-registration"
-    );
-    assert_eq!(
-        agent.is_valid, true,
+    assert!(
+        matches!(agent.validity, AgentValidity::Valid),
         "Agent should be valid after re-registration"
     );
 

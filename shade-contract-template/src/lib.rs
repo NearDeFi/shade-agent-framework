@@ -16,8 +16,9 @@ use shade_attestation::{
     tcb_info::HexBytes,
 };
 
-pub use internal::events::{AgentRemovalReason, Event};
-pub use views::{AgentView, ContractInfo};
+pub use internal::events::Event;
+pub use internal::helpers::AgentRemovalReason;
+pub use views::{AgentValidity, AgentView, ContractInfo};
 
 mod internal;
 mod owner;

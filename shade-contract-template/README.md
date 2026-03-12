@@ -35,7 +35,7 @@ The ring dependency is dcap-qvl, which cannot be built on mac so build the contr
 docker run --rm \
 -v "$(pwd)":/workspace \
 -w "/workspace/shade-contract-template" \
-pivortex/near-builder@sha256:dad9153f487ec993334d11900b2a9a769c542dd8feecb71c9cd453f29300e156 \
+pivortex/near-builder:latest \
 cargo near build non-reproducible-wasm --no-abi
 ```
 

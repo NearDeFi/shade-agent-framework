@@ -27,6 +27,7 @@ import {
 } from "../shade-agent-cli/src/utils/measurements.js";
 import { getPpids } from "../shade-agent-cli/src/utils/ppids.js";
 import { tgasToGas } from "../shade-agent-cli/src/utils/near.js";
+import { deployToPhala as deployToPhalaSdk } from "../shade-agent-cli/src/utils/phala-deploy.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -345,96 +346,26 @@ async function buildAndPushTestImage() {
   return codehash;
 }
 
-// Get Phala CLI binary
-function getPhalaBin() {
-  const phalaBin = resolve(__dirname, "node_modules", ".bin", "phala");
-  if (fs.existsSync(phalaBin)) {
-    return phalaBin;
-  }
-  throw new Error(
-    "Phala CLI not found. Run npm install in shade-agent-cli directory.",
-  );
-}
-
-// Deploy to Phala
+// Deploy to Phala using the same SDK flow as shade-agent-cli
 async function deployToPhala() {
-  const phalaBin = getPhalaBin();
   const composePath = resolve(__dirname, "docker-compose.yaml");
   const envFilePath = resolve(__dirname, ".env");
-
-  // Extract allowed environment variables from docker-compose.yaml
   const allowedEnvs = extractAllowedEnvs(composePath);
 
-  // Build environment variable flags for Phala CLI
-  // Only include env vars that are allowed in docker-compose.yaml
-  let envFlags = "";
-  if (envFilePath && allowedEnvs.length > 0) {
-    // Resolve env file path relative to current working directory
-    const resolvedEnvFilePath = path.isAbsolute(envFilePath)
-      ? envFilePath
-      : path.resolve(process.cwd(), envFilePath);
-
-    // Read the env file and extract values for allowed env vars
-    if (!fs.existsSync(resolvedEnvFilePath)) {
-      console.log(
-        `Warning: Env file not found at ${resolvedEnvFilePath}, skipping environment variables`,
-      );
-    } else {
-      const envFileContent = fs.readFileSync(resolvedEnvFilePath, "utf8");
-      const envVars = {};
-
-      // Parse .env file (simple key=value format)
-      envFileContent.split("\n").forEach((line) => {
-        line = line.trim();
-        // Skip comments and empty lines
-        if (line && !line.startsWith("#")) {
-          const match = line.match(/^([A-Z_][A-Z0-9_]*)=(.*)$/);
-          if (match) {
-            const [, key, value] = match;
-            // Remove quotes if present (handles both single and double quotes)
-            const cleanValue = value.replace(/^["']|["']$/g, "");
-            envVars[key] = cleanValue;
-          }
-        }
-      });
-
-      // Build -e KEY=VALUE flags for allowed env vars only
-      // Escape values that contain spaces or special characters
-      const envFlagArray = allowedEnvs
-        .filter((key) => envVars.hasOwnProperty(key))
-        .map((key) => {
-          const value = envVars[key];
-          // Quote value if it contains spaces or special characters
-          const escapedValue =
-            value.includes(" ") || value.includes("$") || value.includes("`")
-              ? `"${value.replace(/"/g, '\\"')}"`
-              : value;
-          return `-e ${key}=${escapedValue}`;
-        });
-
-      if (envFlagArray.length > 0) {
-        envFlags = envFlagArray.join(" ");
-      }
-    }
-  }
-
-  const result = execSync(
-    `${phalaBin} deploy --name ${TEST_APP_NAME} --api-token ${PHALA_API_KEY} --compose ${composePath} ${envFlags} --image dstack-0.5.5`,
-    {
-      encoding: "utf-8",
-      stdio: "pipe",
-      env: { ...process.env, PHALA_CLOUD_API_KEY: PHALA_API_KEY },
-    },
-  );
-
-  const jsonMatch = result.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    throw new Error("Failed to parse Phala deployment response");
-  }
-  const deployResult = JSON.parse(jsonMatch[0]);
+  const deployResult = await deployToPhalaSdk({
+    appName: TEST_APP_NAME,
+    apiKey: PHALA_API_KEY,
+    composePath,
+    envFilePath,
+    allowedEnvKeys: allowedEnvs,
+  });
 
   if (!deployResult.success) {
     throw new Error("Phala deployment failed");
+  }
+
+  if (deployResult.dashboard_url) {
+    console.log(`\nPhala Application Dashboard URL: ${deployResult.dashboard_url}`);
   }
 
   return deployResult.vm_uuid;

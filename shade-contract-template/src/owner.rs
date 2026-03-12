@@ -36,7 +36,7 @@ impl Contract {
     }
 
     // Add an array of PPIDs to the approved list
-    pub fn approve_ppids(&mut self, ppids: Vec<HexBytes<16>>) {
+    pub fn approve_ppids(&mut self, ppids: Vec<Ppid>) {
         self.require_owner();
         for id in ppids {
             self.approved_ppids.insert(id);
@@ -44,7 +44,7 @@ impl Contract {
     }
 
     // Remove an array of PPIDs from the approved list.
-    pub fn remove_ppids(&mut self, ppids: Vec<HexBytes<16>>) {
+    pub fn remove_ppids(&mut self, ppids: Vec<Ppid>) {
         self.require_owner();
         for id in ppids {
             require!(self.approved_ppids.remove(&id), "PPID not in approved list");
@@ -113,7 +113,7 @@ impl Contract {
     // Remove an agent from the list of whitelisted agents
     pub fn remove_agent_from_whitelist_for_local(&mut self, account_id: AccountId) {
         if self.requires_tee {
-            panic!("Removing agents is not supported for TEE");
+            panic!("Removing agents from the whitelist is not supported for TEE");
         }
         self.require_owner();
         require!(
