@@ -114,6 +114,12 @@ export function parseDeploymentConfig(deploymentPath) {
         !!deployFromSource.source_path,
         "deploy_custom.deploy_from_source.source_path is required",
       );
+      if (deployFromSource.reproducible_build !== undefined) {
+        requireField(
+          typeof deployFromSource.reproducible_build === "boolean",
+          "deploy_custom.deploy_from_source.reproducible_build must be boolean",
+        );
+      }
     }
 
     // deploy_custom.deploy_from_wasm.wasm_path is required if deploy_from_wasm is enabled
@@ -246,6 +252,13 @@ export function parseDeploymentConfig(deploymentPath) {
                   false
                   ? agent_contract.deploy_custom.deploy_from_source.source_path
                   : undefined,
+              reproducible_build:
+                agent_contract.deploy_custom.deploy_from_source &&
+                agent_contract.deploy_custom.deploy_from_source.enabled !==
+                  false
+                  ? agent_contract.deploy_custom.deploy_from_source
+                      .reproducible_build === true
+                  : false,
               wasm_path:
                 agent_contract.deploy_custom.deploy_from_wasm &&
                 agent_contract.deploy_custom.deploy_from_wasm.enabled !== false

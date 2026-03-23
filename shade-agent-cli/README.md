@@ -61,6 +61,7 @@ agent_contract:
     deploy_from_source:
       enabled: true
       source_path: ./shade-contract-template
+      reproducible_build: false
     # Option 2: Use pre-built WASM file
     deploy_from_wasm:
       enabled: false
@@ -147,3 +148,5 @@ whitelist_agent_for_local:
     }
   # tgas: 30
 ```
+
+Full **`deployment.yaml`** reference (including **`reproducible_build`**) lives in **[docs/reference/cli.md](../docs/reference/cli.md)** in this repository.
