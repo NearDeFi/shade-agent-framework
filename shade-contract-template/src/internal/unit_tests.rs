@@ -345,16 +345,14 @@ fn test_remove_agent_not_owner() {
     contract.remove_agent(agent);
 }
 
-// Test that a whitelisted agent can register with sufficient deposit
+// Happy path: first-time registration must attach sufficient storage deposit
 #[test]
-fn test_register_agent_without_tee() {
+fn test_register_agent_happy_first_registration_with_storage_deposit() {
     let mut contract = setup_contract();
     let agent = accounts(2);
 
-    // Owner whitelists the agent (default measurements and PPID already approved in setup)
     contract.whitelist_agent_for_local(agent.clone());
 
-    // Agent registers with fake attestation and 0.005 NEAR deposit
     let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
 
@@ -365,31 +363,29 @@ fn test_register_agent_without_tee() {
     assert!(matches!(agent_info.validity, AgentValidity::Valid));
 }
 
-// Test that an agent can register twice and the registration is updated
+// Happy path: first registration with deposit, then re-register with zero (no extra storage)
 #[test]
-fn test_register_agent_twice() {
+fn test_register_agent_happy_reregister_without_additional_deposit() {
     let mut contract = setup_contract();
     let agent = accounts(2);
 
     contract.whitelist_agent_for_local(agent.clone());
 
-    // Register agent first time with 0.005 NEAR deposit
     let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
     testing_env!(context.build());
-    let result = contract.register_agent(create_mock_dstack_attestation());
-    assert!(result);
+    assert!(contract.register_agent(create_mock_dstack_attestation()));
+    assert!(matches!(
+        contract.get_agent(agent.clone()).unwrap().validity,
+        AgentValidity::Valid
+    ));
 
-    let agent_info = contract.get_agent(agent.clone()).unwrap();
-    assert!(matches!(agent_info.validity, AgentValidity::Valid));
-
-    // Register agent again with 0.005 NEAR deposit
-    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
+    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_ZERO));
     testing_env!(context.build());
-    let result = contract.register_agent(create_mock_dstack_attestation());
-    assert!(result);
-
-    let agent_info = contract.get_agent(agent.clone()).unwrap();
-    assert!(matches!(agent_info.validity, AgentValidity::Valid));
+    assert!(contract.register_agent(create_mock_dstack_attestation()));
+    assert!(matches!(
+        contract.get_agent(agent.clone()).unwrap().validity,
+        AgentValidity::Valid
+    ));
 }
 
 // Test that an agent cannot register if not whitelisted for local
@@ -404,10 +400,10 @@ fn test_register_agent_not_whitelisted() {
     contract.register_agent(create_mock_dstack_attestation());
 }
 
-// Test that register_agent fails with insufficient deposit (0 NEAR)
+// First-time registration requires storage stake: zero attached deposit must fail
 #[test]
 #[should_panic(expected = "Attached deposit must be greater than storage cost")]
-fn test_register_agent_insufficient_deposit_zero() {
+fn test_register_agent_errors_when_storage_deposit_required_but_zero_attached() {
     let mut contract = setup_contract();
     let agent = accounts(2);
 
@@ -420,10 +416,10 @@ fn test_register_agent_insufficient_deposit_zero() {
     contract.register_agent(create_mock_dstack_attestation());
 }
 
-// Test that register_agent fails with insufficient deposit (0.003 NEAR)
+// First-time registration: attached deposit below storage cost must fail
 #[test]
 #[should_panic(expected = "Attached deposit must be greater than storage cost")]
-fn test_register_agent_insufficient_deposit_low() {
+fn test_register_agent_errors_when_storage_deposit_insufficient() {
     let mut contract = setup_contract();
     let agent = accounts(2);
 

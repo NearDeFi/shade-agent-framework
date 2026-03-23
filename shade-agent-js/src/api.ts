@@ -47,6 +47,9 @@ export interface ContractInfo {
   mpc_contract_id: string;
 }
 
+/** Default attached deposit for first-time `register_agent` when `deposit` is omitted (0.005 NEAR, yocto string). */
+const DEFAULT_REGISTER_DEPOSIT_YOCTO = "5000000000000000000000";
+
 /**
  * Configuration object for creating a ShadeClient instance
  */
@@ -157,11 +160,18 @@ export class ShadeClient {
   }
 
   /**
-   * Registers the agent in the agent contract
+   * Registers the agent in the agent contract.
+   *
+   * @param params
+   * @param params.deposit Attached deposit in yoctoNEAR when storage is required or when `forceDeposit` is `true` (defaults to `5000000000000000000000` — 0.005 NEAR)
+   * @param params.forceDeposit If `true`, always attach `deposit` (or the default) and skip `get_agent`. If `false`, attach no deposit and skip `get_agent`. If omitted, use `get_agent` to decide.
    * @returns Promise that resolves to true if registration was successful
-   * @throws Error if agentContractId is not configured, if fetching attestation fails (network errors, timeouts), or if contract call fails
+   * @throws Error if agentContractId is not configured, if fetching attestation fails, or if the contract call fails
    */
-  async register(): Promise<boolean> {
+  async register(params?: {
+    deposit?: bigint | string | number;
+    forceDeposit?: boolean;
+  }): Promise<boolean> {
     if (!this.config.agentContractId) {
       throw new Error("agentContractId is required for registering the agent");
     }
@@ -174,14 +184,31 @@ export class ShadeClient {
         this.keysDerivedWithTEE,
       );
 
-      // Call the register_agent function on the agent contract
-      // Attach 0.005 NEAR deposit (5_000_000_000_000_000_000_000 yoctoNEAR) for storage cost
+      let depositYocto: bigint;
+      if (params?.forceDeposit === false) {
+        depositYocto = 0n;
+      } else if (params?.forceDeposit === true) {
+        depositYocto = BigInt(
+          params.deposit ?? DEFAULT_REGISTER_DEPOSIT_YOCTO,
+        );
+      } else {
+        const existing = (await this.view({
+          methodName: "get_agent",
+          args: { account_id: this.agentAccountId },
+        })) as SerializedReturnValue | null;
+        const alreadyRegistered =
+          existing !== null && existing !== undefined;
+        depositYocto = alreadyRegistered
+          ? 0n
+          : BigInt(params?.deposit ?? DEFAULT_REGISTER_DEPOSIT_YOCTO);
+      }
+
       return await this.call({
         methodName: "register_agent",
         args: {
           attestation: contractAttestation,
         },
-        deposit: "5000000000000000000000", // 0.005 NEAR
+        deposit: depositYocto,
         gas: BigInt("300000000000000"), // 300 TGas
       });
     } catch (error) {
