@@ -186,12 +186,12 @@ Placeholders in args:
 
 Currently, the CLI only supports measurement calculation and Phala Cloud deployment for fixed configurations on DStack. If you need to deploy with different configurations, you can calculate the measurements and deploy to Phala by other means.
 
-- Dstack Version: dstack-0.5.5
+- Dstack Version: dstack-0.5.7
 - Hardware: 1vCPU and 2GB RAM (tdx.small on Phala)
 - Key Provider: Phala Key Provider 
 
 **App compose configs**
-- Pre Launch Script: v0.0.12
+- Pre Launch Script: v0.0.13
 
 ...
 
