@@ -1,10 +1,14 @@
 # Production deployment 
 
-# Deploys the agent contract to mainnet 
+# Before hand you need to configure your github url in the Cargo.toml file to have a reproducible build
+
+# Deploys the agent contract to mainnet with reproducible build
 # Removes the contract key after deployment to lock the contract account
+# Builds a reproducible Docker image 
 # Deploys to Phala Cloud 
 
 # You should then manually deploy a multisig to the master account ID set in auth and remove the key from it
+# You will then approve subsequent measurements and PPIDs from this multisig
 
 environment: TEE
 network: mainnet
@@ -21,7 +25,7 @@ agent_contract:
     deploy_from_source:
       enabled: true
       source_path: ./agent-contract
-      reproducible_build: false
+      reproducible_build: true
     deploy_from_wasm:
       enabled: false
       wasm_path: ./agent-contract/target/near/shade-contract-template.wasm
@@ -63,6 +67,7 @@ build_docker_image:
   tag: username/my-first-agent
   cache: true
   dockerfile_path: ./Dockerfile
+  reproducible_build: true
 
 deploy_to_phala:
   enabled: true
