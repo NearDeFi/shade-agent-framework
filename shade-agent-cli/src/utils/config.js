@@ -190,6 +190,12 @@ export function parseDeploymentConfig(deploymentPath) {
       !!build_docker_image.dockerfile_path,
       "build_docker_image.dockerfile_path is required when environment is TEE",
     );
+    if (build_docker_image.reproducible_build !== undefined) {
+      requireField(
+        typeof build_docker_image.reproducible_build === "boolean",
+        "build_docker_image.reproducible_build must be boolean when environment is TEE",
+      );
+    }
   }
 
   // approve_measurements validations
@@ -289,6 +295,8 @@ export function parseDeploymentConfig(deploymentPath) {
             tag: build_docker_image.tag,
             cache: build_docker_image.cache,
             dockerfile_path: build_docker_image.dockerfile_path,
+            reproducible_build:
+              build_docker_image.reproducible_build === true,
           }
         : undefined,
     approve_measurements:

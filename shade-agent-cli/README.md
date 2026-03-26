@@ -11,6 +11,7 @@ npm install -g @neardefi/shade-agent-cli
 ## Commands
 
 - **`shade deploy`** — Run the full deployment from your `deployment.yaml`.
+- **`shade reproduce`** — Produces the hash of the reproducible Docker image. Used when verifying the code.
 - **`shade plan`** — Show what the deployment will do without executing.
 - **`shade whitelist`** — Whitelist an agent account for local mode (`whitelist_agent_for_local`).
 - **`shade auth`** — Set NEAR credentials (master account per network) and optional Phala API key for TEE deploys.

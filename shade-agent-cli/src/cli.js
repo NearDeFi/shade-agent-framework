@@ -5,6 +5,7 @@ import { deployCommand } from "./commands/deploy/index.js";
 import { planCommand } from "./commands/plan/index.js";
 import { authCommand } from "./commands/auth/index.js";
 import { whitelistCommand } from "./commands/whitelist/index.js";
+import { reproduceCommand } from "./commands/reproduce/index.js";
 import { versionCheck } from "./utils/version-check.js";
 import {
   isExitPromptError,
@@ -61,8 +62,10 @@ const deployCmd = deployCommand();
 const planCmd = planCommand();
 const authCmd = authCommand();
 const whitelistCmd = whitelistCommand();
+const reproduceCmd = reproduceCommand();
 
 program.addCommand(deployCmd);
+program.addCommand(reproduceCmd);
 program.addCommand(planCmd);
 program.addCommand(authCmd);
 program.addCommand(whitelistCmd);
@@ -78,6 +81,11 @@ const firstArg = args[0];
 
 const commandOptions = [
   { value: "deploy", description: "Deploy the Shade Agent" },
+  {
+    value: "reproduce",
+    description:
+      "Print the hash of the reproducible Docker image",
+  },
   { value: "plan", description: "Show the deployment plan" },
   {
     value: "whitelist",

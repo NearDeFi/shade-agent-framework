@@ -18,7 +18,7 @@ agent_contract:
   # and it's assumed the agent contract is already deployed to the contract_id
   # and is initialized
   deploy_custom:
-    enabled: true
+    enabled: false
     # Amount to fund the agent contract with in NEAR
     funding_amount: 8
     # If true the key for contract account will be deleted after deployment locking it
@@ -59,7 +59,7 @@ agent_contract:
 # Approve allowed measurements for registration
 # Optional, if not enabled the measurements will not be approved
 approve_measurements:
-  enabled: true
+  enabled: false
   method_name: approve_measurements
   # <MEASUREMENTS> will be replaced with calculated measurements
   # for local it will be set to default measurements (all zeros)
@@ -74,7 +74,7 @@ approve_measurements:
 # Approve allowed PPIDs for registration
 # Optional, if not enabled the PPIDs will not be approved
 approve_ppids:
-  enabled: true
+  enabled: false
   method_name: approve_ppids
   # <PPIDS> will be replaced with the PPIDs
   # for local it will be set to a default PPID (all zeros)
@@ -95,12 +95,13 @@ build_docker_image:
   tag: pivortex/shade-test-agent
   cache: true
   dockerfile_path: ../Dockerfile
+  reproducible_build: true
 
 # Deploy the docker compose file to Phala Cloud with the specified environment variables
 # Optional, if not enabled the app will not be deployed to Phala Cloud
 # Only applicable if the environment is TEE
 deploy_to_phala:
-  enabled: true
+  enabled: false
   app_name: my-test-agent
   env_file_path: ./.env
 

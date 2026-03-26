@@ -24,6 +24,16 @@ shade deploy
 
 Must be executed in the same directory as your `deployment.yaml` file.
 
+### Reproduce
+
+Produces the hash of the reproducible Docker image. Used when verifying the code.
+
+```bash
+shade reproduce
+```
+
+Must be executed in the same directory as your `deployment.yaml` file.
+
 ### Plan
 
 Generates a preview of how your Shade Agent will be deployed as defined by the `deployment.yaml` file.
@@ -157,6 +167,7 @@ Placeholders in args:
 | **tag** | Yes | Docker image tag (e.g. `username/my-first-agent`) for building and pushing. |
 | **cache** | Yes | Boolean; whether to use caching in the build process. |
 | **dockerfile_path** | Yes | Path to the Dockerfile to use for the build process (e.g. `./Dockerfile`). |
+| **reproducible_build** | No | If `true`, builds a reproducible Docker image. Your Dockerfile should pin base images by digest. You need **buildx** installed to use this flag.|
 
 ### deploy_to_phala (TEE Only)
 
