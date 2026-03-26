@@ -1,6 +1,6 @@
 {
   "name": "@neardefi/shade-agent-js",
-  "version": "2.0.1",
+  "version": "2.1.0",
   "description": "A library for creating Shade Agent agents in JavaScript and TypeScript",
   "author": "Matt Lockyer <github.com/mattlockyer>",
   "license": "Apache-2.0",
