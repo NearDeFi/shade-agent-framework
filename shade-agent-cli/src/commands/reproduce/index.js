@@ -64,7 +64,7 @@ export function reproduceCommand() {
     }
 
     console.log("Building Docker image (reproducible)");
-    runReproducibleDockerBuild(dockerfilePath, REPRODUCE_LOCAL_IMAGE, "");
+    runReproducibleDockerBuild(dockerfilePath, REPRODUCE_LOCAL_IMAGE, "--no-cache");
     const imageHash = getDockerImageId(REPRODUCE_LOCAL_IMAGE);
     console.log(chalk.white(`Reproducible image hash: ${imageHash}`));
 
