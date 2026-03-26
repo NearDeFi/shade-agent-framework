@@ -101,7 +101,7 @@ build_docker_image:
 # Optional, if not enabled the app will not be deployed to Phala Cloud
 # Only applicable if the environment is TEE
 deploy_to_phala:
-  enabled: false
+  enabled: true
   app_name: my-test-agent
   env_file_path: ./.env
 

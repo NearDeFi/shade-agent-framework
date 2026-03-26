@@ -84,7 +84,7 @@ const commandOptions = [
   {
     value: "reproduce",
     description:
-      "Print the hash of the reproducible Docker image",
+      "Produces the hash of the reproducible Docker image and the app compose hash",
   },
   { value: "plan", description: "Show the deployment plan" },
   {

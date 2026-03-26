@@ -26,7 +26,7 @@ Must be executed in the same directory as your `deployment.yaml` file.
 
 ### Reproduce
 
-Produces the hash of the reproducible Docker image. Used when verifying the code.
+Produces the hash of the reproducible Docker image and the app compose hash. Used when verifying the code.
 
 ```bash
 shade reproduce

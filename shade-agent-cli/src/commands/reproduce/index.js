@@ -9,12 +9,10 @@ import {
   getDockerImageId,
   REPRODUCE_LOCAL_IMAGE,
 } from "../deploy/docker.js";
+import { calculateAppComposeHash } from "../../utils/measurements.js";
 
-/**
- * Reads only build_docker_image.dockerfile_path from deployment.yaml (raw parse).
- * Ignores enabled, tag, cache, and other keys so `shade reproduce` stays independent.
- */
-function readDockerfilePathOnly() {
+
+function readReproducePaths() {
   const deploymentPath = path.resolve(process.cwd(), "deployment.yaml");
   if (!existsSync(deploymentPath)) {
     console.log(
@@ -34,22 +32,52 @@ function readDockerfilePathOnly() {
     );
     process.exit(1);
   }
-  return path.resolve(process.cwd(), dockerfilePath);
+  const dockerComposePath = doc.docker_compose_path;
+  if (!dockerComposePath || typeof dockerComposePath !== "string") {
+    console.log(
+      chalk.red(
+        "deployment.yaml must set docker_compose_path (string) for `shade reproduce` (needed for the app compose hash).",
+      ),
+    );
+    process.exit(1);
+  }
+  return {
+    dockerfilePath: path.resolve(process.cwd(), dockerfilePath),
+    composePath: path.resolve(process.cwd(), dockerComposePath),
+  };
 }
 
 export function reproduceCommand() {
   const cmd = new Command("reproduce");
   cmd.description(
-    "Build the Docker image with the reproducible Buildx flow and print the local image ID (uses only build_docker_image.dockerfile_path from deployment.yaml)",
+    "Produces the hash of the reproducible Docker image and the app compose hash",
   );
   cmd.configureOutput(createCommandErrorHandler("reproduce", { maxArgs: 0 }));
 
   cmd.action(() => {
-    const absDockerfile = readDockerfilePathOnly();
+    const { dockerfilePath, composePath } = readReproducePaths();
+    if (!existsSync(composePath)) {
+      console.log(
+        chalk.red(`docker compose file not found at ${composePath}`),
+      );
+      process.exit(1);
+    }
+
     console.log("Building Docker image (reproducible)");
-    runReproducibleDockerBuild(absDockerfile, REPRODUCE_LOCAL_IMAGE, "");
-    const id = getDockerImageId(REPRODUCE_LOCAL_IMAGE);
-    console.log(chalk.green(`Image ID: ${id}`));
+    runReproducibleDockerBuild(dockerfilePath, REPRODUCE_LOCAL_IMAGE, "");
+    const imageHash = getDockerImageId(REPRODUCE_LOCAL_IMAGE);
+    console.log(chalk.white(`Reproducible image hash: ${imageHash}`));
+
+    let appComposeHash;
+    try {
+      appComposeHash = calculateAppComposeHash(composePath);
+    } catch (e) {
+      console.log(
+        chalk.red(`Error computing app compose hash: ${e.message}`),
+      );
+      process.exit(1);
+    }
+    console.log(chalk.white(`App compose hash: ${appComposeHash}`));
   });
 
   return cmd;
