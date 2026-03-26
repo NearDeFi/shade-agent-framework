@@ -10,7 +10,7 @@ Run `shade deploy` (or `shade plan`) from the directory that contains your `depl
 |--------|-------------|
 | [example-1.yaml](./example-1.yaml) | **First-time local (testnet).** Builds contract from source, deploys and initializes it, approves default measurements and PPIDs for local mode. |
 | [example-2.yaml](./example-2.yaml) | **First-time TEE (testnet).** Full flow: build contract from source, deploy and init, approve measurements and Phala PPIDs, build Docker image, deploy to Phala Cloud. |
-| [example-3.yaml](./example-3.yaml) | **Production (mainnet TEE).** Mainnet deployment, deploys to Phala Cloud, and deletes the contract key after deployment to lock the account. Plan to use a multisig for the owner and remove its key afterward. |
+| [example-3.yaml](./example-3.yaml) | **Production (mainnet TEE).** Mainnet deployment, deploys to Phala Cloud, and deletes the contract key after deployment to lock the account. Plan to use a multisig for the owner and remove its key afterward. Smart contract and Docker image are reproducible. |
 | [example-4.yaml](./example-4.yaml) | **New agent, same contract.** Reuse an existing agent contract; only approves measurements, builds the new agent image, and deploys to Phala Cloud. No contract deploy or init. |
 | [example-5.yaml](./example-5.yaml) | **Pre-approved agent.** Deploying an agent to an existing Shade Agent system with approved measurements. Build and deploy agent to Phala only. |
 | [example-6.yaml](./example-6.yaml) | **Refresh agent contract (local).** Same contract account but redeploy contract from a pre-built WASM file. |

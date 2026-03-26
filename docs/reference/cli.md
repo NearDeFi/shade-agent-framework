@@ -24,6 +24,16 @@ shade deploy
 
 Must be executed in the same directory as your `deployment.yaml` file.
 
+### Reproduce
+
+Produces the hash of the reproducible Docker image and the app compose hash. Used when verifying the code.
+
+```bash
+shade reproduce
+```
+
+Must be executed in the same directory as your `deployment.yaml` file.
+
 ### Plan
 
 Generates a preview of how your Shade Agent will be deployed as defined by the `deployment.yaml` file.
@@ -90,10 +100,20 @@ CLI configurations are read from a single `deployment.yaml` file in the project 
 | **enabled** | No | If `false`, deploy_custom is skipped. |
 | **funding_amount** | Yes | NEAR amount to fund the new contract account with, used to fund the deployment of the contract (number between 0 and 100). |
 | **delete_key** | No | If `true`, the key for the contract account is deleted after deployment, locking the contract (defaults `false`). |
-| **deploy_from_source** | One of three | Build the contract from source and deploy: set `enabled: true` and `source_path` to the contract directory. |
+| **deploy_from_source** | One of three | Build the contract from source and deploy: set `enabled: true` and `source_path` to the contract directory. See [deploy_from_source](#deploy_from_source). |
 | **deploy_from_wasm** | One of three | Deploy a pre-built WASM file: set `enabled: true` and `wasm_path` to the `.wasm` file. |
 | **use_global_by_hash** | One of three | Deploy using a global contract: set `enabled: true` and `global_hash` to the contract hash. |
 | **init** | No | If enabled, initializes the contract via a function call. |
+
+#### deploy_from_source
+
+`agent_contract.deploy_custom.deploy_from_source`
+
+| Key | Required | Description |
+|-----|----------|-------------|
+| **enabled** | No | If `false`, this deploy path is not used. Exactly one of `deploy_from_source`, `deploy_from_wasm`, or `use_global_by_hash` must be the active option. |
+| **source_path** | Yes | Path to the NEAR contract crate directory (the folder that contains `Cargo.toml`). |
+| **reproducible_build** | No | If `true`, the CLI builds a reproducible contract. To use this flag, you need **cargo-near** installed. Make sure to set the `repository` field in `Cargo.toml` to your real Git remote URL and push your latest changes to GitHub. You can find more information about reproducible builds [here](https://github.com/SourceScan/verification-guide). |
 
 #### init 
 
@@ -147,6 +167,7 @@ Placeholders in args:
 | **tag** | Yes | Docker image tag (e.g. `username/my-first-agent`) for building and pushing. |
 | **cache** | Yes | Boolean; whether to use caching in the build process. |
 | **dockerfile_path** | Yes | Path to the Dockerfile to use for the build process (e.g. `./Dockerfile`). |
+| **reproducible_build** | No | If `true`, builds a reproducible Docker image. Your Dockerfile should pin base images by digest. You need **buildx** installed to use this flag.|
 
 ### deploy_to_phala (TEE Only)
 
@@ -176,12 +197,12 @@ Placeholders in args:
 
 Currently, the CLI only supports measurement calculation and Phala Cloud deployment for fixed configurations on DStack. If you need to deploy with different configurations, you can calculate the measurements and deploy to Phala by other means.
 
-- Dstack Version: dstack-0.5.5
+- Dstack Version: dstack-0.5.7
 - Hardware: 1vCPU and 2GB RAM (tdx.small on Phala)
 - Key Provider: Phala Key Provider 
 
 **App compose configs**
-- Pre Launch Script: v0.0.12
+- Pre Launch Script: v0.0.13
 
 ...
 

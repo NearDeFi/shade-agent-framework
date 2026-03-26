@@ -1,5 +1,8 @@
-# Stage 1: Dependencies
-FROM node:22-alpine AS deps
+ARG SOURCE_DATE_EPOCH=0
+
+FROM node:22-alpine@sha256:92d51e5f20b7ff58faa5a969af1a1cec6cbec3fbff7e0f523242b9b5c85ad887 AS deps
+ARG SOURCE_DATE_EPOCH=0
+ENV SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}
 WORKDIR /app
 COPY shade-agent-template/package.json shade-agent-template/package-lock.json ./
 # Copy built shade-agent-js package so npm can link to it (package.json expects file:../shade-agent-js)
@@ -15,7 +18,9 @@ WORKDIR /app
 RUN npm ci --only=production
 
 # Stage 2: Build
-FROM node:22-alpine AS builder
+FROM node:22-alpine@sha256:92d51e5f20b7ff58faa5a969af1a1cec6cbec3fbff7e0f523242b9b5c85ad887 AS builder
+ARG SOURCE_DATE_EPOCH=0
+ENV SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}
 WORKDIR /app
 COPY shade-agent-template/package.json shade-agent-template/package-lock.json shade-agent-template/tsconfig.json ./
 # Copy built shade-agent-js package so npm can link to it (package.json expects file:../shade-agent-js)
@@ -33,7 +38,9 @@ COPY shade-agent-template/src/ ./src/
 RUN npm run build
 
 # Stage 3: Production
-FROM node:22-alpine AS runner
+FROM node:22-alpine@sha256:92d51e5f20b7ff58faa5a969af1a1cec6cbec3fbff7e0f523242b9b5c85ad887 AS runner
+ARG SOURCE_DATE_EPOCH=0
+ENV SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist

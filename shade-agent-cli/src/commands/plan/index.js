@@ -89,8 +89,12 @@ export function planCommand() {
           const cacheText = deployment.build_docker_image.cache
             ? chalk.yellow("with caching")
             : chalk.yellow("without caching");
+          const reproLabel =
+            deployment.build_docker_image.reproducible_build === true
+              ? chalk.yellow("(reproducible)")
+              : chalk.yellow("(non-reproducible)");
           logWrapped(
-            `• A docker image for your agent will be built according to the ${chalk.yellow(deployment.build_docker_image.dockerfile_path)} file, ${cacheText} and published to ${chalk.yellow(deployment.build_docker_image.tag)}.`,
+            `• A docker image for your agent will be built ${reproLabel}, using the ${chalk.yellow(deployment.build_docker_image.dockerfile_path)} file, ${cacheText}, and published to ${chalk.yellow(deployment.build_docker_image.tag)}.`,
             70,
             2,
           );
@@ -145,8 +149,12 @@ export function planCommand() {
         if (deployment.agent_contract.deploy_custom.source_path) {
           const sourcePath =
             deployment.agent_contract.deploy_custom.source_path;
+          const contractReproLabel =
+            deployment.agent_contract.deploy_custom.reproducible_build === true
+              ? chalk.yellow("(reproducible)")
+              : chalk.yellow("(non-reproducible)");
           logWrapped(
-            `• The agent contract in the ${chalk.yellow(sourcePath)} directory will be compiled then deployed to ${chalk.yellow(contractId)} on ${chalk.yellow(network)}.`,
+            `• The agent contract in the ${chalk.yellow(sourcePath)} directory will be compiled ${contractReproLabel} then deployed to ${chalk.yellow(contractId)} on ${chalk.yellow(network)}.`,
             70,
             2,
           );

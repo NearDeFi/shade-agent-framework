@@ -6,6 +6,96 @@ import chalk from "chalk";
 import { getConfig } from "../../utils/config.js";
 import { getSudoPrefix } from "../../utils/docker-utils.js";
 
+/** Pinned BuildKit for reproducible image metadata. */
+const REPRO_BUILDKIT_VERSION = "0.27.1";
+const REPRO_PLATFORM = "linux/amd64";
+const REPRO_SOURCE_DATE_EPOCH = "0";
+
+function shellQuote(s) {
+  return `"${String(s).replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`;
+}
+
+function assertDockerBuildx(sudoPrefix) {
+  try {
+    execSync(`${sudoPrefix}docker buildx version`, { stdio: "pipe" });
+  } catch {
+    console.log(
+      chalk.red(
+        "Error: Docker Buildx is required (Docker Desktop or docker-buildx-plugin on Linux).",
+      ),
+    );
+    process.exit(1);
+  }
+}
+
+/**
+ * Run the reproducible Buildx flow (pinned BuildKit, SOURCE_DATE_EPOCH, rewrite-timestamp).
+ * @param {string} absDockerfilePath - Absolute path to Dockerfile
+ * @param {string} fullImageRef - e.g. "repo/name:tag" for --output name=
+ * @param {string} cacheFlag - "" or "--no-cache"
+ */
+export function runReproducibleDockerBuild(
+  absDockerfilePath,
+  fullImageRef,
+  cacheFlag,
+) {
+  const sudoPrefix = getSudoPrefix();
+  assertDockerBuildx(sudoPrefix);
+  const builder = ensureReproducibleBuilder(sudoPrefix);
+  const buildContext = path.dirname(absDockerfilePath);
+  const outputArg = `type=docker,name=${fullImageRef},rewrite-timestamp=true`;
+  const cmd = [
+    `${sudoPrefix}docker buildx build`,
+    `--builder ${builder}`,
+    `--platform ${REPRO_PLATFORM}`,
+    cacheFlag,
+    `--build-arg SOURCE_DATE_EPOCH=${REPRO_SOURCE_DATE_EPOCH}`,
+    `--output ${shellQuote(outputArg)}`,
+    `--progress quiet`,
+    `-f ${shellQuote(absDockerfilePath)}`,
+    shellQuote(buildContext),
+  ]
+    .filter(Boolean)
+    .join(" ");
+  try {
+    execSync(cmd, { stdio: "pipe" });
+  } catch (e) {
+    const stderr =
+      e && typeof e.stderr !== "undefined" && e.stderr
+        ? e.stderr.toString().trim()
+        : "";
+    console.log(chalk.red(`Error building the Docker image: ${e.message}`));
+    if (stderr) {
+      console.log(chalk.gray(stderr));
+    }
+    process.exit(1);
+  }
+}
+
+/** Local tag used only by `shade reproduce` (not read from deployment.yaml). */
+export const REPRODUCE_LOCAL_IMAGE = "shade-repro:local";
+
+export function getDockerImageId(imageRef) {
+  const sudoPrefix = getSudoPrefix();
+  return execSync(
+    `${sudoPrefix}docker image inspect ${shellQuote(imageRef)} --format '{{.Id}}'`,
+    { encoding: "utf8", stdio: "pipe" },
+  ).trim();
+}
+
+function ensureReproducibleBuilder(sudoPrefix) {
+  const name = `shade-repro-buildkit-${REPRO_BUILDKIT_VERSION}`;
+  try {
+    execSync(`${sudoPrefix}docker buildx inspect ${name}`, { stdio: "pipe" });
+  } catch {
+    execSync(
+      `${sudoPrefix}docker buildx create --name ${name} --driver-opt image=moby/buildkit:v${REPRO_BUILDKIT_VERSION}`,
+      { stdio: "pipe" },
+    );
+  }
+  return name;
+}
+
 // Update the docker-compose image in the docker-compose file
 export async function replaceInYaml(dockerTag, codehash) {
   console.log("Replacing the codehash in the yaml file");
@@ -37,22 +127,39 @@ export async function replaceInYaml(dockerTag, codehash) {
 
 // Build the Docker image
 export async function buildImage(dockerTag) {
-  console.log("Building the Docker image");
+  const config = await getConfig();
+  const reproducible =
+    config.deployment.build_docker_image.reproducible_build === true;
+  console.log(
+    `Building the Docker image (${reproducible ? "reproducible" : "non-reproducible"})`,
+  );
   try {
-    const config = await getConfig();
     const cacheFlag =
       config.deployment.build_docker_image.cache === false ? "--no-cache" : "";
     const dockerfilePath = config.deployment.build_docker_image.dockerfile_path;
-    const dockerfileFlag = `-f ${dockerfilePath}`;
     const sudoPrefix = getSudoPrefix();
-    // Use the directory containing the Dockerfile as build context
-    const buildContext = path.dirname(path.resolve(dockerfilePath));
-    execSync(
-      `${sudoPrefix}docker build ${cacheFlag} ${dockerfileFlag} --platform=linux/amd64 -t ${dockerTag}:latest ${buildContext}`,
-      { stdio: "pipe" },
-    );
+    const resolvedDockerfile = path.resolve(dockerfilePath);
+    const buildContext = path.dirname(resolvedDockerfile);
+    const fullTag = `${dockerTag}:latest`;
+
+    if (reproducible) {
+      runReproducibleDockerBuild(resolvedDockerfile, fullTag, cacheFlag);
+    } else {
+      const dockerfileFlag = `-f ${dockerfilePath}`;
+      execSync(
+        `${sudoPrefix}docker build ${cacheFlag} ${dockerfileFlag} --platform=linux/amd64 -t ${fullTag} ${buildContext}`,
+        { stdio: "pipe" },
+      );
+    }
   } catch (e) {
+    const stderr =
+      e && typeof e.stderr !== "undefined" && e.stderr
+        ? e.stderr.toString().trim()
+        : "";
     console.log(chalk.red(`Error building the Docker image: ${e.message}`));
+    if (stderr) {
+      console.log(chalk.gray(stderr));
+    }
     process.exit(1);
   }
 }
