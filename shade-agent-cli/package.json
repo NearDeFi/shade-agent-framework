@@ -25,6 +25,7 @@
   "dependencies": {
     "@inquirer/confirm": "^6.0.3",
     "@inquirer/input": "^5.0.3",
+    "@inquirer/password": "^5.0.8",
     "@inquirer/select": "^5.0.3",
     "@napi-rs/keyring": "^1.2.0",
     "@near-js/accounts": "^2.5.1",
@@ -32,10 +33,10 @@
     "@near-js/providers": "^2.5.1",
     "@near-js/signers": "^2.5.1",
     "@near-js/tokens": "^2.5.1",
+    "@phala/cloud": "^0.2.3",
     "bs58": "^6.0.0",
     "chalk": "^5.4.1",
     "commander": "^14.0.0",
-    "@phala/cloud": "^0.2.3",
     "random-words": "^2.0.1",
     "yaml": "^2.5.0"
   },

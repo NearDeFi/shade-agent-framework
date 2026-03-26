@@ -1,4 +1,5 @@
 import input from "@inquirer/input";
+import password from "@inquirer/password";
 import confirm from "@inquirer/confirm";
 import { validateAndSelectOption } from "../../utils/error-handler.js";
 
@@ -78,8 +79,9 @@ export async function promptForAccountCredentials() {
     },
   });
 
-  const privateKey = await input({
+  const privateKey = await password({
     message: "Enter private key:",
+    mask: true,
     validate: (value) => {
       if (!value || value.trim().length === 0) {
         return "Private key is required";
@@ -96,8 +98,9 @@ export async function promptForAccountCredentials() {
 
 // Prompt for PHALA API key
 export async function promptForPhalaKey() {
-  return await input({
+  return await password({
     message: "Enter PHALA API key:",
+    mask: true,
     validate: (value) => {
       if (!value || value.trim().length === 0) {
         return "PHALA API key is required";
