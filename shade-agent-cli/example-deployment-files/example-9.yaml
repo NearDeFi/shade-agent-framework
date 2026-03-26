@@ -61,7 +61,6 @@ build_docker_image:
   tag: username/my-first-agent
   cache: true
   dockerfile_path: ./Dockerfile
-  reproducible_build: true
 
 deploy_to_phala:
   enabled: false
