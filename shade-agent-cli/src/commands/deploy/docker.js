@@ -6,7 +6,7 @@ import chalk from "chalk";
 import { getConfig } from "../../utils/config.js";
 import { getSudoPrefix } from "../../utils/docker-utils.js";
 
-/** Pinned BuildKit for reproducible image metadata (matches build-docker-repro.sh). */
+/** Pinned BuildKit for reproducible image metadata. */
 const REPRO_BUILDKIT_VERSION = "0.27.1";
 const REPRO_PLATFORM = "linux/amd64";
 const REPRO_SOURCE_DATE_EPOCH = "0";
