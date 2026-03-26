@@ -1,9 +1,25 @@
-A Dockerfile that creates an Docker image you can use to compile NEAR smart contracts.
+# NEAR Contract Builder
 
-Useful for compiling Shade Agent contracts on mac as it contains a dependency that can't be build on mac.
+A Docker image for compiling NEAR smart contracts. Useful for building Shade Agent contracts on macOS, which has a dependency that can't be built natively.
 
-You can construct your own image or use this image.
+## Building the Image (multi-platform)
 
 ```bash
-docker run --rm -v "$(pwd)":/workspace pivortex/near-builder@sha256:dad9153f487ec993334d11900b2a9a769c542dd8feecb71c9cd453f29300e156 cargo near build non-reproducible-wasm
+docker buildx build --platform linux/amd64,linux/arm64 -t pivortex/near-builder:latest --push .
+```
+
+This pushes a single multi-platform manifest so the image works on both x86 (Linux) and ARM (Apple Silicon) machines.
+
+## Using the Image
+
+Run from inside your contract directory:
+
+```bash
+docker run --rm -v "$(pwd)":/workspace pivortex/near-builder:latest cargo near build non-reproducible-wasm --no-abi
+```
+
+Or from the repository root (needed when the contract has path dependencies like `shade-attestation`):
+
+```bash
+docker run --rm -v "$(pwd)":/workspace -w /workspace/shade-contract-template pivortex/near-builder:latest cargo near build non-reproducible-wasm --no-abi
 ```

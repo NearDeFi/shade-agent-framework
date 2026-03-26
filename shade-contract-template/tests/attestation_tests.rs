@@ -4,11 +4,11 @@ use helpers::*;
 use near_api::Data;
 use serde_json::json;
 use shade_attestation::attestation::create_mock_dstack_attestation;
-use shade_contract_template::AgentView;
+use shade_contract_template::{AgentRemovalReason, AgentValidity, AgentView};
 use tokio::time::{Duration, sleep};
 
 /// Tests measurements/PPID lifecycle with multiple agents:
-/// - Verifies that measurements removal affects all registered agents (measurements_are_approved -> false)
+/// - Verifies that measurements removal affects all registered agents (validity -> Invalid with InvalidMeasurements)
 /// - Ensures agents with removed measurements and PPID cannot request signatures and are removed with both InvalidMeasurements and InvalidPpid reasons
 /// - Ensures agents with removed PPID only cannot request signatures and are removed with InvalidPpid reason
 /// - Confirms that re-approving measurements restores access for remaining registered agents
@@ -91,7 +91,7 @@ async fn test_measurements_and_ppid_lifecycle()
 
     sleep(Duration::from_millis(300)).await;
 
-    // Verify agents have measurements_are_approved and ppid_is_approved: true
+    // Verify agent is valid (approved measurements and PPID)
     let agent_info: Data<Option<AgentView>> = call_view(
         &contract_id,
         "get_agent",
@@ -101,7 +101,7 @@ async fn test_measurements_and_ppid_lifecycle()
     .await?;
     let agent = agent_info.data.unwrap();
     assert!(
-        agent.measurements_are_approved && agent.ppid_is_approved,
+        matches!(agent.validity, AgentValidity::Valid),
         "Agent should have approved measurements and PPID"
     );
 
@@ -120,7 +120,7 @@ async fn test_measurements_and_ppid_lifecycle()
 
     sleep(Duration::from_millis(200)).await;
 
-    // Verify measurements removal affected agents (measurements_are_approved: false, ppid still approved)
+    // Verify measurements removal affected agent (invalid due to measurements, not PPID)
     let agent_info: Data<Option<AgentView>> = call_view(
         &contract_id,
         "get_agent",
@@ -130,7 +130,7 @@ async fn test_measurements_and_ppid_lifecycle()
     .await?;
     let agent = agent_info.data.unwrap();
     assert!(
-        !agent.measurements_are_approved && agent.ppid_is_approved,
+        matches!(agent.validity, AgentValidity::Invalid(ref r) if r.contains(&AgentRemovalReason::InvalidMeasurements)),
         "Measurements should be unapproved, PPID still approved"
     );
 
@@ -316,7 +316,7 @@ async fn test_measurements_and_ppid_lifecycle()
 
     sleep(Duration::from_millis(200)).await;
 
-    // Verify agent2 still exists and has measurements_are_approved and ppid_is_approved: true again
+    // Verify agent2 still exists and is valid again
     let agent2_info: Data<Option<AgentView>> = call_view(
         &contract_id,
         "get_agent",
@@ -329,7 +329,7 @@ async fn test_measurements_and_ppid_lifecycle()
 
     let agent2 = agent2_info.data.unwrap();
     assert!(
-        agent2.measurements_are_approved && agent2.ppid_is_approved,
+        matches!(agent2.validity, AgentValidity::Valid),
         "Agent2 should have approved measurements and PPID again"
     );
 
@@ -414,7 +414,7 @@ async fn test_measurements_and_ppid_lifecycle()
 
     sleep(Duration::from_millis(200)).await;
 
-    // Verify agent2 exists with ppid_is_approved: false before testing PPID removal
+    // Verify agent2 exists with invalid validity (InvalidPpid) before testing PPID removal
     let agent2_info: Data<Option<AgentView>> = call_view(
         &contract_id,
         "get_agent",
@@ -426,13 +426,9 @@ async fn test_measurements_and_ppid_lifecycle()
     .await?;
 
     let agent2 = agent2_info.data.unwrap();
-    assert_eq!(
-        agent2.measurements_are_approved, true,
-        "Agent2 should still have approved measurements"
-    );
-    assert_eq!(
-        agent2.ppid_is_approved, false,
-        "Agent2 should not have approved PPID"
+    assert!(
+        matches!(agent2.validity, AgentValidity::Invalid(ref r) if r.contains(&AgentRemovalReason::InvalidPpid) && !r.contains(&AgentRemovalReason::InvalidMeasurements)),
+        "Agent2 should have approved measurements but not approved PPID"
     );
 
     // Attempt to request a signature with removed PPID using agent2
@@ -784,11 +780,10 @@ async fn test_attestation_expiration() -> Result<(), Box<dyn std::error::Error +
     .await?;
 
     let agent = agent_info.data.unwrap();
-    assert_eq!(
-        agent.timestamp_is_valid, true,
-        "Agent timestamp should be valid (not expired)"
+    assert!(
+        matches!(agent.validity, AgentValidity::Valid),
+        "Agent should be valid (not expired)"
     );
-    assert_eq!(agent.is_valid, true, "Agent should be valid");
 
     // Fast forward time past expiration (attestation_expiration_time_ms is 100000 ms = 100 seconds)
     // NEAR blocks are produced roughly every 1 second, so we need at least 100 blocks for 100 seconds
@@ -809,11 +804,10 @@ async fn test_attestation_expiration() -> Result<(), Box<dyn std::error::Error +
     .await?;
 
     let agent = agent_info.data.unwrap();
-    assert_eq!(
-        agent.timestamp_is_valid, false,
-        "Agent timestamp should not be valid (expired)"
+    assert!(
+        matches!(agent.validity, AgentValidity::Invalid(ref r) if r.contains(&AgentRemovalReason::ExpiredAttestation)),
+        "Agent should not be valid (expired)"
     );
-    assert_eq!(agent.is_valid, false, "Agent should not be valid");
 
     // Try to request signature - should remove agent, emit event with ExpiredAttestation reason,
     // and the Promise (fail_on_invalid_agent) resolves to panic
@@ -952,13 +946,174 @@ async fn test_attestation_expiration() -> Result<(), Box<dyn std::error::Error +
     .await?;
 
     let agent = agent_info.data.unwrap();
-    assert_eq!(
-        agent.timestamp_is_valid, true,
-        "Agent timestamp should be valid after re-registration"
-    );
-    assert_eq!(
-        agent.is_valid, true,
+    assert!(
+        matches!(agent.validity, AgentValidity::Valid),
         "Agent should be valid after re-registration"
+    );
+
+    Ok(())
+}
+
+/// First-time `register_agent` must attach storage stake; zero deposit fails until then.
+#[tokio::test]
+async fn test_register_agent_new_agent_requires_storage_deposit_integration(
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let sandbox = near_sandbox::Sandbox::start_sandbox().await?;
+    let network_config = create_network_config(&sandbox);
+    let (genesis_account_id, genesis_signer) = setup_genesis_account().await;
+
+    let contract_id =
+        deploy_contract_default(&network_config, &genesis_account_id, &genesis_signer).await?;
+
+    sleep(Duration::from_millis(200)).await;
+
+    let (agent_id, agent_signer) = create_user_account(
+        &network_config,
+        &genesis_account_id,
+        &genesis_signer,
+        "deposit_flow_agent",
+    )
+    .await?;
+
+    let _ = call_transaction(
+        &contract_id,
+        "whitelist_agent_for_local",
+        json!({
+            "account_id": agent_id
+        }),
+        &genesis_account_id,
+        &genesis_signer,
+        &network_config,
+        None,
+    )
+    .await?
+    .assert_success();
+
+    // No attached deposit on first register → must fail (storage required)
+    let _ = call_transaction(
+        &contract_id,
+        "register_agent",
+        json!({
+            "attestation": serde_json::to_value(create_mock_dstack_attestation()).unwrap()
+        }),
+        &agent_id,
+        &agent_signer,
+        &network_config,
+        None,
+    )
+    .await?
+    .assert_failure();
+
+    // First successful registration with storage deposit
+    let _ = call_transaction(
+        &contract_id,
+        "register_agent",
+        json!({
+            "attestation": serde_json::to_value(create_mock_dstack_attestation()).unwrap()
+        }),
+        &agent_id,
+        &agent_signer,
+        &network_config,
+        Some(helpers::DEPOSIT_005_NEAR),
+    )
+    .await?
+    .assert_success();
+
+    sleep(Duration::from_millis(200)).await;
+
+    let agent_info: Data<Option<AgentView>> = call_view(
+        &contract_id,
+        "get_agent",
+        json!({ "account_id": agent_id }),
+        &network_config,
+    )
+    .await?;
+    let agent = agent_info.data.expect("agent should be registered after first success");
+    assert!(
+        matches!(agent.validity, AgentValidity::Valid),
+        "Agent should be valid after first registration"
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn test_register_agent_reregister_without_storage_deposit_integration(
+) -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let sandbox = near_sandbox::Sandbox::start_sandbox().await?;
+    let network_config = create_network_config(&sandbox);
+    let (genesis_account_id, genesis_signer) = setup_genesis_account().await;
+
+    let contract_id =
+        deploy_contract_default(&network_config, &genesis_account_id, &genesis_signer).await?;
+
+    sleep(Duration::from_millis(200)).await;
+
+    let (agent_id, agent_signer) = create_user_account(
+        &network_config,
+        &genesis_account_id,
+        &genesis_signer,
+        "deposit_reregister_agent",
+    )
+    .await?;
+
+    let _ = call_transaction(
+        &contract_id,
+        "whitelist_agent_for_local",
+        json!({
+            "account_id": agent_id
+        }),
+        &genesis_account_id,
+        &genesis_signer,
+        &network_config,
+        None,
+    )
+    .await?
+    .assert_success();
+
+    let _ = call_transaction(
+        &contract_id,
+        "register_agent",
+        json!({
+            "attestation": serde_json::to_value(create_mock_dstack_attestation()).unwrap()
+        }),
+        &agent_id,
+        &agent_signer,
+        &network_config,
+        Some(helpers::DEPOSIT_005_NEAR),
+    )
+    .await?
+    .assert_success();
+
+    sleep(Duration::from_millis(200)).await;
+
+    let _ = call_transaction(
+        &contract_id,
+        "register_agent",
+        json!({
+            "attestation": serde_json::to_value(create_mock_dstack_attestation()).unwrap()
+        }),
+        &agent_id,
+        &agent_signer,
+        &network_config,
+        None,
+    )
+    .await?
+    .assert_success();
+
+    sleep(Duration::from_millis(200)).await;
+
+    let agent_info: Data<Option<AgentView>> = call_view(
+        &contract_id,
+        "get_agent",
+        json!({ "account_id": agent_id }),
+        &network_config,
+    )
+    .await?;
+    let agent = agent_info.data.expect("agent should still be registered");
+    assert!(
+        matches!(agent.validity, AgentValidity::Valid),
+        "Agent should remain valid after zero-deposit re-register"
     );
 
     Ok(())

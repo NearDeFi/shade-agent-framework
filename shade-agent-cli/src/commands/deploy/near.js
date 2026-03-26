@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { execSync } from "child_process";
+import { execSync, execFileSync } from "child_process";
 import { NEAR } from "@near-js/tokens";
 import chalk from "chalk";
 import bs58 from "bs58";
@@ -198,15 +198,27 @@ export async function deployCustomContractFromSource() {
     console.log(`Building the contract from source`);
 
     const sudoPrefix = getSudoPrefix();
-    execSync(
-      `${sudoPrefix}docker run --rm -v "${absoluteSourcePath}":/workspace pivortex/near-builder@sha256:dad9153f487ec993334d11900b2a9a769c542dd8feecb71c9cd453f29300e156 cargo near build non-reproducible-wasm --no-abi`,
-      { stdio: "pipe" },
-    );
+    const reproducible =
+      config.deployment.agent_contract.deploy_custom.reproducible_build ===
+      true;
+
+    if (reproducible) {
+      execFileSync(
+        "cargo",
+        ["near", "build", "reproducible-wasm"],
+        { cwd: absoluteSourcePath, stdio: "inherit" },
+      );
+    } else {
+      execSync(
+        `${sudoPrefix}docker run --rm -v "${absoluteSourcePath}":/workspace pivortex/near-builder:latest cargo near build non-reproducible-wasm --no-abi`,
+        { stdio: "pipe" },
+      );
+    }
 
     const wasmPath = resolveWasmPath(absoluteSourcePath);
 
     // Fix file ownership after Docker creates it (Docker runs as root, files owned by root)
-    if (process.platform === "linux") {
+    if (!reproducible && process.platform === "linux") {
       const uid = process.getuid();
       const gid = process.getgid();
       execSync(`${sudoPrefix}chown ${uid}:${gid} "${wasmPath}"`, {

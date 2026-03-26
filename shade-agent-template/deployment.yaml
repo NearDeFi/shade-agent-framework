@@ -1,5 +1,5 @@
 # environment: local | TEE
-environment: local
+environment: TEE
 
 # network: testnet | mainnet
 network: testnet
@@ -12,15 +12,15 @@ agent_contract:
   # Fill this out with a unique contract id for your agent contract
   # This account should not already be in use
   # For example: example-contract-123.testnet
-  contract_id: 
+  contract_id: asdofjoiasdjddf.testnet
 
   # Optional, if not enabled the contract will not be deployed
   # and it's assumed the agent contract is already deployed to the contract_id
   # and is initialized
   deploy_custom:
-    enabled: true
+    enabled: false
     # Amount to fund the agent contract with in NEAR
-    funding_amount: 10
+    funding_amount: 8
     # If true the key for contract account will be deleted after deployment locking it
     delete_key: false
 
@@ -29,6 +29,7 @@ agent_contract:
     deploy_from_source:
       enabled: false
       source_path: ../shade-contract-template
+      reproducible_build: false
     # Option 2: Use pre-built WASM file
     deploy_from_wasm:
       enabled: true
@@ -58,7 +59,7 @@ agent_contract:
 # Approve allowed measurements for registration
 # Optional, if not enabled the measurements will not be approved
 approve_measurements:
-  enabled: true
+  enabled: false
   method_name: approve_measurements
   # <MEASUREMENTS> will be replaced with calculated measurements
   # for local it will be set to default measurements (all zeros)
@@ -73,7 +74,7 @@ approve_measurements:
 # Approve allowed PPIDs for registration
 # Optional, if not enabled the PPIDs will not be approved
 approve_ppids:
-  enabled: true
+  enabled: false
   method_name: approve_ppids
   # <PPIDS> will be replaced with the PPIDs
   # for local it will be set to a default PPID (all zeros)
@@ -91,16 +92,17 @@ approve_ppids:
 build_docker_image:
   enabled: true
   # Fill this out with the docker tag you want to use. For example: pivortex/my-first-agent
-  tag:
+  tag: pivortex/shade-test-agent
   cache: true
   dockerfile_path: ../Dockerfile
+  reproducible_build: true
 
 # Deploy the docker compose file to Phala Cloud with the specified environment variables
 # Optional, if not enabled the app will not be deployed to Phala Cloud
 # Only applicable if the environment is TEE
 deploy_to_phala:
   enabled: true
-  app_name: my-first-agent
+  app_name: my-test-agent
   env_file_path: ./.env
 
 # Helper command to whitelist an agent for local mode

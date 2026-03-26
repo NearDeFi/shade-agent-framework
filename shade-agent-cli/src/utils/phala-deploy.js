@@ -48,8 +48,9 @@ function removeUndefined(obj) {
  * @param {string} docker_compose_yml - Raw docker-compose YAML string
  * @param {Array<{ key: string, value: string }>} env_vars - Environment variables to inject
  * @param {object} args - Parsed CLI-style args, e.g. from arg(spec): --name, --instance-type, --disk-size, --region, --os-image, --kms, --private-key, --rpc-url, --env, --uuid
+ * @param {string[]} [allowedEnvKeys] - Ordered env key names from docker-compose (used for allowed_envs in compose object to match measurement hash ordering). Falls back to env_vars key order if not provided.
  */
-async function deploy_new_cvm(client, docker_compose_yml, env_vars, args) {
+async function deploy_new_cvm(client, docker_compose_yml, env_vars, args, allowedEnvKeys) {
   //
   // Step 1: Parse and validate parameters
   //
@@ -77,7 +78,9 @@ async function deploy_new_cvm(client, docker_compose_yml, env_vars, args) {
   // Use the same app compose structure as measurements.js so Phala's compose_hash
   // matches the hash used for agent contract approved measurements.
   //
-  const allowed_envs = env_vars.map((e) => e.key);
+  const allowed_envs = Array.isArray(allowedEnvKeys) && allowedEnvKeys.length > 0
+    ? allowedEnvKeys
+    : env_vars.map((e) => e.key);
   const compose_file = buildAppComposeForDeploy(docker_compose_yml, allowed_envs);
 
   const provision_payload = /** @type {import('@phala/cloud').ProvisionCvmRequest} */ (
@@ -222,9 +225,9 @@ async function deployToPhala(options) {
   const args = {
     "--name": appName,
     "--instance-type": "tdx.small",
-    "--os-image": "dstack-0.5.5",
+    "--os-image": "dstack-0.5.7",
   };
-  const result = await deploy_new_cvm(client, composeContent, envVars, args);
+  const result = await deploy_new_cvm(client, composeContent, envVars, args, allowedEnvKeys);
 
   const vm_uuid = result.vm_uuid ?? String(result.id);
   return {

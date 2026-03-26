@@ -55,8 +55,8 @@ export default async function testUniqueKeys(): Promise<{
     await agent2.register();
 
     // Get all private keys from both agents
-    const agent1Keys = agent1.getPrivateKeys(true);
-    const agent2Keys = agent2.getPrivateKeys(true);
+    const agent1Keys = agent1.getPrivateKeys({ acknowledgeRisk: true });
+    const agent2Keys = agent2.getPrivateKeys({ acknowledgeRisk: true });
 
     const agent1AccountId = agent1.accountId();
     const agent2AccountId = agent2.accountId();

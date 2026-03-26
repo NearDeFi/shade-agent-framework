@@ -57,3 +57,7 @@ Coverage:
 ```bash
 npm run test:coverage
 ```
+
+## Reference
+
+The API docs are available [here](../docs/reference/api.md).

@@ -24,6 +24,7 @@ agent_contract:
     deploy_from_source:
       enabled: true
       source_path: ./agent-contract
+      reproducible_build: false
     deploy_from_wasm:
       enabled: false
       wasm_path: ./agent-contract/target/near/shade-contract-template.wasm

@@ -9,16 +9,18 @@ pub struct ContractInfo {
 }
 
 #[near(serializers = [json])]
-#[derive(Clone)]
+pub enum AgentValidity {
+    Valid,
+    Invalid(Vec<AgentRemovalReason>),
+}
+
+#[near(serializers = [json])]
 pub struct AgentView {
     pub account_id: AccountId,
     pub measurements: FullMeasurementsHex,
-    pub measurements_are_approved: bool,
     pub ppid: Ppid,
-    pub ppid_is_approved: bool,
     pub valid_until_ms: U64,
-    pub timestamp_is_valid: bool,
-    pub is_valid: bool,
+    pub validity: AgentValidity,
 }
 
 #[near]
@@ -33,9 +35,17 @@ impl Contract {
         }
     }
 
-    // Get the list of approved PPIDs
-    pub fn get_approved_ppids(&self) -> Vec<Ppid> {
-        self.approved_ppids.iter().cloned().collect()
+    // Get the list of approved PPIDs (paginated via from_index and limit)
+    pub fn get_approved_ppids(&self, from_index: &Option<u32>, limit: &Option<u32>) -> Vec<Ppid> {
+        let from = from_index.unwrap_or(0);
+        let limit = limit.unwrap_or(self.approved_ppids.len() as u32);
+
+        self.approved_ppids
+            .iter()
+            .skip(from as usize)
+            .take(limit as usize)
+            .cloned()
+            .collect()
     }
 
     // Get the list of approved measurements
@@ -57,17 +67,20 @@ impl Contract {
 
     // Get the details of a registered agent
     pub fn get_agent(&self, account_id: AccountId) -> Option<AgentView> {
-        self.agents.get(&account_id).map(|agent| AgentView {
-            account_id: account_id.clone(),
-            measurements: agent.measurements.clone(),
-            measurements_are_approved: self.approved_measurements.contains(&agent.measurements),
-            ppid: agent.ppid.clone(),
-            ppid_is_approved: self.approved_ppids.contains(&agent.ppid),
-            valid_until_ms: U64::from(agent.valid_until_ms),
-            timestamp_is_valid: agent.valid_until_ms > block_timestamp_ms(),
-            is_valid: self.approved_measurements.contains(&agent.measurements)
-                && self.approved_ppids.contains(&agent.ppid)
-                && agent.valid_until_ms > block_timestamp_ms(),
+        self.agents.get(&account_id).map(|agent| {
+            let reasons = self.check_invalid_reasons(&account_id, agent);
+            let validity = if reasons.is_empty() {
+                AgentValidity::Valid
+            } else {
+                AgentValidity::Invalid(reasons)
+            };
+            AgentView {
+                account_id: account_id.clone(),
+                measurements: agent.measurements.clone(),
+                ppid: agent.ppid.clone(),
+                valid_until_ms: U64::from(agent.valid_until_ms),
+                validity,
+            }
         })
     }
 
@@ -80,17 +93,20 @@ impl Contract {
             .iter()
             .skip(from as usize)
             .take(limit as usize)
-            .map(|(account_id, agent)| AgentView {
-                account_id: account_id.clone(),
-                measurements: agent.measurements.clone(),
-                measurements_are_approved: self.approved_measurements.contains(&agent.measurements),
-                ppid: agent.ppid.clone(),
-                ppid_is_approved: self.approved_ppids.contains(&agent.ppid),
-                valid_until_ms: U64::from(agent.valid_until_ms),
-                timestamp_is_valid: agent.valid_until_ms > block_timestamp_ms(),
-                is_valid: self.approved_measurements.contains(&agent.measurements)
-                    && self.approved_ppids.contains(&agent.ppid)
-                    && agent.valid_until_ms > block_timestamp_ms(),
+            .map(|(account_id, agent)| {
+                let reasons = self.check_invalid_reasons(account_id, agent);
+                let validity = if reasons.is_empty() {
+                    AgentValidity::Valid
+                } else {
+                    AgentValidity::Invalid(reasons)
+                };
+                AgentView {
+                    account_id: account_id.clone(),
+                    measurements: agent.measurements.clone(),
+                    ppid: agent.ppid.clone(),
+                    valid_until_ms: U64::from(agent.valid_until_ms),
+                    validity,
+                }
             })
             .collect()
     }

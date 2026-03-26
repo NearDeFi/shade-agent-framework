@@ -221,62 +221,199 @@ describe("ShadeClient", () => {
   });
 
   describe("register", () => {
-    it("should register agent successfully", async () => {
+    /** Default storage stake used by `register()` when no custom `deposit` (0.005 NEAR yocto). */
+    const defaultRegisterDepositYocto = "5000000000000000000000";
+    const customDepositYocto = "7777777777777777777777";
+
+    async function createRegisterClient() {
       setupClientMocks();
-      const contractAttestation = {
-        quote: [1, 2, 3],
-        collateral: {
-          pck_crl_issuer_chain: "",
-          root_ca_crl: "",
-          pck_crl: "",
-          tcb_info_issuer_chain: "",
-          tcb_info: "",
-          tcb_info_signature: "",
-          qe_identity_issuer_chain: "",
-          qe_identity: "",
-          qe_identity_signature: "",
-        },
-        tcb_info: {
-          mrtd: "",
-          rtmr0: "",
-          rtmr1: "",
-          rtmr2: "",
-          rtmr3: "",
-          os_image_hash: "",
-          compose_hash: "",
-          device_id: "",
-          app_compose: "",
-          event_log: [],
-        },
-      };
-      vi.mocked(internalGetAttestation).mockResolvedValue(contractAttestation);
+      const attestation = createMockContractAttestation();
+      vi.mocked(internalGetAttestation).mockResolvedValue(attestation);
       (mockAccount.callFunction as ReturnType<typeof vi.fn>).mockResolvedValue(
         true,
       );
-
       const client = await ShadeClient.create({
         agentContractId: "agent.contract.testnet",
         rpc: mockProvider,
       });
+      return { client, attestation };
+    }
+
+    it("auto: no params — get_agent null uses default storage deposit (0.005 NEAR yocto)", async () => {
+      const { client, attestation } = await createRegisterClient();
+      (mockProvider.callFunction as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+        null,
+      );
 
       const result = await client.register();
 
-      expect(internalGetAttestation).toHaveBeenCalledWith(
+      expect(mockProvider.callFunction).toHaveBeenCalledWith(
+        "agent.contract.testnet",
+        "get_agent",
+        { account_id: testAccountId },
         undefined,
-        testAccountId,
-        false,
       );
-      expect(ensureKeysSetup).toHaveBeenCalled();
       expect(mockAccount.callFunction).toHaveBeenCalledWith(
         expect.objectContaining({
-          contractId: "agent.contract.testnet",
           methodName: "register_agent",
-          args: { attestation: contractAttestation },
-          deposit: "5000000000000000000000", // 0.005 NEAR
-          gas: BigInt("300000000000000"),
+          args: { attestation },
+          deposit: BigInt(defaultRegisterDepositYocto),
         }),
       );
       expect(result).toBe(true);
+    });
+
+    it("auto: empty params object — same as no params when get_agent null", async () => {
+      const { client, attestation } = await createRegisterClient();
+      (mockProvider.callFunction as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+        null,
+      );
+
+      await client.register({});
+
+      expect(mockProvider.callFunction).toHaveBeenCalled();
+      expect(mockAccount.callFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          deposit: BigInt(defaultRegisterDepositYocto),
+          args: { attestation },
+        }),
+      );
+    });
+
+    it("auto: get_agent returns agent — deposit 0 (re-register)", async () => {
+      const { client, attestation } = await createRegisterClient();
+      (mockProvider.callFunction as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+        { account_id: testAccountId, validity: "Valid" },
+      );
+
+      await client.register();
+
+      expect(mockAccount.callFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          methodName: "register_agent",
+          deposit: 0n,
+          args: { attestation },
+        }),
+      );
+    });
+
+    it("auto: custom deposit when new agent (get_agent null)", async () => {
+      const { client, attestation } = await createRegisterClient();
+      (mockProvider.callFunction as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+        null,
+      );
+
+      await client.register({ deposit: customDepositYocto });
+
+      expect(mockAccount.callFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          deposit: BigInt(customDepositYocto),
+          args: { attestation },
+        }),
+      );
+    });
+
+    it("auto: custom deposit ignored when already registered", async () => {
+      const { client, attestation } = await createRegisterClient();
+      (mockProvider.callFunction as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+        { account_id: testAccountId, validity: "Valid" },
+      );
+
+      await client.register({ deposit: customDepositYocto });
+
+      expect(mockAccount.callFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          deposit: 0n,
+          args: { attestation },
+        }),
+      );
+    });
+
+    it("forceDeposit true — skip get_agent, use default deposit", async () => {
+      const { client, attestation } = await createRegisterClient();
+
+      await client.register({ forceDeposit: true });
+
+      expect(mockProvider.callFunction).not.toHaveBeenCalled();
+      expect(mockAccount.callFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          deposit: BigInt(defaultRegisterDepositYocto),
+          args: { attestation },
+        }),
+      );
+    });
+
+    it("forceDeposit true — skip get_agent, custom deposit string", async () => {
+      const { client, attestation } = await createRegisterClient();
+
+      await client.register({
+        forceDeposit: true,
+        deposit: customDepositYocto,
+      });
+
+      expect(mockProvider.callFunction).not.toHaveBeenCalled();
+      expect(mockAccount.callFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          deposit: BigInt(customDepositYocto),
+          args: { attestation },
+        }),
+      );
+    });
+
+    it("forceDeposit true — custom deposit as bigint", async () => {
+      const { client, attestation } = await createRegisterClient();
+      const asBig = BigInt(customDepositYocto);
+
+      await client.register({
+        forceDeposit: true,
+        deposit: asBig,
+      });
+
+      expect(mockAccount.callFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          deposit: asBig,
+          args: { attestation },
+        }),
+      );
+    });
+
+    it("forceDeposit false — skip get_agent, deposit 0 even if deposit passed", async () => {
+      const { client, attestation } = await createRegisterClient();
+
+      await client.register({
+        forceDeposit: false,
+        deposit: customDepositYocto,
+      });
+
+      expect(mockProvider.callFunction).not.toHaveBeenCalled();
+      expect(mockAccount.callFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          deposit: 0n,
+          args: { attestation },
+        }),
+      );
+    });
+
+    it("forceDeposit undefined explicitly — same as auto (calls get_agent)", async () => {
+      const { client, attestation } = await createRegisterClient();
+      (mockProvider.callFunction as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+        null,
+      );
+
+      await client.register({ forceDeposit: undefined });
+
+      expect(mockProvider.callFunction).toHaveBeenCalledWith(
+        "agent.contract.testnet",
+        "get_agent",
+        { account_id: testAccountId },
+        undefined,
+      );
+      expect(mockAccount.callFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          deposit: BigInt(defaultRegisterDepositYocto),
+          args: { attestation },
+        }),
+      );
     });
 
     it("should throw error if agentContractId is not configured", async () => {

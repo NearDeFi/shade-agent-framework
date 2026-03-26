@@ -3,16 +3,6 @@ use crate::*;
 const EVENT_STANDARD: &str = "shade-contract-template";
 const EVENT_STANDARD_VERSION: &str = "1.0.0";
 
-#[near(serializers = [json])]
-#[derive(Debug, Clone)]
-pub enum AgentRemovalReason {
-    ManualRemoval,
-    ExpiredAttestation,
-    InvalidMeasurements,
-    InvalidPpid,
-    NotWhitelistedForLocal,
-}
-
 #[derive(Serialize, Debug, Clone)]
 #[serde(crate = "near_sdk::serde")]
 #[serde(tag = "event", content = "data")]

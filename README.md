@@ -5,8 +5,9 @@
 
 The Shade Agent Framework is built to enable verifiable and trust minimized Web3 agents that can sign transactions across most chains. At the core the framework is the verification of trusted execution environments (TEE) in NEAR Protocol smart contracts and the usage of smart contract transaction singing via chain signatures. Guardrails can be implemented at the smart contract level to stop the execution of unauthorized actions even if the TEE is compromised.
 
-This monorepo contains all the tooling for the Shade Agent Framework. It contains:
+This monorepo contains all the tooling and documentation for the Shade Agent Framework. It contains:
 
+- [docs](./docs/) - The documentation for the Shade Agent Framework.
 - [shade-agent-js](./shade-agent-js/) - A published library for creating agents in JavaScript and Typescript. It abstracts the complexity of TEEs and agent contracts.
 - [shade-agent-cli](./shade-agent-cli/) - A published CLI to help deploy Shade Agents.
 - [shade-attestation](./shade-attestation/) - A published Rust crate to verify Shade Agent TEE attestations in NEAR smart contracts.
@@ -74,7 +75,7 @@ cargo add shade-attestation
   docker run --rm \
   -v "$(pwd)":/workspace \
   -w "/workspace/shade-contract-template" \
-  pivortex/near-builder@sha256:dad9153f487ec993334d11900b2a9a769c542dd8feecb71c9cd453f29300e156 \
+  pivortex/near-builder:latest \
   cargo near build non-reproducible-wasm --no-abi
   ```
 

@@ -35,7 +35,7 @@ The ring dependency is dcap-qvl, which cannot be built on mac so build the contr
 docker run --rm \
 -v "$(pwd)":/workspace \
 -w "/workspace/shade-contract-template" \
-pivortex/near-builder@sha256:dad9153f487ec993334d11900b2a9a769c542dd8feecb71c9cd453f29300e156 \
+pivortex/near-builder:latest \
 cargo near build non-reproducible-wasm --no-abi
 ```
 
@@ -51,7 +51,7 @@ Tests cover only `requires_tee = false` (can't produce valid TEE attestation out
 
 ### Unit tests
 
-Contract init; owner-only methods (approve_measurements, remove_measurements, approve_ppids, remove_ppids, whitelist_agent_for_local, remove_agent_from_whitelist_for_local, remove_agent, update_owner_id, update_mpc_contract_id, update_attestation_expiration_time) and panics when non-owner calls; agent registration (success, twice, not whitelisted, insufficient deposit); views (get_contract_info, get_agent, get_agents, pagination, expiration fields); request_signature (no checking of valid promise) and require_valid_agent (not whitelisted, not registered, removal on invalid measurements/PPID/expired/not whitelisted/multiple reasons, success with Ecdsa/Eddsa, invalid key type).
+Contract init; owner-only methods (approve_measurements, remove_measurements, approve_ppids, remove_ppids, whitelist_agent_for_local, remove_agent_from_whitelist_for_local, remove_agent, update_owner_id, update_mpc_contract_id, update_attestation_expiration_time) and panics when non-owner calls; agent registration (happy first registration with storage deposit, happy re-register without extra deposit, not whitelisted, insufficient / missing deposit on first registration); views (get_contract_info, get_agent, get_agents, pagination, expiration fields); request_signature (no checking of valid promise) and require_valid_agent (not whitelisted, not registered, removal on invalid measurements/PPID/expired/not whitelisted/multiple reasons, success with Ecdsa/Eddsa, invalid key type).
 
 ### Integration tests
 
@@ -64,3 +64,5 @@ Contract init; owner-only methods (approve_measurements, remove_measurements, ap
 | `test_large_dataset_pagination_real_contract`              | Registers 20 agents and checks that `get_agents` pagination works as expected using `from_index` and `limit`.                                                                                                                                                                                                                                     |
 | `test_owner_transfer_and_new_owner_operations`             | Transfers contract ownership and verifies that the new owner can approve measurements while the old owner can no longer do so.                                                                                                                                                                                                                    |
 | `test_update_contract`                                     | Deploys the contract, calls `update_contract` with new WASM, and checks that state is migrated correctly and that the new methods are available.                                                                                                                                                                                                  |
+| `test_register_agent_new_agent_requires_storage_deposit_integration` | First `register_agent` with no attached deposit fails; with `0.005 NEAR` succeeds; `get_agent` shows a valid agent. |
+| `test_register_agent_reregister_without_storage_deposit_integration` | After a successful first registration, `register_agent` again with no deposit succeeds.|
