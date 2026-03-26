@@ -65,7 +65,7 @@ approve_ppids:
 build_docker_image:
   enabled: true
   tag: username/my-first-agent
-  cache: true
+  cache: false
   dockerfile_path: ./Dockerfile
   reproducible_build: true
 
