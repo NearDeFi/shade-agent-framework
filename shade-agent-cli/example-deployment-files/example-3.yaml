@@ -1,7 +1,7 @@
 # Production deployment 
 
 # Before hand you need to configure your github url in the Cargo.toml file to have a reproducible build
-# You also need to be on a x86 / amd64 machine 
+# You also need to make sure you are running this in a reproducible environment.
 
 # Deploys the agent contract to mainnet with reproducible build
 # Removes the contract key after deployment to lock the contract account
