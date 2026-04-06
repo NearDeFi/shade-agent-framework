@@ -144,7 +144,7 @@ Placeholders in args:
 
 Placeholders in args:
 
-- `<MEASUREMENTS>` — Resolves to real calculated measurements for the application for TEE and mock measurements for local. 
+- `<MEASUREMENTS>` — Resolves to calculated measurements for the application. For TEE, uses the `dstack_version` and `instance_type` from [deploy_to_phala](#deploy_to_phala-tee-only) to look up the correct hardware/OS measurements, combined with the app compose hash derived from the Docker Compose file. For local, resolves to default (all-zeros) measurements.
 
 ### approve_ppids
 
@@ -176,6 +176,8 @@ Placeholders in args:
 | **enabled** | No | If `false`, deployment to Phala Cloud is skipped. |
 | **app_name** | Yes | Phala Cloud app (CVM) name. |
 | **env_file_path** | Yes | Path to the environment variables file loaded when deploying to Phala (e.g. `./.env`). |
+| **dstack_version** | Yes | The dstack OS image version to deploy with and to use when calculating measurements (e.g. `0.5.8`). |
+| **instance_type** | Yes | The hardware instance type to deploy with and to use when calculating measurements (e.g. `tdx.small`, `tdx.medium`, `tdx.large`). |
 
 ### whitelist_agent_for_local (local only)
 
@@ -193,13 +195,17 @@ Placeholders in args:
 
 ---
 
-## Fixed Dstack Configurations
+## Dstack Configurations
 
-Currently, the CLI only supports measurement calculation and Phala Cloud deployment for fixed configurations on DStack. If you need to deploy with different configurations, you can calculate the measurements and deploy to Phala by other means.
+The dstack OS image version and hardware instance type are configured in `deploy_to_phala` via the `dstack_version` and `instance_type` fields. These values determine both which Phala Cloud CVM configuration is used for deployment and which hardware/OS measurements are used when resolving the `<MEASUREMENTS>` placeholder.
 
-- Dstack Version: dstack-0.5.7
-- Hardware: 1vCPU and 2GB RAM (tdx.small on Phala)
-- Key Provider: Phala Key Provider 
+**Supported configurations:**
+
+| dstack_version | Supported instance types |
+|----------------|------------------------|
+| `0.5.8` | `tdx.small`, `tdx.medium`, `tdx.large`, `tdx.xlarge`, `tdx.2xlarge`, `tdx.4xlarge`, `tdx.8xlarge` |
+
+- Key Provider: Phala Key Provider
 
 **App compose configs**
 - Pre Launch Script: v0.0.13

@@ -294,6 +294,8 @@ export function planCommand() {
             const measurements = getMeasurements(
               deployment.environment === "TEE",
               deployment.docker_compose_path,
+              deployment.deploy_to_phala?.dstack_version,
+              deployment.deploy_to_phala?.instance_type,
             );
             // Pass the object directly, replacePlaceholders will handle JSON stringification
             replacements["<MEASUREMENTS>"] = measurements;
@@ -361,6 +363,11 @@ export function planCommand() {
             : "existing";
           logWrapped(
             `• The ${chalk.yellow(dockerStatus)} docker image will be published to Phala Cloud with the name ${chalk.yellow(deployment.deploy_to_phala.app_name)} and the environment variables contained within ${chalk.yellow(deployment.deploy_to_phala.env_file_path)}.`,
+            70,
+            2,
+          );
+          logWrapped(
+            `• OS image: ${chalk.yellow(`dstack-${deployment.deploy_to_phala.dstack_version}`)}  Instance type: ${chalk.yellow(deployment.deploy_to_phala.instance_type)}`,
             70,
             2,
           );

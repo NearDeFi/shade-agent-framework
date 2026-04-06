@@ -237,6 +237,16 @@ export function parseDeploymentConfig(deploymentPath) {
       !!deploy_to_phala.app_name,
       "deploy_to_phala.app_name is required",
     );
+    if (environment === "TEE") {
+      requireField(
+        !!deploy_to_phala.dstack_version,
+        "deploy_to_phala.dstack_version is required when environment is TEE",
+      );
+      requireField(
+        !!deploy_to_phala.instance_type,
+        "deploy_to_phala.instance_type is required when environment is TEE",
+      );
+    }
   }
 
   return {
@@ -320,6 +330,8 @@ export function parseDeploymentConfig(deploymentPath) {
         ? {
             env_file_path: deploy_to_phala.env_file_path,
             app_name: deploy_to_phala.app_name,
+            dstack_version: deploy_to_phala.dstack_version,
+            instance_type: deploy_to_phala.instance_type,
           }
         : undefined,
     whitelist_agent_for_local: whitelist_agent_for_local

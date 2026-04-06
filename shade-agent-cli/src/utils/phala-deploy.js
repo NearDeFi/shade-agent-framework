@@ -187,10 +187,19 @@ async function deploy_new_cvm(client, docker_compose_yml, env_vars, args, allowe
  * @param {string} options.composePath - Path to docker-compose file
  * @param {string} [options.envFilePath] - Path to .env file (optional)
  * @param {string[]} [options.allowedEnvKeys] - Env keys to pass (optional; if omitted, all keys from env file are used)
+ * @param {string} options.dstackVersion - dstack OS image version (e.g. "0.5.8")
+ * @param {string} options.instanceType - Hardware instance type (e.g. "tdx.small")
  * @returns {Promise<{ success: boolean, vm_uuid: string, name: string, app_id: string, dashboard_url: string }>}
  */
 async function deployToPhala(options) {
-  const { appName, apiKey, composePath, envFilePath, allowedEnvKeys = null } = options;
+  const { appName, apiKey, composePath, envFilePath, allowedEnvKeys = null, dstackVersion, instanceType } = options;
+
+  if (!dstackVersion) {
+    throw new Error("deploy_to_phala.dstack_version is required");
+  }
+  if (!instanceType) {
+    throw new Error("deploy_to_phala.instance_type is required");
+  }
 
   if (!appName || appName.length <= 3) {
     throw new Error("App name must be longer than 3 characters");
@@ -224,8 +233,8 @@ async function deployToPhala(options) {
   const client = createClient({ apiKey });
   const args = {
     "--name": appName,
-    "--instance-type": "tdx.small",
-    "--os-image": "dstack-0.5.7",
+    "--instance-type": instanceType,
+    "--os-image": `dstack-${dstackVersion}`,
   };
   const result = await deploy_new_cvm(client, composeContent, envVars, args, allowedEnvKeys);
 
