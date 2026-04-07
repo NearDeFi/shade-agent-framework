@@ -74,6 +74,8 @@ deploy_to_phala:
   enabled: true
   app_name: my-first-agent
   env_file_path: ./.env
+  dstack_version: 0.5.8
+  instance_type: tdx.small
 
 whitelist_agent_for_local:
   method_name: whitelist_agent_for_local

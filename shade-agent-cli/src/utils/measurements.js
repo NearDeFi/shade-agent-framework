@@ -2,24 +2,46 @@ import crypto from "crypto";
 import fs from "fs";
 import { parse } from "yaml";
 
-export function getMeasurements(isTee, dockerComposePath) {
+export function getMeasurements(isTee, dockerComposePath, dstackVersion, instanceType) {
   if (!isTee) {
     return localMeasurements;
   }
 
   if (!dockerComposePath) {
     throw new Error(
-      "allowedEnvs and dockerComposeFile are required when isTee is true",
+      "dockerComposePath is required when isTee is true",
     );
   }
 
-  return createTeeMeasurements(calculateAppComposeHash(dockerComposePath));
+  if (!dstackVersion || !instanceType) {
+    throw new Error(
+      "dstack_version and instance_type (from deploy_to_phala) are required to calculate TEE measurements",
+    );
+  }
+
+  return createTeeMeasurements(calculateAppComposeHash(dockerComposePath), dstackVersion, instanceType);
 }
 
-function createTeeMeasurements(appComposeHash) {
+function createTeeMeasurements(appComposeHash, dstackVersion, instanceType) {
+  const versionMeasurements = hardwareAndOSMeasurements[dstackVersion];
+  if (!versionMeasurements) {
+    const supported = Object.keys(hardwareAndOSMeasurements).join(", ");
+    throw new Error(
+      `Unsupported dstack_version "${dstackVersion}". Supported versions: ${supported}`,
+    );
+  }
+
+  const hwMeasurements = versionMeasurements[instanceType];
+  if (!hwMeasurements) {
+    const supported = Object.keys(versionMeasurements).join(", ");
+    throw new Error(
+      `Unsupported instance_type "${instanceType}" for dstack_version "${dstackVersion}". Supported types: ${supported}`,
+    );
+  }
+
   return {
-    rtmrs: fixedMeasurements.rtmrs,
-    key_provider_event_digest: fixedMeasurements.key_provider_event_digest,
+    rtmrs: hwMeasurements.rtmrs,
+    key_provider_event_digest: KEY_PROVIDER_EVENT_DIGEST,
     app_compose_hash_payload: appComposeHash,
   };
 }
@@ -127,19 +149,127 @@ const localMeasurements = {
   app_compose_hash_payload: "0".repeat(64),
 };
 
-const fixedMeasurements = {
-  rtmrs: {
-    mrtd: "f06dfda6dce1cf904d4e2bab1dc370634cf95cefa2ceb2de2eee127c9382698090d7a4a13e14c536ec6c9c3c8fa87077",
-    rtmr0:
-      "68102e7b524af310f7b7d426ce75481e36c40f5d513a9009c046e9d37e31551f0134d954b496a3357fd61d03f07ffe96",
-    rtmr1:
-      "920eb831509b58bf83a554b5377dd5ce26d3f5182f14d33622ac24c1d343a0fa3c7bde746e55098ca30baf784dfd2556",
-    rtmr2:
-      "4674857a0f5b090f9203245f55c6516c37f533b362576a505f5b89efa2a28376d6b82e984e41f1f0ebcddfcbeb9581b9",
+const KEY_PROVIDER_EVENT_DIGEST =
+  "83368b43a0fc6f824f5a9220592df85fd30e2d405ecbd253a5c6354af63e6c9b41aec557c38a38e348ab87f9ac8fc68c";
+
+const hardwareAndOSMeasurements = {
+  "0.5.8": {
+    "tdx.small": {
+      "rtmrs": {
+        "mrtd": "f06dfda6dce1cf904d4e2bab1dc370634cf95cefa2ceb2de2eee127c9382698090d7a4a13e14c536ec6c9c3c8fa87077",
+        "rtmr0": "68102e7b524af310f7b7d426ce75481e36c40f5d513a9009c046e9d37e31551f0134d954b496a3357fd61d03f07ffe96",
+        "rtmr1": "b598fde9491427341bc4683b75d10d3e36770af3a36a6954d8b6b7b22aa66358f13e1f172e51b7d6e6710d99a8d8532f",
+        "rtmr2": "9284cde236231d5ddace01104a440fd504df5182a2ad1ac3d2138b80c6a7864bd2c30f69041d8264217f3d24541580cf"
+      }
+    },
+    "tdx.medium": {
+      "rtmrs": {
+        "mrtd": "f06dfda6dce1cf904d4e2bab1dc370634cf95cefa2ceb2de2eee127c9382698090d7a4a13e14c536ec6c9c3c8fa87077",
+        "rtmr0": "027b610ab0555482f8a3868524093bdf3cdbe2539f81dfeeb886864654cb2fe3422f7fc36d4bab6fa46683aad11d1ba7",
+        "rtmr1": "b598fde9491427341bc4683b75d10d3e36770af3a36a6954d8b6b7b22aa66358f13e1f172e51b7d6e6710d99a8d8532f",
+        "rtmr2": "9284cde236231d5ddace01104a440fd504df5182a2ad1ac3d2138b80c6a7864bd2c30f69041d8264217f3d24541580cf"
+      }
+    },
+    "tdx.large": {
+      "rtmrs": {
+        "mrtd": "f06dfda6dce1cf904d4e2bab1dc370634cf95cefa2ceb2de2eee127c9382698090d7a4a13e14c536ec6c9c3c8fa87077",
+        "rtmr0": "fb14dc139f33d6fcf474bc8332cac001259fb31cfbcb6b34d4ceeb552a2c4466884a0cbde45ad98a05c5c060c23ad65a",
+        "rtmr1": "b598fde9491427341bc4683b75d10d3e36770af3a36a6954d8b6b7b22aa66358f13e1f172e51b7d6e6710d99a8d8532f",
+        "rtmr2": "9284cde236231d5ddace01104a440fd504df5182a2ad1ac3d2138b80c6a7864bd2c30f69041d8264217f3d24541580cf"
+      }
+    },
+    "tdx.xlarge": {
+      "rtmrs": {
+        "mrtd": "f06dfda6dce1cf904d4e2bab1dc370634cf95cefa2ceb2de2eee127c9382698090d7a4a13e14c536ec6c9c3c8fa87077",
+        "rtmr0": "ec216f1d1d591468ff4741b9b192f016b26d3f90303bfa9dbb97557273853183981f21a4bcb3ae908247538d371ad072",
+        "rtmr1": "b598fde9491427341bc4683b75d10d3e36770af3a36a6954d8b6b7b22aa66358f13e1f172e51b7d6e6710d99a8d8532f",
+        "rtmr2": "9284cde236231d5ddace01104a440fd504df5182a2ad1ac3d2138b80c6a7864bd2c30f69041d8264217f3d24541580cf"
+      }
+    },
+    "tdx.2xlarge": {
+      "rtmrs": {
+        "mrtd": "f06dfda6dce1cf904d4e2bab1dc370634cf95cefa2ceb2de2eee127c9382698090d7a4a13e14c536ec6c9c3c8fa87077",
+        "rtmr0": "d6118f0eeb30e9d9178d2b9106dddd002d979b6fa79bdec415051afae2021384c29a32d2f6454fa369617598378ffb5e",
+        "rtmr1": "b598fde9491427341bc4683b75d10d3e36770af3a36a6954d8b6b7b22aa66358f13e1f172e51b7d6e6710d99a8d8532f",
+        "rtmr2": "9284cde236231d5ddace01104a440fd504df5182a2ad1ac3d2138b80c6a7864bd2c30f69041d8264217f3d24541580cf"
+      }
+    },
+    "tdx.4xlarge": {
+      "rtmrs": {
+        "mrtd": "f06dfda6dce1cf904d4e2bab1dc370634cf95cefa2ceb2de2eee127c9382698090d7a4a13e14c536ec6c9c3c8fa87077",
+        "rtmr0": "55b9b0d73279fd2079274371e639b70161a69447b6b07f7b5266f0b8a47fd1e527fca30338879b47ac18d9bf66022e5c",
+        "rtmr1": "b598fde9491427341bc4683b75d10d3e36770af3a36a6954d8b6b7b22aa66358f13e1f172e51b7d6e6710d99a8d8532f",
+        "rtmr2": "9284cde236231d5ddace01104a440fd504df5182a2ad1ac3d2138b80c6a7864bd2c30f69041d8264217f3d24541580cf"
+      }
+    },
+    "tdx.8xlarge": {
+      "rtmrs": {
+        "mrtd": "f06dfda6dce1cf904d4e2bab1dc370634cf95cefa2ceb2de2eee127c9382698090d7a4a13e14c536ec6c9c3c8fa87077",
+        "rtmr0": "de03721065571be16e3ccbb76dacdc86a6dfb35255480dfc97932995c5d0973b6f0b6b7b9f8e88b838d72bc75e8a287c",
+        "rtmr1": "b598fde9491427341bc4683b75d10d3e36770af3a36a6954d8b6b7b22aa66358f13e1f172e51b7d6e6710d99a8d8532f",
+        "rtmr2": "9284cde236231d5ddace01104a440fd504df5182a2ad1ac3d2138b80c6a7864bd2c30f69041d8264217f3d24541580cf"
+      }
+    }
   },
-  key_provider_event_digest:
-    "83368b43a0fc6f824f5a9220592df85fd30e2d405ecbd253a5c6354af63e6c9b41aec557c38a38e348ab87f9ac8fc68c",
-};
+  "0.5.7": {
+    "tdx.small": {
+      "rtmrs": {
+        "mrtd": "f06dfda6dce1cf904d4e2bab1dc370634cf95cefa2ceb2de2eee127c9382698090d7a4a13e14c536ec6c9c3c8fa87077",
+        "rtmr0": "68102e7b524af310f7b7d426ce75481e36c40f5d513a9009c046e9d37e31551f0134d954b496a3357fd61d03f07ffe96",
+        "rtmr1": "920eb831509b58bf83a554b5377dd5ce26d3f5182f14d33622ac24c1d343a0fa3c7bde746e55098ca30baf784dfd2556",
+        "rtmr2": "4674857a0f5b090f9203245f55c6516c37f533b362576a505f5b89efa2a28376d6b82e984e41f1f0ebcddfcbeb9581b9"
+      }
+    },
+    "tdx.medium": {
+      "rtmrs": {
+        "mrtd": "f06dfda6dce1cf904d4e2bab1dc370634cf95cefa2ceb2de2eee127c9382698090d7a4a13e14c536ec6c9c3c8fa87077",
+        "rtmr0": "027b610ab0555482f8a3868524093bdf3cdbe2539f81dfeeb886864654cb2fe3422f7fc36d4bab6fa46683aad11d1ba7",
+        "rtmr1": "920eb831509b58bf83a554b5377dd5ce26d3f5182f14d33622ac24c1d343a0fa3c7bde746e55098ca30baf784dfd2556",
+        "rtmr2": "4674857a0f5b090f9203245f55c6516c37f533b362576a505f5b89efa2a28376d6b82e984e41f1f0ebcddfcbeb9581b9"
+      }
+    },
+    "tdx.large": {
+      "rtmrs": {
+        "mrtd": "f06dfda6dce1cf904d4e2bab1dc370634cf95cefa2ceb2de2eee127c9382698090d7a4a13e14c536ec6c9c3c8fa87077",
+        "rtmr0": "fb14dc139f33d6fcf474bc8332cac001259fb31cfbcb6b34d4ceeb552a2c4466884a0cbde45ad98a05c5c060c23ad65a",
+        "rtmr1": "920eb831509b58bf83a554b5377dd5ce26d3f5182f14d33622ac24c1d343a0fa3c7bde746e55098ca30baf784dfd2556",
+        "rtmr2": "4674857a0f5b090f9203245f55c6516c37f533b362576a505f5b89efa2a28376d6b82e984e41f1f0ebcddfcbeb9581b9"
+      }
+    },
+    "tdx.xlarge": {
+      "rtmrs": {
+        "mrtd": "f06dfda6dce1cf904d4e2bab1dc370634cf95cefa2ceb2de2eee127c9382698090d7a4a13e14c536ec6c9c3c8fa87077",
+        "rtmr0": "ec216f1d1d591468ff4741b9b192f016b26d3f90303bfa9dbb97557273853183981f21a4bcb3ae908247538d371ad072",
+        "rtmr1": "920eb831509b58bf83a554b5377dd5ce26d3f5182f14d33622ac24c1d343a0fa3c7bde746e55098ca30baf784dfd2556",
+        "rtmr2": "4674857a0f5b090f9203245f55c6516c37f533b362576a505f5b89efa2a28376d6b82e984e41f1f0ebcddfcbeb9581b9"
+      }
+    },
+    "tdx.2xlarge": {
+      "rtmrs": {
+        "mrtd": "f06dfda6dce1cf904d4e2bab1dc370634cf95cefa2ceb2de2eee127c9382698090d7a4a13e14c536ec6c9c3c8fa87077",
+        "rtmr0": "d6118f0eeb30e9d9178d2b9106dddd002d979b6fa79bdec415051afae2021384c29a32d2f6454fa369617598378ffb5e",
+        "rtmr1": "920eb831509b58bf83a554b5377dd5ce26d3f5182f14d33622ac24c1d343a0fa3c7bde746e55098ca30baf784dfd2556",
+        "rtmr2": "4674857a0f5b090f9203245f55c6516c37f533b362576a505f5b89efa2a28376d6b82e984e41f1f0ebcddfcbeb9581b9"
+      }
+    },
+    "tdx.4xlarge": {
+      "rtmrs": {
+        "mrtd": "f06dfda6dce1cf904d4e2bab1dc370634cf95cefa2ceb2de2eee127c9382698090d7a4a13e14c536ec6c9c3c8fa87077",
+        "rtmr0": "55b9b0d73279fd2079274371e639b70161a69447b6b07f7b5266f0b8a47fd1e527fca30338879b47ac18d9bf66022e5c",
+        "rtmr1": "920eb831509b58bf83a554b5377dd5ce26d3f5182f14d33622ac24c1d343a0fa3c7bde746e55098ca30baf784dfd2556",
+        "rtmr2": "4674857a0f5b090f9203245f55c6516c37f533b362576a505f5b89efa2a28376d6b82e984e41f1f0ebcddfcbeb9581b9"
+      }
+    },
+    "tdx.8xlarge": {
+      "rtmrs": {
+        "mrtd": "f06dfda6dce1cf904d4e2bab1dc370634cf95cefa2ceb2de2eee127c9382698090d7a4a13e14c536ec6c9c3c8fa87077",
+        "rtmr0": "de03721065571be16e3ccbb76dacdc86a6dfb35255480dfc97932995c5d0973b6f0b6b7b9f8e88b838d72bc75e8a287c",
+        "rtmr1": "920eb831509b58bf83a554b5377dd5ce26d3f5182f14d33622ac24c1d343a0fa3c7bde746e55098ca30baf784dfd2556",
+        "rtmr2": "4674857a0f5b090f9203245f55c6516c37f533b362576a505f5b89efa2a28376d6b82e984e41f1f0ebcddfcbeb9581b9"
+      }
+    }
+  }
+}
 
 const PRE_LAUNCH_SCRIPT = `#!/bin/bash
 echo "----------------------------------------------"

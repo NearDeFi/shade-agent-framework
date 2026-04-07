@@ -144,7 +144,7 @@ Placeholders in args:
 
 Placeholders in args:
 
-- `<MEASUREMENTS>` — Resolves to real calculated measurements for the application for TEE and mock measurements for local. 
+- `<MEASUREMENTS>` — Resolves to real calculated measurements for the application for TEE and mock measurements for local. For TEE, the measurements depend on the docker compose file, the dstack version and instance type.
 
 ### approve_ppids
 
@@ -176,6 +176,8 @@ Placeholders in args:
 | **enabled** | No | If `false`, deployment to Phala Cloud is skipped. |
 | **app_name** | Yes | Phala Cloud app (CVM) name. |
 | **env_file_path** | Yes | Path to the environment variables file loaded when deploying to Phala (e.g. `./.env`). |
+| **dstack_version** | Yes | The dstack OS image version to deploy with and to use when calculating measurements (e.g. `0.5.8`). |
+| **instance_type** | Yes | The hardware instance type to deploy with and to use when calculating measurements (e.g. `tdx.small`, `tdx.medium`, `tdx.large`). |
 
 ### whitelist_agent_for_local (local only)
 
@@ -193,15 +195,23 @@ Placeholders in args:
 
 ---
 
-## Fixed Dstack Configurations
+## Supported configurations
 
-Currently, the CLI only supports measurement calculation and Phala Cloud deployment for fixed configurations on DStack. If you need to deploy with different configurations, you can calculate the measurements and deploy to Phala by other means.
+The Shade Agent CLI supports specific Phala Cloud / Dstack configurations, as listed below.
 
-- Dstack Version: dstack-0.5.7
-- Hardware: 1vCPU and 2GB RAM (tdx.small on Phala)
-- Key Provider: Phala Key Provider 
+**Dstack image versions:**
 
-**App compose configs**
+`0.5.8` and `0.5.7`
+
+**Instance types:**
+
+`tdx.small`, `tdx.medium`, `tdx.large`, `tdx.xlarge`, `tdx.2xlarge`, `tdx.4xlarge`, `tdx.8xlarge`
+
+**QEMU versions:**
+
+`8.2.2`
+
+**App compose configs:**
 - Pre Launch Script: v0.0.13
 
 ...

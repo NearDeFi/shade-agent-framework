@@ -364,6 +364,8 @@ export async function approveMeasurements() {
     const measurements = getMeasurements(
       config.deployment.environment === "TEE",
       config.deployment.docker_compose_path,
+      config.deployment.deploy_to_phala?.dstack_version,
+      config.deployment.deploy_to_phala?.instance_type,
     );
     // Pass the object directly, replacePlaceholders will handle JSON stringification
     replacements["<MEASUREMENTS>"] = measurements;
