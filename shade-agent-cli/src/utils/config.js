@@ -238,14 +238,24 @@ export function parseDeploymentConfig(deploymentPath) {
       "deploy_to_phala.app_name is required",
     );
     if (environment === "TEE") {
-      requireField(
-        !!deploy_to_phala.dstack_version,
-        "deploy_to_phala.dstack_version is required when environment is TEE",
-      );
-      requireField(
-        !!deploy_to_phala.instance_type,
-        "deploy_to_phala.instance_type is required when environment is TEE",
-      );
+      if (
+        deploy_to_phala.dstack_version !== undefined &&
+        typeof deploy_to_phala.dstack_version !== "string"
+      ) {
+        requireField(
+          false,
+          "deploy_to_phala.dstack_version must be a string",
+        );
+      }
+      if (
+        deploy_to_phala.instance_type !== undefined &&
+        typeof deploy_to_phala.instance_type !== "string"
+      ) {
+        requireField(
+          false,
+          "deploy_to_phala.instance_type must be a string",
+        );
+      }
     }
   }
 
@@ -330,8 +340,8 @@ export function parseDeploymentConfig(deploymentPath) {
         ? {
             env_file_path: deploy_to_phala.env_file_path,
             app_name: deploy_to_phala.app_name,
-            dstack_version: deploy_to_phala.dstack_version,
-            instance_type: deploy_to_phala.instance_type,
+            dstack_version: deploy_to_phala.dstack_version || "0.5.8",
+            instance_type: deploy_to_phala.instance_type || "tdx.small",
           }
         : undefined,
     whitelist_agent_for_local: whitelist_agent_for_local
