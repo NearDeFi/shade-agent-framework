@@ -144,7 +144,7 @@ Placeholders in args:
 
 Placeholders in args:
 
-- `<MEASUREMENTS>` — Resolves to calculated measurements for the application. For TEE, uses the `dstack_version` and `instance_type` from [deploy_to_phala](#deploy_to_phala-tee-only) to look up the correct hardware/OS measurements, combined with the app compose hash derived from the Docker Compose file. For local, resolves to default (all-zeros) measurements.
+- `<MEASUREMENTS>` — Resolves to real calculated measurements for the application for TEE and mock measurements for local. For TEE, the measurements depend on the docker compose file, the dstack version and instance type.
 
 ### approve_ppids
 
@@ -195,19 +195,19 @@ Placeholders in args:
 
 ---
 
-## Dstack Configurations
+## Supported configurations
 
-The dstack OS image version and hardware instance type are configured in `deploy_to_phala` via the `dstack_version` and `instance_type` fields. These values determine both which Phala Cloud CVM configuration is used for deployment and which hardware/OS measurements are used when resolving the `<MEASUREMENTS>` placeholder.
+The Shade Agent CLI supports specific Phala Cloud / Dstack configurations, as listed below.
 
-**Supported configurations:**
+**Dstack image versions:**
 
-| dstack_version | Supported instance types |
-|----------------|------------------------|
-| `0.5.8` | `tdx.small`, `tdx.medium`, `tdx.large`, `tdx.xlarge`, `tdx.2xlarge`, `tdx.4xlarge`, `tdx.8xlarge` |
+`0.5.8` and `0.5.7`
 
-- Key Provider: Phala Key Provider
+**Instance types:**
 
-**App compose configs**
+`tdx.small`, `tdx.medium`, `tdx.large`, `tdx.xlarge`, `tdx.2xlarge`, `tdx.4xlarge`, `tdx.8xlarge`
+
+**App compose configs:**
 - Pre Launch Script: v0.0.13
 
 ...

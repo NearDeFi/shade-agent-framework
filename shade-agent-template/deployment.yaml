@@ -12,7 +12,7 @@ agent_contract:
   # Fill this out with a unique contract id for your agent contract
   # This account should not already be in use
   # For example: example-contract-123.testnet
-  contract_id: asdofjoiasdjddddddf.testnet
+  contract_id: 
 
   # Optional, if not enabled the contract will not be deployed
   # and it's assumed the agent contract is already deployed to the contract_id
@@ -92,7 +92,7 @@ approve_ppids:
 build_docker_image:
   enabled: true
   # Fill this out with the docker tag you want to use. For example: pivortex/my-first-agent
-  tag: pivortex/my-test-agent
+  tag: 
   cache: true
   dockerfile_path: ../Dockerfile
   reproducible_build: true
@@ -104,7 +104,7 @@ deploy_to_phala:
   enabled: true
   app_name: my-test-agent
   env_file_path: ./.env
-  dstack_version: 0.5.7
+  dstack_version: 0.5.8
   instance_type: tdx.small
 
 # Helper command to whitelist an agent for local mode
