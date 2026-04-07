@@ -92,7 +92,7 @@ approve_ppids:
 build_docker_image:
   enabled: true
   # Fill this out with the docker tag you want to use. For example: pivortex/my-first-agent
-  tag: 
+  tag: pivortex/my-test-agent
   cache: true
   dockerfile_path: ../Dockerfile
   reproducible_build: false
