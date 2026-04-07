@@ -41,7 +41,7 @@ function deriveHashFromPath(derivationPath: string): Buffer {
   return createHash("sha256").update(Buffer.from(derivationPath)).digest();
 }
 
-// Derives a hash from random data (for non-TEE, non-deterministic generation)
+// Derives a hash from random data (for non-TEE)
 function deriveHashFromRandom(): Buffer {
   const randomArray = new Uint8Array(32);
   crypto.getRandomValues(randomArray);
@@ -49,7 +49,7 @@ function deriveHashFromRandom(): Buffer {
   return createHash("sha256").update(Buffer.from(randomString)).digest();
 }
 
-// Derives a hash using TEE hardware entropy
+// Derives a hash for TEE
 async function deriveHashForTEE(dstackClient: DstackClient): Promise<Buffer> {
   // JS crypto random
   const randomArray = new Uint8Array(32);
@@ -58,7 +58,7 @@ async function deriveHashForTEE(dstackClient: DstackClient): Promise<Buffer> {
 
   const keyFromTee = (await dstackClient.getKey(randomString)).key;
 
-  // Hash of JS crypto random and TEE entropy
+  // Hash of JS crypto random and Phala key provider 
   return Buffer.from(
     await crypto.subtle.digest(
       "SHA-256",
@@ -86,7 +86,7 @@ async function deriveHash(
     hash = deriveHashFromRandom();
     usedTEE = false;
   } else {
-    // If it is in a TEE generate a hash from the entropy from the TEE hardware and a random string
+    // If it is in a TEE generate a hash from the Phala key provider and JS crypto random
     hash = await deriveHashForTEE(dstackClient);
     usedTEE = true;
   }
