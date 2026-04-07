@@ -207,6 +207,10 @@ The Shade Agent CLI supports specific Phala Cloud / Dstack configurations, as li
 
 `tdx.small`, `tdx.medium`, `tdx.large`, `tdx.xlarge`, `tdx.2xlarge`, `tdx.4xlarge`, `tdx.8xlarge`
 
+**QEMU versions:**
+
+`8.2.2`
+
 **App compose configs:**
 - Pre Launch Script: v0.0.13
 
