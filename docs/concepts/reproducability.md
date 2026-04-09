@@ -8,12 +8,12 @@ There are quite a few layers of a Shade Agent to verify:
 - [TEE Physical Location](#tee-physical-location)
 - [Application](#application)
   - App compose hash
-- [Trusted Domain, Hardware, and OS](#trusted-domain-hardware-and-os-measurements)
+- [Trusted Domain, Hardware, and OS](#trusted-domain-hardware-and-os)
   - MRTD
   - RTMR0
   - RTMR1
   - RTMR2
-- [Key Provider](#key-provider-measurements)
+- [Key Provider](#key-provider)
   - Key provider event digest
 - [Secure Connection](#secure-connection)
   - TLS certificates
@@ -62,7 +62,7 @@ near contract call-function as-read-only CONTRACT_ID get_agents json-args {}
 near contract call-function as-read-only CONTRACT_ID get_agent json-args '{"account_id": "AGENT_ACCOUNT_ID"}'
 ```
 
-You can then request a list of PPIDs from the TEE provider. Most commonly all PPIDs on Phala Cloud are approved, Phala have published a list of their PPIDs at https://cloud-api.phala.network/api/v1/attestations/ppids. The cloud provider may publish information about which data centers the machines are located in via the machine's PPID.
+You can then request a list of PPIDs from the TEE provider. Most commonly all PPIDs on Phala Cloud are approved, Phala has published a list of their PPIDs at https://cloud-api.phala.network/api/v1/attestations/ppids. The cloud provider may publish information about which data centers the machines are located in via the machine's PPID.
 
 ---
 
@@ -202,7 +202,7 @@ Record the output of the script.
 
 Deploy your agent or build your Docker image using the Shade Agent CLI with reproducible builds. Here is an example YAML file for a [production deployment](../../shade-agent-cli/example-deployment-files/example-3.yaml).
 
-You should then publish your code with the Git commit hash and the output of the the previous script.
+You should then publish your code with the Git commit hash and the output of the previous script.
 
 ---
 
