@@ -13,7 +13,7 @@ There are quite a few layers of a Shade Agent to verify:
   - RTMR0
   - RTMR1
   - RTMR2
-- [Key Provider](#key-provider-measurements) (TODO)
+- [Key Provider](#key-provider-measurements)
   - Key provider event digest
 - [Secure Connection](#secure-connection)
   - TLS certificates
