@@ -1,0 +1,1 @@
+Portions of this documentation are derived from the NEAR MPC repository https://github.com/near/mpc (MIT License) and Phala Cloud documentation https://docs.phala.com/.
