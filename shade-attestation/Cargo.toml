@@ -9,20 +9,20 @@ homepage = "https://github.com/neardefi/shade-agent-framework/tree/main/shade-at
 readme = "README.md"
 
 [dependencies]
-borsh = { version = "1.6.0", features = ["derive"] }
-dcap-qvl = { version = "0.3.12", default-features = false, features = ["contract", "borsh", "std", "ring"] }
-derive_more = { version = "2.0.1", features = ["from", "deref", "into", "as_ref", "constructor"] }
-dstack-sdk-types = { version = "0.1.0", features = ["borsh"] }
-hex = { version = "0.4.3", features = ["serde"] }
-serde = { version = "1.0.225", features = ["derive"] }
-serde_json = "1.0.132"
-serde_with = { version = "3.14.0", features = ["hex"] }
-sha2 = "0.10.9"
-thiserror = "2.0.12"
-tracing = "0.1.40"
+borsh = { version = "=1.6.1", features = ["derive"] }
+dcap-qvl = { version = "=0.4.0", default-features = false, features = ["contract", "borsh", "std", "ring", "default-x509"] }
+derive_more = { version = "=2.1.1", features = ["from", "deref", "into", "as_ref", "constructor"] }
+dstack-sdk-types = { version = "=0.1.2", features = ["borsh"] }
+hex = { version = "=0.4.3", features = ["serde"] }
+serde = { version = "=1.0.228", features = ["derive"] }
+serde_json = "=1.0.149"
+serde_with = { version = "=3.17.0", features = ["hex"] }
+sha2 = "=0.10.9"
+thiserror = "=2.0.18"
+tracing = "=0.1.44"
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom = { version = "0.2", features = ["custom"] }
+getrandom = { version = "=0.2.17", features = ["custom"] }
 
 [dev-dependencies]
-rstest = "0.25.0"
+rstest = "=0.25.0"
