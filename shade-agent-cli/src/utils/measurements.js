@@ -129,13 +129,15 @@ export function calculateAppComposeHash(
 
   const appCompose = buildAppComposeForDeploy(dockerComposeFile, allowedEnvs);
 
-  // Convert to JSON string (minified, matching the example format)
+  return hashAppCompose(appCompose);
+}
+
+// SHA-256 of the canonical JSON encoding of an app-compose object.
+// Use directly when you already have the compose object in hand (e.g. mid-deploy
+// hash check) instead of re-reading the file via calculateAppComposeHash.
+export function hashAppCompose(appCompose) {
   const jsonString = JSON.stringify(appCompose);
-
-  // Calculate SHA256 hash
-  const hash = crypto.createHash("sha256").update(jsonString).digest("hex");
-
-  return hash;
+  return crypto.createHash("sha256").update(jsonString).digest("hex");
 }
 
 const localMeasurements = {

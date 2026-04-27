@@ -1,7 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { createClient, deployAppAuth, encryptEnvVars, parseEnvVars } from "@phala/cloud";
-import { buildAppComposeForDeploy } from "./measurements.js";
+import { buildAppComposeForDeploy, hashAppCompose } from "./measurements.js";
 
 const CLOUD_URL = "https://cloud.phala.com";
 
@@ -96,6 +96,19 @@ async function deploy_new_cvm(client, docker_compose_yml, env_vars, args, allowe
   );
 
   const provision = await client.provisionCvm(provision_payload);
+
+  // Verify Phala's compose_hash matches what we computed locally. If they
+  // diverge, the on-chain approved measurement won't match the hash dstack
+  // will measure inside the CVM, and the agent won't be able to register.
+  // Abort before commitCvmProvision so nothing gets deployed.
+  const localComposeHash = hashAppCompose(compose_file);
+  if (provision.compose_hash !== localComposeHash) {
+    throw new Error(
+      `Compose hash mismatch — Phala returned ${provision.compose_hash}, ` +
+        `locally computed ${localComposeHash}. The on-chain approved hash ` +
+        `would not match what dstack measures at boot.`,
+    );
+  }
 
   //
   // Step 3: Deploy based on KMS type
