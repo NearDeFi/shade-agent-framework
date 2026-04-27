@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import chalk from "chalk";
 import { createClient, deployAppAuth, encryptEnvVars, parseEnvVars } from "@phala/cloud";
 import { buildAppComposeForDeploy, hashAppCompose } from "./measurements.js";
 
@@ -103,11 +104,14 @@ async function deploy_new_cvm(client, docker_compose_yml, env_vars, args, allowe
   // Abort before commitCvmProvision so nothing gets deployed.
   const localComposeHash = hashAppCompose(compose_file);
   if (provision.compose_hash !== localComposeHash) {
-    throw new Error(
-      `Compose hash mismatch — Phala returned ${provision.compose_hash}, ` +
-        `locally computed ${localComposeHash}. The on-chain approved hash ` +
-        `would not match what dstack measures at boot.`,
+    console.log(
+      chalk.red(
+        `Error: compose hash mismatch — Phala returned ${provision.compose_hash}, ` +
+          `locally computed ${localComposeHash}. The on-chain approved hash ` +
+          `would not match what dstack measures at boot.`,
+      ),
     );
+    process.exit(1);
   }
 
   //
