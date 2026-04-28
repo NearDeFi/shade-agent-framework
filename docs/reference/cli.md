@@ -176,8 +176,8 @@ Placeholders in args:
 | **enabled** | No | If `false`, deployment to Phala Cloud is skipped. |
 | **app_name** | Yes | Phala Cloud app (CVM) name. |
 | **env_file_path** | Yes | Path to the environment variables file loaded when deploying to Phala (e.g. `./.env`). |
-| **dstack_version** | Yes | The dstack OS image version to deploy with and to use when calculating measurements (e.g. `0.5.8`). |
-| **instance_type** | Yes | The hardware instance type to deploy with and to use when calculating measurements (e.g. `tdx.small`, `tdx.medium`, `tdx.large`). |
+| **dstack_version** | Yes | The dstack OS image version to deploy with and to use when calculating measurements. Supported: `0.5.7`, `0.5.8`. |
+| **instance_type** | Yes | The hardware instance type to deploy with and to use when calculating measurements. Supported: `tdx.small`, `tdx.medium`, `tdx.large`, `tdx.xlarge`, `tdx.2xlarge`, `tdx.4xlarge`, `tdx.8xlarge`. |
 
 ### whitelist_agent_for_local (local only)
 

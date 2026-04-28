@@ -1,11 +1,13 @@
 import { readFileSync, existsSync } from "fs";
 import path from "path";
+import chalk from "chalk";
 import { parse as parseYaml } from "yaml";
 import { KeyPairSigner } from "@near-js/signers";
 import { JsonRpcProvider } from "@near-js/providers";
 import { Account } from "@near-js/accounts";
 import { platform } from "os";
 import { getNearCredentials, getPhalaKey } from "./keystore.js";
+import { hardwareAndOSMeasurements } from "./measurements.js";
 
 function detectOS() {
   const platformName = platform();
@@ -45,7 +47,7 @@ export function parseDeploymentConfig(deploymentPath) {
   // Validation helpers
   const requireField = (cond, message) => {
     if (!cond) {
-      console.log(`deployment.yaml invalid: ${message}`);
+      console.log(chalk.red(`Error: deployment.yaml invalid: ${message}`));
       process.exit(1);
     }
   };
@@ -238,24 +240,29 @@ export function parseDeploymentConfig(deploymentPath) {
       "deploy_to_phala.app_name is required",
     );
     if (environment === "TEE") {
-      if (
-        deploy_to_phala.dstack_version !== undefined &&
-        typeof deploy_to_phala.dstack_version !== "string"
-      ) {
-        requireField(
-          false,
-          "deploy_to_phala.dstack_version must be a string",
-        );
-      }
-      if (
-        deploy_to_phala.instance_type !== undefined &&
-        typeof deploy_to_phala.instance_type !== "string"
-      ) {
-        requireField(
-          false,
-          "deploy_to_phala.instance_type must be a string",
-        );
-      }
+      const supportedVersions = Object.keys(hardwareAndOSMeasurements);
+      requireField(
+        typeof deploy_to_phala.dstack_version === "string" &&
+          deploy_to_phala.dstack_version.length > 0,
+        `deploy_to_phala.dstack_version is required (one of: ${supportedVersions.join(", ")})`,
+      );
+      requireField(
+        supportedVersions.includes(deploy_to_phala.dstack_version),
+        `deploy_to_phala.dstack_version "${deploy_to_phala.dstack_version}" is not supported (one of: ${supportedVersions.join(", ")})`,
+      );
+
+      const supportedInstanceTypes = Object.keys(
+        hardwareAndOSMeasurements[deploy_to_phala.dstack_version],
+      );
+      requireField(
+        typeof deploy_to_phala.instance_type === "string" &&
+          deploy_to_phala.instance_type.length > 0,
+        `deploy_to_phala.instance_type is required (one of: ${supportedInstanceTypes.join(", ")})`,
+      );
+      requireField(
+        supportedInstanceTypes.includes(deploy_to_phala.instance_type),
+        `deploy_to_phala.instance_type "${deploy_to_phala.instance_type}" is not supported for dstack ${deploy_to_phala.dstack_version} (one of: ${supportedInstanceTypes.join(", ")})`,
+      );
     }
   }
 
@@ -340,8 +347,8 @@ export function parseDeploymentConfig(deploymentPath) {
         ? {
             env_file_path: deploy_to_phala.env_file_path,
             app_name: deploy_to_phala.app_name,
-            dstack_version: deploy_to_phala.dstack_version || "0.5.8",
-            instance_type: deploy_to_phala.instance_type || "tdx.small",
+            dstack_version: deploy_to_phala.dstack_version,
+            instance_type: deploy_to_phala.instance_type,
           }
         : undefined,
     whitelist_agent_for_local: whitelist_agent_for_local

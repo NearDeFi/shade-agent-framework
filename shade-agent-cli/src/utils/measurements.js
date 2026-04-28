@@ -154,7 +154,7 @@ const localMeasurements = {
 const KEY_PROVIDER_EVENT_DIGEST =
   "83368b43a0fc6f824f5a9220592df85fd30e2d405ecbd253a5c6354af63e6c9b41aec557c38a38e348ab87f9ac8fc68c";
 
-const hardwareAndOSMeasurements = {
+export const hardwareAndOSMeasurements = {
   "0.5.8": {
     "tdx.small": {
       "rtmrs": {
