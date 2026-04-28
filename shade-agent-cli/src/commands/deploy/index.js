@@ -14,6 +14,7 @@ import {
 import { deployPhalaWorkflow } from "./phala.js";
 import { getConfig } from "../../utils/config.js";
 import { createCommandErrorHandler } from "../../utils/error-handler.js";
+import { confirmDestructiveRedeployIfAccountExists } from "../../utils/destructive-redeploy.js";
 
 export function deployCommand() {
   const cmd = new Command("deploy");
@@ -26,6 +27,12 @@ export function deployCommand() {
     try {
       // Load config at the start of deploy
       const config = await getConfig();
+
+      // Hard confirmation BEFORE any other work (docker build, measurements,
+      // Phala provisioning, account delete). If deploy_custom is true and the
+      // contract account already exists, the user must type "yes" to allow
+      // the irreversible state + asset wipe.
+      await confirmDestructiveRedeployIfAccountExists();
 
       if (
         config.deployment.environment === "TEE" &&
