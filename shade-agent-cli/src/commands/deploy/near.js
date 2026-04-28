@@ -1,6 +1,6 @@
 import fs from "fs";
 import path from "path";
-import { execSync, execFileSync } from "child_process";
+import { execFileSync } from "child_process";
 import { NEAR } from "@near-js/tokens";
 import chalk from "chalk";
 import bs58 from "bs58";
@@ -8,7 +8,7 @@ import { getConfig } from "../../utils/config.js";
 import { replacePlaceholders } from "../../utils/placeholders.js";
 import { tgasToGas } from "../../utils/near.js";
 import { checkTransactionOutcome } from "../../utils/transaction-outcome.js";
-import { getSudoPrefix } from "../../utils/docker-utils.js";
+import { dockerExec, runWithSudoOnLinux } from "../../utils/docker-utils.js";
 import { getMeasurements } from "../../utils/measurements.js";
 import { getPpids } from "../../utils/ppids.js";
 
@@ -197,7 +197,6 @@ export async function deployCustomContractFromSource() {
     const absoluteSourcePath = path.resolve(process.cwd(), sourcePath);
     console.log(`Building the contract from source`);
 
-    const sudoPrefix = getSudoPrefix();
     const reproducible =
       config.deployment.agent_contract.deploy_custom.reproducible_build ===
       true;
@@ -209,8 +208,13 @@ export async function deployCustomContractFromSource() {
         { cwd: absoluteSourcePath, stdio: "inherit" },
       );
     } else {
-      execSync(
-        `${sudoPrefix}docker run --rm -v "${absoluteSourcePath}":/workspace pivortex/near-builder:latest cargo near build non-reproducible-wasm --no-abi`,
+      dockerExec(
+        [
+          "run", "--rm",
+          "-v", `${absoluteSourcePath}:/workspace`,
+          "pivortex/near-builder:latest",
+          "cargo", "near", "build", "non-reproducible-wasm", "--no-abi",
+        ],
         { stdio: "pipe" },
       );
     }
@@ -221,9 +225,11 @@ export async function deployCustomContractFromSource() {
     if (!reproducible && process.platform === "linux") {
       const uid = process.getuid();
       const gid = process.getgid();
-      execSync(`${sudoPrefix}chown ${uid}:${gid} "${wasmPath}"`, {
-        stdio: "pipe",
-      });
+      runWithSudoOnLinux(
+        "chown",
+        [`${uid}:${gid}`, wasmPath],
+        { stdio: "pipe" },
+      );
     }
 
     await innerDeployCustomContractFromWasm(wasmPath);
