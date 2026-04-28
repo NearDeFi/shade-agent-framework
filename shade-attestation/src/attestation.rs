@@ -80,7 +80,7 @@ pub enum VerificationError {
         attestation_time: u64,
         expiry_time: u64,
     },
-    #[error("PPID must be 32 bytes, got {0}")]
+    #[error("PPID must be 16 bytes, got {0}")]
     PpidWrongSize(usize),
     #[error("the mock attestation is invalid per definition")]
     InvalidMockAttestation,
