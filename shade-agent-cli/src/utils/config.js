@@ -14,7 +14,9 @@ function detectOS() {
   if (platformName === "darwin") return "mac";
   if (platformName === "linux") return "linux";
   console.log(
-    `Unsupported OS: ${platformName}. Only mac and linux are supported currently.`,
+    chalk.red(
+      `Error: unsupported OS: ${platformName}. Only mac and linux are supported currently.`,
+    ),
   );
   process.exit(1);
 }
@@ -23,7 +25,9 @@ function detectOS() {
 export function parseDeploymentConfig(deploymentPath) {
   if (!existsSync(deploymentPath)) {
     console.log(
-      `deployment.yaml not found at ${deploymentPath}, you need to configure your deployment.yaml file`,
+      chalk.red(
+        `Error: deployment.yaml not found at ${deploymentPath}, you need to configure your deployment.yaml file`,
+      ),
     );
     process.exit(1);
   }
@@ -426,16 +430,20 @@ export async function getConfig() {
   // Get network from deployment config
   const networkId = deploymentConfig?.network;
   if (!networkId) {
-    console.log("Network is required in deployment.yaml");
+    console.log(chalk.red("Error: network is required in deployment.yaml"));
     process.exit(1);
   }
 
   // Fetch NEAR credentials from keystore based on network
   const credentials = await getNearCredentials(networkId);
   if (!credentials) {
-    console.log(`No master account found for ${networkId} network.`);
     console.log(
-      `Please run 'shade auth set' to set master account for ${networkId}.`,
+      chalk.red(`Error: no master account found for ${networkId} network.`),
+    );
+    console.log(
+      chalk.red(
+        `Please run 'shade auth set' to set master account for ${networkId}.`,
+      ),
     );
     process.exit(1);
   }
@@ -449,8 +457,14 @@ export async function getConfig() {
   ) {
     phalaKey = await getPhalaKey();
     if (!phalaKey) {
-      console.log("PHALA API key is required for Phala Cloud deployments.");
-      console.log("Please run 'shade auth set' to store the PHALA API key.");
+      console.log(
+        chalk.red(
+          "Error: PHALA API key is required for Phala Cloud deployments.",
+        ),
+      );
+      console.log(
+        chalk.red("Please run 'shade auth set' to store the PHALA API key."),
+      );
       process.exit(1);
     }
   }

@@ -14,8 +14,9 @@ const WARNING_PATH = path.join(__dirname, "destructive-redeploy-warning.txt");
 // any other deploy step runs (no docker build, no measurements, no Phala API).
 //
 // Acceptance: trim(answer) === "yes" exactly. Anything else — Enter, "y",
-// "Yes", "no", typo, Ctrl+C — aborts with exit 0 (cancel is a deliberate
-// choice, not an error; exit 1 would trip CI alarms).
+// "Yes", "no", typo, Ctrl+C — aborts with exit 1. The deploy did not complete,
+// and CI / scripting wrappers should treat an aborted destructive redeploy as
+// failure (not success) per the CLI's error convention in CLAUDE.md.
 export async function confirmDestructiveRedeployIfAccountExists() {
   const config = await getConfig();
   const deployCustom = config.deployment?.agent_contract?.deploy_custom;
@@ -52,12 +53,12 @@ export async function confirmDestructiveRedeployIfAccountExists() {
   } catch (_e) {
     // ExitPromptError (Ctrl+C) or non-TTY EOF — treat as cancel.
     console.log(chalk.red("\nAborted: type 'yes' to proceed."));
-    process.exit(0);
+    process.exit(1);
   }
 
   if (answer.trim() !== "yes") {
     console.log(chalk.red("Aborted: type 'yes' to proceed."));
-    process.exit(0);
+    process.exit(1);
   }
 }
 
