@@ -31,8 +31,10 @@ export function deployCommand() {
       // Hard confirmation BEFORE any other work (docker build, measurements,
       // Phala provisioning, account delete). If deploy_custom is true and the
       // contract account already exists, the user must type "yes" to allow
-      // the irreversible state + asset wipe.
-      await confirmDestructiveRedeployIfAccountExists();
+      // the irreversible state + asset wipe. The on-chain state is fetched
+      // here so createAccount() doesn't have to probe again.
+      const contractAccountState =
+        await confirmDestructiveRedeployIfAccountExists();
 
       if (
         config.deployment.environment === "TEE" &&
@@ -41,7 +43,7 @@ export function deployCommand() {
         await dockerImage();
       }
       if (config.deployment.agent_contract.deploy_custom) {
-        await createAccount();
+        await createAccount(contractAccountState ?? null);
 
         if (config.deployment.agent_contract.deploy_custom.source_path) {
           await deployCustomContractFromSource();

@@ -2,9 +2,10 @@
  * Unit tests for src/utils/destructive-redeploy.js — confirmation branches.
  *
  * Coverage:
- *  - deploy_custom absent → returns immediately, prompt is not shown.
- *  - account does NOT exist (AccountDoesNotExist) → returns immediately.
- *  - account exists + user types "yes" → returns normally; no process.exit.
+ *  - deploy_custom absent → returns undefined; prompt is not shown.
+ *  - account does NOT exist (AccountDoesNotExist) → returns null.
+ *  - account exists + user types "yes" → returns the on-chain state object
+ *    so createAccount can reuse it (no second RPC probe).
  *  - account exists + "yes " (trailing whitespace) → accepted via trim().
  *  - account exists + "y", "Yes", "" (Enter) → process.exit(1).
  *  - account exists + input throws (Ctrl+C / EOF) → process.exit(1).
@@ -33,11 +34,13 @@ const { confirmDestructiveRedeployIfAccountExists } = await import(
   "../../src/utils/destructive-redeploy.js"
 );
 
+const FAKE_STATE = { balance: { total: "1000000000000000000000000" } };
+
 const accountExists = (id) => ({
   deployment: {
     agent_contract: { contract_id: id, deploy_custom: { source_path: "./x" } },
   },
-  contractAccount: { getState: vi.fn().mockResolvedValue({}) },
+  contractAccount: { getState: vi.fn().mockResolvedValue(FAKE_STATE) },
 });
 
 const accountMissing = (id) => ({
@@ -62,30 +65,35 @@ describe("confirmDestructiveRedeployIfAccountExists", () => {
   });
 
   // Without deploy_custom there's nothing destructive to confirm — return
-  // immediately, never prompt.
-  it("returns immediately when deploy_custom is absent", async () => {
+  // undefined immediately, never prompt.
+  it("returns undefined when deploy_custom is absent", async () => {
     vi.mocked(getConfig).mockResolvedValue({
       deployment: { agent_contract: { contract_id: "x.testnet" } },
       contractAccount: { getState: vi.fn() },
     });
-    await confirmDestructiveRedeployIfAccountExists();
+    const result = await confirmDestructiveRedeployIfAccountExists();
+    expect(result).toBeUndefined();
     expect(mockInput).not.toHaveBeenCalled();
     expect(exitSpy).not.toHaveBeenCalled();
   });
 
-  // No account on-chain ⇒ nothing to delete ⇒ no prompt.
-  it("returns immediately when the contract account doesn't exist", async () => {
+  // No account on-chain ⇒ nothing to delete ⇒ no prompt; returns null so
+  // createAccount knows there's nothing to delete and skips its RPC probe.
+  it("returns null when the contract account doesn't exist", async () => {
     vi.mocked(getConfig).mockResolvedValue(accountMissing("x.testnet"));
-    await confirmDestructiveRedeployIfAccountExists();
+    const result = await confirmDestructiveRedeployIfAccountExists();
+    expect(result).toBeNull();
     expect(mockInput).not.toHaveBeenCalled();
     expect(exitSpy).not.toHaveBeenCalled();
   });
 
-  // Confirmation flow: typing exactly "yes" continues without exit.
-  it("returns normally when the user types 'yes'", async () => {
+  // Confirmation flow: typing exactly "yes" continues and returns the state
+  // object so callers can reuse it without re-probing the RPC.
+  it("returns the prefetched account state when the user types 'yes'", async () => {
     vi.mocked(getConfig).mockResolvedValue(accountExists("x.testnet"));
     mockInput.mockResolvedValue("yes");
-    await confirmDestructiveRedeployIfAccountExists();
+    const result = await confirmDestructiveRedeployIfAccountExists();
+    expect(result).toBe(FAKE_STATE);
     expect(mockInput).toHaveBeenCalledOnce();
     expect(exitSpy).not.toHaveBeenCalled();
   });

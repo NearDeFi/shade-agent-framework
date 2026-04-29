@@ -15,8 +15,26 @@ import { getPpids } from "../../utils/ppids.js";
 // Sleep for the specified number of milliseconds for nonce problems
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// Create the contract account
-export async function createAccount() {
+// Create the contract account.
+//
+// `prefetchedState` MUST be supplied by the caller — typically it's the
+// return value of confirmDestructiveRedeployIfAccountExists(), which has
+// already probed contractAccount.getState() once. Passing it in avoids a
+// second RPC round-trip and keeps the existence check the single source of
+// truth. Contract:
+//   - state object → account exists; will be deleted before recreation
+//   - null         → account does not exist (no delete needed)
+//   - undefined    → caller forgot to pass it; this is a programming error
+export async function createAccount(prefetchedState) {
+  if (prefetchedState === undefined) {
+    console.log(
+      chalk.red(
+        "Error: createAccount requires the contract account state to be prefetched (call confirmDestructiveRedeployIfAccountExists first).",
+      ),
+    );
+    process.exit(1);
+  }
+
   const config = await getConfig();
   const contractId = config.deployment.agent_contract.contract_id;
   const masterAccount = config.masterAccount;
@@ -24,28 +42,17 @@ export async function createAccount() {
   const fundingAmount =
     config.deployment.agent_contract.deploy_custom.funding_amount;
 
-  // Check if master account has enough balance (including contract account balance if it exists)
+  // Check if master account has enough balance (including contract account
+  // balance if it exists — that NEAR is returned to master on delete).
   const requiredBalance = fundingAmount + 0.1;
   const masterBalance = await masterAccount.getBalance(NEAR);
   const masterBalanceDecimal = parseFloat(NEAR.toDecimal(masterBalance));
 
-  // Get contract account balance if it exists (will be returned to master when deleted)
-  let contractAccountExists = false;
+  const state = prefetchedState;
+  const contractAccountExists = state !== null;
   let contractBalanceDecimal = 0;
-  try {
-    const state = await contractAccount.getState();
-    contractAccountExists = true;
-    // Extract balance from state
-    if (state && state.balance && state.balance.total) {
-      const contractBalance = state.balance.total;
-      contractBalanceDecimal = parseFloat(NEAR.toDecimal(contractBalance));
-    }
-  } catch (e) {
-    // Contract account doesn't exist, balance is 0 - this is fine
-    if (e.type !== "AccountDoesNotExist") {
-      console.log(chalk.red(`Error: ${e.message}`));
-      process.exit(1);
-    }
+  if (contractAccountExists && state.balance && state.balance.total) {
+    contractBalanceDecimal = parseFloat(NEAR.toDecimal(state.balance.total));
   }
 
   const totalBalance = masterBalanceDecimal + contractBalanceDecimal;

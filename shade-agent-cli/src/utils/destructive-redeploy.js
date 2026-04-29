@@ -17,19 +17,22 @@ const WARNING_PATH = path.join(__dirname, "destructive-redeploy-warning.txt");
 // "Yes", "no", typo, Ctrl+C — aborts with exit 1. The deploy did not complete,
 // and CI / scripting wrappers should treat an aborted destructive redeploy as
 // failure (not success) per the CLI's error convention in CLAUDE.md.
+//
+// Returns the on-chain account state when the account exists (so callers can
+// reuse it instead of probing again), null when it doesn't, or undefined when
+// the check was skipped (deploy_custom absent, or no contract id / account).
 export async function confirmDestructiveRedeployIfAccountExists() {
   const config = await getConfig();
   const deployCustom = config.deployment?.agent_contract?.deploy_custom;
-  if (!deployCustom) return;
+  if (!deployCustom) return undefined;
 
   const contractAccount = config.contractAccount;
   const contractId = config.deployment.agent_contract.contract_id;
-  if (!contractAccount || !contractId) return;
+  if (!contractAccount || !contractId) return undefined;
 
-  let exists = false;
+  let state = null;
   try {
-    await contractAccount.getState();
-    exists = true;
+    state = await contractAccount.getState();
   } catch (e) {
     if (e.type !== "AccountDoesNotExist") {
       console.log(
@@ -39,8 +42,9 @@ export async function confirmDestructiveRedeployIfAccountExists() {
       );
       process.exit(1);
     }
+    state = null;
   }
-  if (!exists) return;
+  if (!state) return null;
 
   const rawText = fs.readFileSync(WARNING_PATH, "utf8");
   const text = rawText.replace("<ACCOUNT_ID>", contractId);
@@ -60,6 +64,8 @@ export async function confirmDestructiveRedeployIfAccountExists() {
     console.log(chalk.red("Aborted: type 'yes' to proceed."));
     process.exit(1);
   }
+
+  return state;
 }
 
 function printBanner(text) {
