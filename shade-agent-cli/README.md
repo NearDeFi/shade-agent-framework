@@ -28,6 +28,20 @@ Run `shade` with no arguments for the interactive menu.
 
 The CLI docs are available [here](../docs/reference/cli.md).
 
+## Tests
+
+Unit tests cover compose-hash computation, shell-arg construction, transaction-outcome decoding, placeholder substitution, PPID fetch, and the `shade deploy` orchestration including the destructive-redeploy confirmation flow:
+
+```bash
+npm test
+```
+
+Coverage:
+
+```bash
+npm run test:coverage
+```
+
 ## Example deployment.yaml
 
 You can find example deployment files in the [example-deployment-files](./example-deployment-files) directory.
