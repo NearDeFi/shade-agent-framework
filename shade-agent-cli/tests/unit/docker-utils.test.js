@@ -6,7 +6,7 @@
  *  - dockerExec: invokes execFileSync with the right (file, args) tuple,
  *    switching to `sudo docker ...` on Linux.
  *  - runWithSudoOnLinux: same shape for arbitrary commands (e.g. chown).
- *  - SAF-020 regression: malicious arguments stay as ONE argv element — never
+ *  - Malicious arguments stay as ONE argv element — never
  *    parsed by a shell.
  *
  * Notes:
@@ -69,7 +69,7 @@ describe("docker-utils", () => {
       );
     });
 
-    // SAF-020 regression: a tag like 'foo; rm -rf /' must be a SINGLE argv
+    // A tag like 'foo; rm -rf /' must be a SINGLE argv
     // element — proves no shell is involved and shell metacharacters are inert.
     it("passes a malicious tag as a single argv element (no shell)", () => {
       vi.mocked(platform).mockReturnValue("darwin");

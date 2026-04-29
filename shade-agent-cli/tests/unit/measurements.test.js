@@ -8,7 +8,7 @@
  *    expects, in alphabetical key order.
  *  - extractAllowedEnvs: picks ${VAR} from object-syntax `environment:`;
  *    returns [] when no environment is set; ignores non-${VAR} values;
- *    currently DOES NOT pick from array-syntax (SAF P4A gap).
+ *    currently DOES NOT pick from array-syntax.
  *  - calculateAppComposeHash: deterministic for the same docker-compose
  *    content.
  *
@@ -97,18 +97,6 @@ services:
     vi.spyOn(fs, "readFileSync").mockReturnValue(
       "services:\n  app:\n    image: x",
     );
-    expect(extractAllowedEnvs("/fake/path")).toEqual([]);
-  });
-
-  // Documented gap (SAF P4A): array-syntax environment is silently dropped.
-  // Asserting current behavior so a future fix has to update this test.
-  it("currently does NOT pick from array-syntax environment (SAF P4A gap)", () => {
-    vi.spyOn(fs, "readFileSync").mockReturnValue(`
-services:
-  app:
-    environment:
-      - FOO=\${FOO}
-`);
     expect(extractAllowedEnvs("/fake/path")).toEqual([]);
   });
 

@@ -14,7 +14,8 @@ const CLOUD_URL = "https://cloud.phala.com";
 
 function assert_not_null(condition, message) {
   if (condition === null || condition === undefined) {
-    throw new Error(message);
+    console.log(chalk.red(`Error: ${message}`));
+    process.exit(1);
   }
   return condition;
 }
@@ -67,10 +68,18 @@ async function deploy_new_cvm(client, docker_compose_yml, env_vars, args, allowe
   const is_onchain_kms = kms_type === "ETHEREUM" || kms_type === "BASE";
   if (is_onchain_kms) {
     if (!private_key) {
-      throw new Error("--private-key is required for on-chain KMS deployment");
+      console.log(
+        chalk.red(
+          "Error: --private-key is required for on-chain KMS deployment",
+        ),
+      );
+      process.exit(1);
     }
     if (!rpc_url) {
-      throw new Error("--rpc-url is required for on-chain KMS deployment");
+      console.log(
+        chalk.red("Error: --rpc-url is required for on-chain KMS deployment"),
+      );
+      process.exit(1);
     }
   }
 
@@ -212,23 +221,36 @@ async function deployToPhala(options) {
   const { appName, apiKey, composePath, envFilePath, allowedEnvKeys = null, dstackVersion, instanceType } = options;
 
   if (!dstackVersion) {
-    throw new Error("deploy_to_phala.dstack_version is required");
+    console.log(
+      chalk.red("Error: deploy_to_phala.dstack_version is required"),
+    );
+    process.exit(1);
   }
   if (!instanceType) {
-    throw new Error("deploy_to_phala.instance_type is required");
+    console.log(
+      chalk.red("Error: deploy_to_phala.instance_type is required"),
+    );
+    process.exit(1);
   }
 
   if (!appName || appName.length <= 3) {
-    throw new Error("App name must be longer than 3 characters");
+    console.log(
+      chalk.red("Error: app name must be longer than 3 characters"),
+    );
+    process.exit(1);
   }
   if (!apiKey) {
-    throw new Error("API key is required");
+    console.log(chalk.red("Error: API key is required"));
+    process.exit(1);
   }
   const resolvedComposePath = path.isAbsolute(composePath)
     ? composePath
     : path.resolve(process.cwd(), composePath);
   if (!fs.existsSync(resolvedComposePath)) {
-    throw new Error(`Compose file not found: ${resolvedComposePath}`);
+    console.log(
+      chalk.red(`Error: compose file not found: ${resolvedComposePath}`),
+    );
+    process.exit(1);
   }
 
   const composeContent = fs.readFileSync(resolvedComposePath, "utf8");

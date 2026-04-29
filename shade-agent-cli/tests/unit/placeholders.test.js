@@ -43,12 +43,17 @@ describe("replacePlaceholders", () => {
     expect(out).toEqual([7, 7]);
   });
 
-  // Already-parsed object input: recursive replacement on nested values
-  // (objects + arrays).
-  it("recursively substitutes placeholders in nested objects/arrays", () => {
-    const input = { a: { b: "<NAME>" }, c: ["<NAME>", "static"] };
-    const out = replacePlaceholders(input, { "<NAME>": "bob" });
-    expect(out).toEqual({ a: { b: "bob" }, c: ["bob", "static"] });
+  // Real production pattern (plan/index.js:301, deploy/near.js:311):
+  // `args` is a string from `deployment.yaml`'s `args: |` block scalar, but
+  // the replacement VALUE may be an already-built object (e.g. measurements)
+  // — JSON.stringify embeds it correctly into the JSON template.
+  it("substitutes an object replacement value via JSON.stringify", () => {
+    const measurements = { rtmrs: { mrtd: "abc" }, app_compose_hash: "h" };
+    const out = replacePlaceholders(
+      '{ "measurements": <MEASUREMENTS> }',
+      { "<MEASUREMENTS>": measurements },
+    );
+    expect(out).toEqual({ measurements });
   });
 
   // Replacements whose placeholder doesn't appear in args do nothing.

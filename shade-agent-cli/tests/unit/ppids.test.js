@@ -4,16 +4,25 @@
  * Coverage:
  *  - getPpids(false): returns the local-mode placeholder PPID without fetching.
  *  - getPpids(true) on 200 + array: returns the array verbatim.
- *  - getPpids(true) on non-OK: throws with status info.
- *  - getPpids(true) on non-array body: throws.
+ *  - getPpids(true) on non-OK: chalk.red + process.exit(1).
+ *  - getPpids(true) on non-array body: chalk.red + process.exit(1).
  *
  * Notes:
  *  - global.fetch is mocked per-test.
+ *  - process.exit is spied so abort assertions work without terminating
+ *    the test runner.
  */
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { getPpids } from "../../src/utils/ppids.js";
 
 describe("getPpids", () => {
+  let exitSpy;
+  beforeEach(() => {
+    exitSpy = vi.spyOn(process, "exit").mockImplementation((code) => {
+      throw new Error(`exit:${code}`);
+    });
+    vi.spyOn(console, "log").mockImplementation(() => {});
+  });
   afterEach(() => vi.restoreAllMocks());
 
   // Local mode never hits the network; returns a single zero-PPID sentinel.
@@ -34,23 +43,26 @@ describe("getPpids", () => {
     expect(await getPpids(true)).toEqual(ppids);
   });
 
-  // 5xx is a hard failure — abort rather than register against an empty list.
-  it("throws on a non-OK response", async () => {
+  // 5xx is a hard failure — abort with exit 1 rather than register against
+  // an empty PPID list.
+  it("exits 1 on a non-OK response", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: false,
       status: 503,
       statusText: "Service Unavailable",
     });
-    await expect(getPpids(true)).rejects.toThrow(/503/);
+    await expect(getPpids(true)).rejects.toThrow("exit:1");
+    expect(exitSpy).toHaveBeenCalledWith(1);
   });
 
   // Non-array body is a contract break — never silently coerce or wrap.
-  it("throws when the response body isn't an array", async () => {
+  it("exits 1 when the response body isn't an array", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
       json: async () => ({ unexpected: "shape" }),
     });
-    await expect(getPpids(true)).rejects.toThrow(/array/);
+    await expect(getPpids(true)).rejects.toThrow("exit:1");
+    expect(exitSpy).toHaveBeenCalledWith(1);
   });
 });

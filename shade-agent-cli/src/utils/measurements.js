@@ -2,6 +2,7 @@ import crypto from "crypto";
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
+import chalk from "chalk";
 import { parse } from "yaml";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -18,15 +19,19 @@ export function getMeasurements(isTee, dockerComposePath, dstackVersion, instanc
   }
 
   if (!dockerComposePath) {
-    throw new Error(
-      "dockerComposePath is required when isTee is true",
+    console.log(
+      chalk.red("Error: dockerComposePath is required when isTee is true"),
     );
+    process.exit(1);
   }
 
   if (!dstackVersion || !instanceType) {
-    throw new Error(
-      "dstack_version and instance_type (from deploy_to_phala) are required to calculate TEE measurements",
+    console.log(
+      chalk.red(
+        "Error: dstack_version and instance_type (from deploy_to_phala) are required to calculate TEE measurements",
+      ),
     );
+    process.exit(1);
   }
 
   return createTeeMeasurements(calculateAppComposeHash(dockerComposePath), dstackVersion, instanceType);
@@ -36,17 +41,23 @@ function createTeeMeasurements(appComposeHash, dstackVersion, instanceType) {
   const versionMeasurements = hardwareAndOSMeasurements[dstackVersion];
   if (!versionMeasurements) {
     const supported = Object.keys(hardwareAndOSMeasurements).join(", ");
-    throw new Error(
-      `Unsupported dstack_version "${dstackVersion}". Supported versions: ${supported}`,
+    console.log(
+      chalk.red(
+        `Error: unsupported dstack_version "${dstackVersion}". Supported versions: ${supported}`,
+      ),
     );
+    process.exit(1);
   }
 
   const hwMeasurements = versionMeasurements[instanceType];
   if (!hwMeasurements) {
     const supported = Object.keys(versionMeasurements).join(", ");
-    throw new Error(
-      `Unsupported instance_type "${instanceType}" for dstack_version "${dstackVersion}". Supported types: ${supported}`,
+    console.log(
+      chalk.red(
+        `Error: unsupported instance_type "${instanceType}" for dstack_version "${dstackVersion}". Supported types: ${supported}`,
+      ),
     );
+    process.exit(1);
   }
 
   return {

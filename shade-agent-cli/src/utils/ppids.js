@@ -1,3 +1,5 @@
+import chalk from "chalk";
+
 const PHALA_PPIDS_API_URL =
   "https://cloud-api.phala.network/api/v1/attestations/ppids";
 
@@ -10,14 +12,20 @@ export async function getPpids(isTee) {
 
   const response = await fetch(PHALA_PPIDS_API_URL);
   if (!response.ok) {
-    throw new Error(
-      `Failed to fetch PPIDs from Phala API: ${response.status} ${response.statusText}`,
+    console.log(
+      chalk.red(
+        `Error: failed to fetch PPIDs from Phala API: ${response.status} ${response.statusText}`,
+      ),
     );
+    process.exit(1);
   }
 
   const ppids = await response.json();
   if (!Array.isArray(ppids)) {
-    throw new Error("Phala PPIDs API did not return an array");
+    console.log(
+      chalk.red("Error: Phala PPIDs API did not return an array"),
+    );
+    process.exit(1);
   }
 
   return ppids;
