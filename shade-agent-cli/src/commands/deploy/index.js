@@ -43,7 +43,7 @@ export function deployCommand() {
         await dockerImage();
       }
       if (config.deployment.agent_contract.deploy_custom) {
-        await createAccount(contractAccountState ?? null);
+        await createAccount(contractAccountState);
 
         if (config.deployment.agent_contract.deploy_custom.source_path) {
           await deployCustomContractFromSource();
