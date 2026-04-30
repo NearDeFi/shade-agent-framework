@@ -25,4 +25,4 @@ tracing = "=0.1.44"
 getrandom = { version = "=0.2.17", features = ["custom"] }
 
 [dev-dependencies]
-rstest = "=0.25.0"
+rstest = "=0.26.1"
