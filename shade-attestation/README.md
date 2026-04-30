@@ -46,3 +46,11 @@ There is a hex implementation of the measurements structs for easier identificat
 ### Mock attestation, measurements and HexBytes
 
 There are functions for creating zero arrays for DstacKAttestation, measurements and HexBytes for easier local flow.
+
+## Tests
+
+Unit tests cover the verify chain (TCB status, report data, PPID gate, static RTMR and MRTD comparisons, app-compose hash, hash equality, event digest) and a measurements round-trip. Fixture-based tests run RTMR3 replay and the app-compose orchestration against a captured TcbInfo. Integration tests cover collateral parsing and app-compose deserialization.
+
+```bash
+cargo test
+```

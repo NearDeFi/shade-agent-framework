@@ -12,17 +12,17 @@
     "shade:cli": "node ../shade-agent-cli/src/cli.js"
   },
   "dependencies": {
-    "@hono/node-server": "^1.15.0",
+    "@hono/node-server": "1.19.14",
     "@neardefi/shade-agent-js": "file:../shade-agent-js",
-    "chainsig.js": "^1.1.11",
-    "cors": "^2.8.5",
-    "dotenv": "^16.5.0",
-    "ethers": "^6.11.1",
-    "hono": "^4.8.4",
-    "tsx": "^4.0.0"
+    "chainsig.js": "1.1.14",
+    "cors": "2.8.6",
+    "dotenv": "16.6.1",
+    "ethers": "6.16.0",
+    "hono": "4.12.14",
+    "tsx": "4.21.0"
   },
   "devDependencies": {
-    "@types/node": "^20.0.0",
-    "typescript": "^5.0.0"
+    "@types/node": "20.19.39",
+    "typescript": "5.9.3"
   }
 }

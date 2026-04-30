@@ -299,6 +299,8 @@ This will produce the hash of the Docker image and the app compose hash. It shou
 
 The Docker Compose file used to produce the app compose hash should always use a SHA256 digest instead of a tag like `latest`, otherwise the code served can change without the app compose hash changing.
 
+The same applies to your `Dockerfile`: every `FROM` line must pin its base image by digest (e.g. `FROM node:22-alpine@sha256:<64-hex>`), otherwise two machines can resolve the tag to different layers and the resulting image hash won't match. See `Dockerfile` in this repo for the pattern.
+
 ### Building the Reproduce Tool Yourself
 
 If you don't trust the published Shade Agent CLI, you can clone the [shade-agent-framework](https://github.com/neardefi/shade-agent-framework) repository, inspect the code, and run the reproduce command from source.

@@ -1,0 +1,26 @@
+DESTRUCTIVE ACTION — DEPLOY_CUSTOM REDEPLOY
+
+Account to be destroyed: <ACCOUNT_ID>
+
+Because deploy_custom is set to true, the CLI will DELETE this account
+and the contract currently deployed to it, then recreate it from scratch
+to redeploy the new contract.
+
+This will permanently destroy:
+  - All on-chain state stored by the contract (including any tracked
+    balances, registrations, configs, or other persisted data).
+  - All assets held by the account itself, including any fungible tokens,
+    non-fungible tokens, or other balances. These may not be able to be
+    recovered after deletion.
+
+You may also not be able to redeploy to the same account name afterwards.
+
+Before continuing, confirm that:
+  - The contract holds no valuable state you need to preserve.
+  - All fungible tokens, NFTs, and other assets associated with this
+    account have already been migrated to a different account.
+
+By typing "yes" you acknowledge the loss of all account state and assets
+and choose to proceed with the redeploy.
+
+Type "yes" to confirm:

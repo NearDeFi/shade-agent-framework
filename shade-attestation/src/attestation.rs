@@ -80,7 +80,7 @@ pub enum VerificationError {
         attestation_time: u64,
         expiry_time: u64,
     },
-    #[error("PPID must be 32 bytes, got {0}")]
+    #[error("PPID must be 16 bytes, got {0}")]
     PpidWrongSize(usize),
     #[error("the mock attestation is invalid per definition")]
     InvalidMockAttestation,
@@ -533,56 +533,431 @@ impl GetSingleEvent for TcbInfo {
     }
 }
 
-// Tests are not relevant since we don't check the contense of the app compose
-// #[cfg(test)]
-// #[allow(non_snake_case)]
-// mod tests {
-//     use super::*;
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::measurements::{FullMeasurements, create_mock_full_measurements_hex};
+    use alloc::vec;
+    use dcap_qvl::quote::{Report, TDReport10};
+    use dcap_qvl::tcb_info::{TcbStatus, TcbStatusWithAdvisory};
+    use dcap_qvl::verify::VerifiedReport;
 
-//     use alloc::{string::ToString, vec::Vec};
+    fn td_report() -> TDReport10 {
+        TDReport10 {
+            tee_tcb_svn: [0; 16],
+            mr_seam: [0; 48],
+            mr_signer_seam: [0; 48],
+            seam_attributes: [0; 8],
+            td_attributes: [0; 8],
+            xfam: [0; 8],
+            mr_td: [0; 48],
+            mr_config_id: [0; 48],
+            mr_owner: [0; 48],
+            mr_owner_config: [0; 48],
+            rt_mr0: [0; 48],
+            rt_mr1: [0; 48],
+            rt_mr2: [0; 48],
+            rt_mr3: [0; 48],
+            report_data: [0; 64],
+        }
+    }
 
-//     #[test]
-//     fn validate_app_compose_config__succeeds_on_valid_app_compose() {
-//         // Given
-//         let app_compose = valid_app_compose();
-//         // When
-//         let result = DstackAttestation::validate_app_compose_config(&app_compose);
+    fn verified_report(status: &str, advisory_ids: Vec<String>) -> VerifiedReport {
+        VerifiedReport {
+            status: status.to_string(),
+            advisory_ids,
+            report: Report::TD10(td_report()),
+            ppid: Vec::new(),
+            qe_status: TcbStatusWithAdvisory::new(TcbStatus::UpToDate, Vec::new()),
+            platform_status: TcbStatusWithAdvisory::new(TcbStatus::UpToDate, Vec::new()),
+        }
+    }
 
-//         // Then
-//         assert!(result)
-//     }
+    fn empty_tcb_info() -> TcbInfo {
+        TcbInfo {
+            mrtd: HexBytes::from([0u8; 48]),
+            rtmr0: HexBytes::from([0u8; 48]),
+            rtmr1: HexBytes::from([0u8; 48]),
+            rtmr2: HexBytes::from([0u8; 48]),
+            rtmr3: HexBytes::from([0u8; 48]),
+            os_image_hash: None,
+            compose_hash: HexBytes::from([0u8; 32]),
+            device_id: HexBytes::from([0u8; 32]),
+            app_compose: String::new(),
+            event_log: Vec::new(),
+        }
+    }
 
-//     #[test]
-//     fn validate_app_compose_config__allows_insecure_time() {
-//         // Given
-//         let app_compose = AppCompose {
-//             secure_time: Some(false),
-//             ..valid_app_compose()
-//         };
-//         // When
-//         let result = DstackAttestation::validate_app_compose_config(&app_compose);
+    // -------- verify_tcb_status --------
 
-//         // Then
-//         assert!(result)
-//     }
+    // "UpToDate" + no advisories passes.
+    #[test]
+    fn verify_tcb_status_accepts_up_to_date_no_advisories() {
+        let attestation = create_mock_dstack_attestation();
+        let report = verified_report("UpToDate", Vec::new());
+        assert_eq!(attestation.verify_tcb_status(&report), Ok(()));
+    }
 
-//     fn valid_app_compose() -> AppCompose {
-//         AppCompose {
-//             manifest_version: 2,
-//             name: "".to_string(),
-//             runner: "docker-compose".to_string(),
-//             docker_compose_file: "".to_string().into(),
-//             kms_enabled: false,
-//             tproxy_enabled: None,
-//             gateway_enabled: Some(false),
-//             public_logs: true,
-//             public_sysinfo: true,
-//             local_key_provider_enabled: true,
-//             key_provider_id: None,
-//             allowed_envs: Vec::new(),
-//             no_instance_id: true,
-//             secure_time: None,
-//             pre_launch_script: None,
-//         }
-//     }
-// }
+    // Any non-"UpToDate" status fails.
+    #[test]
+    fn verify_tcb_status_rejects_out_of_date_status() {
+        let attestation = create_mock_dstack_attestation();
+        let report = verified_report("OutOfDate", Vec::new());
+        assert_eq!(
+            attestation.verify_tcb_status(&report),
+            Err(VerificationError::TcbStatusNotUpToDate(
+                "OutOfDate".to_string()
+            ))
+        );
+    }
+
+    // Outstanding advisories fail even when status is "UpToDate".
+    #[test]
+    fn verify_tcb_status_rejects_non_empty_advisories() {
+        let attestation = create_mock_dstack_attestation();
+        let report = verified_report("UpToDate", vec!["INTEL-SA-00001".to_string()]);
+        assert_eq!(
+            attestation.verify_tcb_status(&report),
+            Err(VerificationError::NonEmptyAdvisoryIds(
+                "INTEL-SA-00001".to_string()
+            ))
+        );
+    }
+
+    // -------- verify_report_data --------
+
+    // 64-byte report_data equal to expected passes.
+    #[test]
+    fn verify_report_data_accepts_matching_64_bytes() {
+        let attestation = create_mock_dstack_attestation();
+        let expected = ReportData::from([7u8; 64]);
+        let mut report = td_report();
+        report.report_data = expected.to_bytes();
+        assert_eq!(attestation.verify_report_data(&expected, &report), Ok(()));
+    }
+
+    // One byte different fails (byte-exact compare).
+    #[test]
+    fn verify_report_data_rejects_one_byte_difference() {
+        let attestation = create_mock_dstack_attestation();
+        let expected = ReportData::from([7u8; 64]);
+        let mut report = td_report();
+        report.report_data = expected.to_bytes();
+        report.report_data[0] = 0xFF;
+        assert!(matches!(
+            attestation.verify_report_data(&expected, &report),
+            Err(VerificationError::WrongHash {
+                name: "report_data",
+                ..
+            })
+        ));
+    }
+
+    // -------- verify_ppid --------
+
+    // 16-byte PPID in the accepted list returns the matched PPID.
+    #[test]
+    fn verify_ppid_accepts_known_ppid() {
+        let attestation = create_mock_dstack_attestation();
+        let ppid_bytes = [1u8; 16];
+        let accepted = vec![HexBytes::from(ppid_bytes)];
+        assert_eq!(
+            attestation.verify_ppid(ppid_bytes.to_vec(), &accepted),
+            Ok(HexBytes::from(ppid_bytes))
+        );
+    }
+
+    // Empty accepted list fails closed.
+    #[test]
+    fn verify_ppid_rejects_empty_accepted_list() {
+        let attestation = create_mock_dstack_attestation();
+        let accepted: Vec<HexBytes<16>> = Vec::new();
+        assert!(matches!(
+            attestation.verify_ppid([1u8; 16].to_vec(), &accepted),
+            Err(VerificationError::Custom(_))
+        ));
+    }
+
+    // Valid-shape but unknown PPID is rejected with the documented message.
+    #[test]
+    fn verify_ppid_rejects_unknown_ppid() {
+        let attestation = create_mock_dstack_attestation();
+        let accepted = vec![HexBytes::from([1u8; 16])];
+        let err = attestation
+            .verify_ppid([9u8; 16].to_vec(), &accepted)
+            .unwrap_err();
+        match err {
+            VerificationError::Custom(msg) => {
+                assert!(msg.contains("not in the allowed PPIDs list"));
+            }
+            other => panic!("expected Custom, got {other:?}"),
+        }
+    }
+
+    // 32-byte PPID is rejected and the error message says "16 bytes".
+    #[test]
+    fn verify_ppid_wrong_size_32_bytes() {
+        let attestation = create_mock_dstack_attestation();
+        let accepted = vec![HexBytes::from([0u8; 16])];
+        let err = attestation
+            .verify_ppid(vec![0u8; 32], &accepted)
+            .unwrap_err();
+        assert_eq!(err, VerificationError::PpidWrongSize(32));
+        assert!(err.to_string().contains("16 bytes"));
+    }
+
+    // Empty PPID is also size-rejected (size=0).
+    #[test]
+    fn verify_ppid_wrong_size_zero_bytes() {
+        let attestation = create_mock_dstack_attestation();
+        let accepted = vec![HexBytes::from([0u8; 16])];
+        assert_eq!(
+            attestation.verify_ppid(Vec::new(), &accepted),
+            Err(VerificationError::PpidWrongSize(0))
+        );
+    }
+
+    // -------- verify_static_rtmrs --------
+
+    // All 8 RTMR/MRTD comparisons match → Ok.
+    #[test]
+    fn verify_static_rtmrs_accepts_when_all_match() {
+        let attestation = create_mock_dstack_attestation();
+        let report = td_report();
+        let tcb = empty_tcb_info();
+        let measurements: FullMeasurements = create_mock_full_measurements_hex().into();
+        assert_eq!(
+            attestation.verify_static_rtmrs(&report, &tcb, &measurements),
+            Ok(())
+        );
+    }
+
+    // Report-side RTMR0 mismatch fails.
+    #[test]
+    fn verify_static_rtmrs_rejects_rtmr0_mismatch() {
+        let attestation = create_mock_dstack_attestation();
+        let mut report = td_report();
+        report.rt_mr0 = [0xFFu8; 48];
+        let tcb = empty_tcb_info();
+        let measurements: FullMeasurements = create_mock_full_measurements_hex().into();
+        assert!(matches!(
+            attestation.verify_static_rtmrs(&report, &tcb, &measurements),
+            Err(VerificationError::WrongHash {
+                name: "rtmr0_report_data",
+                ..
+            })
+        ));
+    }
+
+    // Report-side MRTD mismatch fails.
+    #[test]
+    fn verify_static_rtmrs_rejects_mrtd_mismatch() {
+        let attestation = create_mock_dstack_attestation();
+        let mut report = td_report();
+        report.mr_td = [0xABu8; 48];
+        let tcb = empty_tcb_info();
+        let measurements: FullMeasurements = create_mock_full_measurements_hex().into();
+        assert!(matches!(
+            attestation.verify_static_rtmrs(&report, &tcb, &measurements),
+            Err(VerificationError::WrongHash {
+                name: "mrtd_report_data",
+                ..
+            })
+        ));
+    }
+
+    // TcbInfo-side RTMR1 mismatch fails (report and TcbInfo must agree).
+    #[test]
+    fn verify_static_rtmrs_rejects_tcb_info_rtmr1_mismatch() {
+        let attestation = create_mock_dstack_attestation();
+        let report = td_report();
+        let mut tcb = empty_tcb_info();
+        tcb.rtmr1 = HexBytes::from([0xAAu8; 48]);
+        let measurements: FullMeasurements = create_mock_full_measurements_hex().into();
+        assert!(matches!(
+            attestation.verify_static_rtmrs(&report, &tcb, &measurements),
+            Err(VerificationError::WrongHash {
+                name: "rtmr1_tcb_info",
+                ..
+            })
+        ));
+    }
+
+    // -------- verify_rtmr3 --------
+
+    // RTMR3 hash mismatch fails before event-log replay (happy path is the
+    // fixture test below).
+    #[test]
+    fn verify_rtmr3_rejects_hash_mismatch_before_event_log_replay() {
+        let attestation = create_mock_dstack_attestation();
+        let mut report = td_report();
+        report.rt_mr3 = [0xFFu8; 48];
+        let tcb = empty_tcb_info();
+        assert!(matches!(
+            attestation.verify_rtmr3(&report, &tcb),
+            Err(VerificationError::WrongHash { name: "rtmr3", .. })
+        ));
+    }
+
+    // -------- verify_app_compose_hash --------
+
+    // compose_hash equal to the 32-byte expected payload passes.
+    #[test]
+    fn verify_app_compose_hash_accepts_matching_payload() {
+        let attestation = create_mock_dstack_attestation();
+        let mut tcb = empty_tcb_info();
+        let payload = [0xABu8; 32];
+        tcb.compose_hash = HexBytes::from(payload);
+        assert_eq!(attestation.verify_app_compose_hash(&tcb, &payload), Ok(()));
+    }
+
+    // One byte changed in the expected payload fails.
+    #[test]
+    fn verify_app_compose_hash_rejects_single_byte_change() {
+        let attestation = create_mock_dstack_attestation();
+        let mut tcb = empty_tcb_info();
+        let payload = [0xABu8; 32];
+        tcb.compose_hash = HexBytes::from(payload);
+        let mut tampered = payload;
+        tampered[5] = 0x00;
+        assert!(matches!(
+            attestation.verify_app_compose_hash(&tcb, &tampered),
+            Err(VerificationError::WrongHash {
+                name: "app_compose_hash",
+                ..
+            })
+        ));
+    }
+
+    // -------- validate_app_compose_payload --------
+
+    // SHA-256 of the JSON string matches the hex event payload → Ok.
+    #[test]
+    fn validate_app_compose_payload_accepts_matching_hash() {
+        let app_compose = r#"{"manifest_version":2}"#;
+        let hash: [u8; 32] = Sha256::digest(app_compose.as_bytes()).into();
+        let event_payload = hex::encode(hash);
+        assert_eq!(
+            DstackAttestation::validate_app_compose_payload(&event_payload, app_compose),
+            Ok(())
+        );
+    }
+
+    // One byte different in the event payload fails.
+    #[test]
+    fn validate_app_compose_payload_rejects_byte_flipped_payload() {
+        let app_compose = r#"{"manifest_version":2}"#;
+        let hash: [u8; 32] = Sha256::digest(app_compose.as_bytes()).into();
+        let mut tampered = hash;
+        tampered[0] = 0xFF;
+        let event_payload = hex::encode(tampered);
+        assert!(matches!(
+            DstackAttestation::validate_app_compose_payload(&event_payload, app_compose),
+            Err(VerificationError::WrongHash {
+                name: "app_compose_payload",
+                ..
+            })
+        ));
+    }
+
+    // -------- verify_any_measurements --------
+
+    // No matching entry in the accepted list → WrongHash.
+    #[test]
+    fn verify_any_measurements_returns_wrong_hash_when_no_match() {
+        let attestation = create_mock_dstack_attestation();
+        let report = td_report();
+        let tcb = empty_tcb_info();
+        let mut tampered: FullMeasurements = create_mock_full_measurements_hex().into();
+        tampered.rtmrs.rtmr0 = [0xFFu8; 48];
+        assert!(matches!(
+            attestation.verify_any_measurements(&report, &tcb, &[tampered]),
+            Err(VerificationError::WrongHash {
+                name: "expected_measurements",
+                ..
+            })
+        ));
+    }
+
+    // -------- compare_hashes --------
+
+    // Equal byte slices pass.
+    #[test]
+    fn compare_hashes_accepts_equal_byte_slices() {
+        assert_eq!(compare_hashes("test", &[1, 2, 3], &[1, 2, 3]), Ok(()));
+    }
+
+    // One byte different fails.
+    #[test]
+    fn compare_hashes_rejects_one_byte_difference() {
+        assert!(matches!(
+            compare_hashes("test", &[1, 2, 3], &[1, 9, 3]),
+            Err(VerificationError::WrongHash { name: "test", .. })
+        ));
+    }
+
+    // Different lengths fail.
+    #[test]
+    fn compare_hashes_rejects_different_lengths() {
+        assert!(matches!(
+            compare_hashes("test", &[1, 2, 3], &[1, 2]),
+            Err(VerificationError::WrongHash { name: "test", .. })
+        ));
+    }
+
+    // -------- event_digest --------
+
+    // Same input → same SHA-384 digest.
+    #[test]
+    fn event_digest_is_deterministic() {
+        let a = DstackAttestation::event_digest(1, "compose-hash", b"payload");
+        let b = DstackAttestation::event_digest(1, "compose-hash", b"payload");
+        assert_eq!(a, b);
+    }
+
+    // Changing the event name changes the digest.
+    #[test]
+    fn event_digest_differs_on_event_change() {
+        let a = DstackAttestation::event_digest(1, "compose-hash", b"x");
+        let b = DstackAttestation::event_digest(1, "key-provider", b"x");
+        assert_ne!(a, b);
+    }
+
+    // Changing the payload changes the digest.
+    #[test]
+    fn event_digest_differs_on_payload_change() {
+        let a = DstackAttestation::event_digest(1, "compose-hash", b"a");
+        let b = DstackAttestation::event_digest(1, "compose-hash", b"b");
+        assert_ne!(a, b);
+    }
+
+    // -------- fixture-based happy paths --------
+    //
+    // The tests above use synthesised inputs. The two below use a TcbInfo
+    // captured from a live TDX VM so the orchestrating verify_rtmr3 and
+    // verify_app_compose run against a real event log.
+
+    const TEST_TCB_INFO_STRING: &str = include_str!("../assets/tcb_info.json");
+
+    fn fixture_tcb_info() -> TcbInfo {
+        serde_json::from_str(TEST_TCB_INFO_STRING).expect("tcb_info.json is valid")
+    }
+
+    // Real event log replays cleanly to tcb_info.rtmr3.
+    #[test]
+    fn verify_rtmr3_accepts_fixture_event_log_replay() {
+        let attestation = create_mock_dstack_attestation();
+        let tcb = fixture_tcb_info();
+        let mut report = td_report();
+        report.rt_mr3 = *tcb.rtmr3;
+        assert_eq!(attestation.verify_rtmr3(&report, &tcb), Ok(()));
+    }
+
+    // Real "compose-hash" event payload matches SHA-256 of app_compose.
+    #[test]
+    fn verify_app_compose_accepts_fixture() {
+        let attestation = create_mock_dstack_attestation();
+        let tcb = fixture_tcb_info();
+        assert_eq!(attestation.verify_app_compose(&tcb), Ok(()));
+    }
+}

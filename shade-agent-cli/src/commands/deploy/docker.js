@@ -4,7 +4,7 @@ import path from "path";
 import { parse, stringify } from "yaml";
 import chalk from "chalk";
 import { getConfig } from "../../utils/config.js";
-import { getSudoPrefix } from "../../utils/docker-utils.js";
+import { getSudoPrefix, dockerExec } from "../../utils/docker-utils.js";
 
 /** Pinned BuildKit for reproducible image metadata. */
 const REPRO_BUILDKIT_VERSION = "0.27.1";
@@ -137,7 +137,6 @@ export async function buildImage(dockerTag) {
     const cacheFlag =
       config.deployment.build_docker_image.cache === false ? "--no-cache" : "";
     const dockerfilePath = config.deployment.build_docker_image.dockerfile_path;
-    const sudoPrefix = getSudoPrefix();
     const resolvedDockerfile = path.resolve(dockerfilePath);
     const buildContext = path.dirname(resolvedDockerfile);
     const fullTag = `${dockerTag}:latest`;
@@ -145,11 +144,17 @@ export async function buildImage(dockerTag) {
     if (reproducible) {
       runReproducibleDockerBuild(resolvedDockerfile, fullTag, cacheFlag);
     } else {
-      const dockerfileFlag = `-f ${dockerfilePath}`;
-      execSync(
-        `${sudoPrefix}docker build ${cacheFlag} ${dockerfileFlag} --platform=linux/amd64 -t ${fullTag} ${buildContext}`,
-        { stdio: "pipe" },
+      const args = ["build"];
+      if (cacheFlag) args.push(cacheFlag);
+      args.push(
+        "-f",
+        resolvedDockerfile,
+        "--platform=linux/amd64",
+        "-t",
+        fullTag,
+        buildContext,
       );
+      dockerExec(args, { stdio: "pipe" });
     }
   } catch (e) {
     const stderr =
@@ -169,8 +174,7 @@ export async function pushImage(dockerTag) {
   // Pushes the image to docker hub
   console.log("Pushing the Docker image");
   try {
-    const sudoPrefix = getSudoPrefix();
-    const output = execSync(`${sudoPrefix}docker push ${dockerTag}`, {
+    const output = dockerExec(["push", dockerTag], {
       encoding: "utf-8",
       stdio: "pipe",
     });

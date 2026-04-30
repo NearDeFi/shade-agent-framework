@@ -100,9 +100,13 @@ cargo add shade-attestation
   ```bash
   cd shade-agent-js
   npm run test
-  cd ../tests-in-tee
+  cd ../shade-agent-cli
   npm run test
+  cd ../shade-attestation
+  cargo test
   cd ../shade-contract-template
   cargo test
+  cd ../tests-in-tee
+  npm run test
   cd ..
   ```

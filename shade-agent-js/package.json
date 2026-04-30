@@ -23,23 +23,23 @@
     "test:coverage": "vitest run --coverage tests/unit"
   },
   "dependencies": {
-    "@hackylabs/deep-redact": "^3.0.4",
-    "@near-js/accounts": "^2.5.1",
-    "@near-js/crypto": "^2.5.1",
-    "@near-js/providers": "^2.5.1",
-    "@near-js/signers": "^2.5.1",
-    "@near-js/tokens": "^2.5.1",
-    "@near-js/transactions": "^2.5.1",
-    "@near-js/types": "^2.5.1",
-    "@phala/dstack-sdk": "^0.5.7",
-    "near-seed-phrase": "^0.2.1"
+    "@hackylabs/deep-redact": "3.0.5",
+    "@near-js/accounts": "2.5.1",
+    "@near-js/crypto": "2.5.1",
+    "@near-js/providers": "2.5.1",
+    "@near-js/signers": "2.5.1",
+    "@near-js/tokens": "2.5.1",
+    "@near-js/transactions": "2.5.1",
+    "@near-js/types": "2.5.1",
+    "@phala/dstack-sdk": "0.5.7",
+    "near-seed-phrase": "0.2.1"
   },
   "devDependencies": {
-    "@types/node": "^22.19.7",
-    "@vitest/coverage-v8": "^4.0.17",
-    "tsup": "^8.5.0",
-    "typescript": "^5.8.3",
-    "vitest": "^4.0.17"
+    "@types/node": "22.19.17",
+    "@vitest/coverage-v8": "4.1.5",
+    "tsup": "8.5.1",
+    "typescript": "5.9.3",
+    "vitest": "4.1.5"
   },
   "keywords": [
     "AI",

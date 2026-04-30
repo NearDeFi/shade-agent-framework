@@ -1,18 +1,22 @@
 import { readFileSync, existsSync } from "fs";
 import path from "path";
+import chalk from "chalk";
 import { parse as parseYaml } from "yaml";
 import { KeyPairSigner } from "@near-js/signers";
 import { JsonRpcProvider } from "@near-js/providers";
 import { Account } from "@near-js/accounts";
 import { platform } from "os";
 import { getNearCredentials, getPhalaKey } from "./keystore.js";
+import { hardwareAndOSMeasurements } from "./measurements.js";
 
 function detectOS() {
   const platformName = platform();
   if (platformName === "darwin") return "mac";
   if (platformName === "linux") return "linux";
   console.log(
-    `Unsupported OS: ${platformName}. Only mac and linux are supported currently.`,
+    chalk.red(
+      `Error: unsupported OS: ${platformName}. Only mac and linux are supported currently.`,
+    ),
   );
   process.exit(1);
 }
@@ -21,7 +25,9 @@ function detectOS() {
 export function parseDeploymentConfig(deploymentPath) {
   if (!existsSync(deploymentPath)) {
     console.log(
-      `deployment.yaml not found at ${deploymentPath}, you need to configure your deployment.yaml file`,
+      chalk.red(
+        `Error: deployment.yaml not found at ${deploymentPath}, you need to configure your deployment.yaml file`,
+      ),
     );
     process.exit(1);
   }
@@ -45,7 +51,7 @@ export function parseDeploymentConfig(deploymentPath) {
   // Validation helpers
   const requireField = (cond, message) => {
     if (!cond) {
-      console.log(`deployment.yaml invalid: ${message}`);
+      console.log(chalk.red(`Error: deployment.yaml invalid: ${message}`));
       process.exit(1);
     }
   };
@@ -238,24 +244,29 @@ export function parseDeploymentConfig(deploymentPath) {
       "deploy_to_phala.app_name is required",
     );
     if (environment === "TEE") {
-      if (
-        deploy_to_phala.dstack_version !== undefined &&
-        typeof deploy_to_phala.dstack_version !== "string"
-      ) {
-        requireField(
-          false,
-          "deploy_to_phala.dstack_version must be a string",
-        );
-      }
-      if (
-        deploy_to_phala.instance_type !== undefined &&
-        typeof deploy_to_phala.instance_type !== "string"
-      ) {
-        requireField(
-          false,
-          "deploy_to_phala.instance_type must be a string",
-        );
-      }
+      const supportedVersions = Object.keys(hardwareAndOSMeasurements);
+      requireField(
+        typeof deploy_to_phala.dstack_version === "string" &&
+          deploy_to_phala.dstack_version.length > 0,
+        `deploy_to_phala.dstack_version is required (one of: ${supportedVersions.join(", ")})`,
+      );
+      requireField(
+        supportedVersions.includes(deploy_to_phala.dstack_version),
+        `deploy_to_phala.dstack_version "${deploy_to_phala.dstack_version}" is not supported (one of: ${supportedVersions.join(", ")})`,
+      );
+
+      const supportedInstanceTypes = Object.keys(
+        hardwareAndOSMeasurements[deploy_to_phala.dstack_version],
+      );
+      requireField(
+        typeof deploy_to_phala.instance_type === "string" &&
+          deploy_to_phala.instance_type.length > 0,
+        `deploy_to_phala.instance_type is required (one of: ${supportedInstanceTypes.join(", ")})`,
+      );
+      requireField(
+        supportedInstanceTypes.includes(deploy_to_phala.instance_type),
+        `deploy_to_phala.instance_type "${deploy_to_phala.instance_type}" is not supported for dstack ${deploy_to_phala.dstack_version} (one of: ${supportedInstanceTypes.join(", ")})`,
+      );
     }
   }
 
@@ -340,8 +351,8 @@ export function parseDeploymentConfig(deploymentPath) {
         ? {
             env_file_path: deploy_to_phala.env_file_path,
             app_name: deploy_to_phala.app_name,
-            dstack_version: deploy_to_phala.dstack_version || "0.5.8",
-            instance_type: deploy_to_phala.instance_type || "tdx.small",
+            dstack_version: deploy_to_phala.dstack_version,
+            instance_type: deploy_to_phala.instance_type,
           }
         : undefined,
     whitelist_agent_for_local: whitelist_agent_for_local
@@ -419,16 +430,20 @@ export async function getConfig() {
   // Get network from deployment config
   const networkId = deploymentConfig?.network;
   if (!networkId) {
-    console.log("Network is required in deployment.yaml");
+    console.log(chalk.red("Error: network is required in deployment.yaml"));
     process.exit(1);
   }
 
   // Fetch NEAR credentials from keystore based on network
   const credentials = await getNearCredentials(networkId);
   if (!credentials) {
-    console.log(`No master account found for ${networkId} network.`);
     console.log(
-      `Please run 'shade auth set' to set master account for ${networkId}.`,
+      chalk.red(`Error: no master account found for ${networkId} network.`),
+    );
+    console.log(
+      chalk.red(
+        `Please run 'shade auth set' to set master account for ${networkId}.`,
+      ),
     );
     process.exit(1);
   }
@@ -442,8 +457,14 @@ export async function getConfig() {
   ) {
     phalaKey = await getPhalaKey();
     if (!phalaKey) {
-      console.log("PHALA API key is required for Phala Cloud deployments.");
-      console.log("Please run 'shade auth set' to store the PHALA API key.");
+      console.log(
+        chalk.red(
+          "Error: PHALA API key is required for Phala Cloud deployments.",
+        ),
+      );
+      console.log(
+        chalk.red("Please run 'shade auth set' to store the PHALA API key."),
+      );
       process.exit(1);
     }
   }

@@ -89,7 +89,7 @@ CLI configurations are read from a single `deployment.yaml` file in the project 
 | Key | Required | Description |
 |-----|----------|-------------|
 | **contract_id** | Yes | NEAR account ID for the agent contract (e.g. `example-contract-123.testnet`). Must be unused if you are deploying a new contract. |
-| **deploy_custom** | No | If enabled, the CLI creates the contract account with the same private key as the account set up via `shade auth`, and deploys a new contract. If the contract account already exists, it will be deleted and recreated to remove the old contract. |
+| **deploy_custom** | No | If enabled, the CLI creates the contract account with the same private key as the account set up via `shade auth`, and deploys a new contract. If the contract account already exists, it will be deleted and recreated to remove the old contract — this destroys all on-chain state and any assets the account holds (FTs, NFTs), so the CLI prompts you to type `yes` before continuing; anything else cancels. |
 
 #### deploy_custom
 
@@ -176,8 +176,8 @@ Placeholders in args:
 | **enabled** | No | If `false`, deployment to Phala Cloud is skipped. |
 | **app_name** | Yes | Phala Cloud app (CVM) name. |
 | **env_file_path** | Yes | Path to the environment variables file loaded when deploying to Phala (e.g. `./.env`). |
-| **dstack_version** | Yes | The dstack OS image version to deploy with and to use when calculating measurements (e.g. `0.5.8`). |
-| **instance_type** | Yes | The hardware instance type to deploy with and to use when calculating measurements (e.g. `tdx.small`, `tdx.medium`, `tdx.large`). |
+| **dstack_version** | Yes | The dstack OS image version to deploy with and to use when calculating measurements. Supported: `0.5.7`, `0.5.8`. |
+| **instance_type** | Yes | The hardware instance type to deploy with and to use when calculating measurements. Supported: `tdx.small`, `tdx.medium`, `tdx.large`, `tdx.xlarge`, `tdx.2xlarge`, `tdx.4xlarge`, `tdx.8xlarge`. |
 
 ### whitelist_agent_for_local (local only)
 

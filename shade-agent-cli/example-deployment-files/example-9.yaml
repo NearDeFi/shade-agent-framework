@@ -34,8 +34,8 @@ agent_contract:
           "attestation_expiration_time_ms": <7_DAYS>,
           "owner_id": <MASTER_ACCOUNT_ID>,
           "mpc_contract_id": <DEFAULT_MPC_CONTRACT_ID>,
-          "example_argument_1": "example_value",
-          "example_argument_2": <EXAMPLE_ARGUMENT_2>,
+          "example_argument_1": "example_value_1",
+          "example_argument_2": "example_value_2",
         }
 
 approve_measurements:

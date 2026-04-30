@@ -181,3 +181,62 @@ impl TryFrom<dcap_qvl::verify::VerifiedReport> for Measurements {
         })
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use borsh::{BorshDeserialize, BorshSerialize};
+
+    fn sample() -> FullMeasurements {
+        FullMeasurements {
+            rtmrs: Measurements {
+                mrtd: [0x10; 48],
+                rtmr0: [0x20; 48],
+                rtmr1: [0x30; 48],
+                rtmr2: [0x40; 48],
+            },
+            key_provider_event_digest: [0x50; 48],
+            app_compose_hash_payload: [0x60; 32],
+        }
+    }
+
+    // FullMeasurements → FullMeasurementsHex → FullMeasurements is identity.
+    #[test]
+    fn full_measurements_hex_round_trip_is_identity() {
+        let original = sample();
+        let hex: FullMeasurementsHex = original.into();
+        let back: FullMeasurements = hex.into();
+        assert_eq!(back.rtmrs.mrtd, original.rtmrs.mrtd);
+        assert_eq!(back.rtmrs.rtmr0, original.rtmrs.rtmr0);
+        assert_eq!(back.rtmrs.rtmr1, original.rtmrs.rtmr1);
+        assert_eq!(back.rtmrs.rtmr2, original.rtmrs.rtmr2);
+        assert_eq!(back.key_provider_event_digest, original.key_provider_event_digest);
+        assert_eq!(back.app_compose_hash_payload, original.app_compose_hash_payload);
+    }
+
+    // Borsh serialize → deserialize preserves all fields.
+    #[test]
+    fn full_measurements_borsh_round_trip_preserves_all_fields() {
+        let original = sample();
+        let bytes = borsh::to_vec(&original).expect("serialize");
+        let back = FullMeasurements::try_from_slice(&bytes).expect("deserialize");
+        assert_eq!(back.rtmrs.mrtd, original.rtmrs.mrtd);
+        assert_eq!(back.rtmrs.rtmr0, original.rtmrs.rtmr0);
+        assert_eq!(back.rtmrs.rtmr1, original.rtmrs.rtmr1);
+        assert_eq!(back.rtmrs.rtmr2, original.rtmrs.rtmr2);
+        assert_eq!(back.key_provider_event_digest, original.key_provider_event_digest);
+        assert_eq!(back.app_compose_hash_payload, original.app_compose_hash_payload);
+    }
+
+    // create_mock_full_measurements_hex returns the documented zero-filled shape.
+    #[test]
+    fn mock_full_measurements_hex_is_all_zero() {
+        let mock = create_mock_full_measurements_hex();
+        assert_eq!(*mock.rtmrs.mrtd, [0u8; 48]);
+        assert_eq!(*mock.rtmrs.rtmr0, [0u8; 48]);
+        assert_eq!(*mock.rtmrs.rtmr1, [0u8; 48]);
+        assert_eq!(*mock.rtmrs.rtmr2, [0u8; 48]);
+        assert_eq!(*mock.key_provider_event_digest, [0u8; 48]);
+        assert_eq!(*mock.app_compose_hash_payload, [0u8; 32]);
+    }
+}
