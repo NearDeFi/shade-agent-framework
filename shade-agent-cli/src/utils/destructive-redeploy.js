@@ -11,16 +11,7 @@ const WARNING_PATH = path.join(__dirname, "destructive-redeploy-warning.txt");
 // If deploy_custom is set in deployment.yaml AND the contract account already
 // exists on-chain, we are about to delete it (along with all its state and
 // assets) and recreate it from scratch. Hard-confirm with the operator before
-// any other deploy step runs (no docker build, no measurements, no Phala API).
-//
-// Acceptance: trim(answer) === "yes" exactly. Anything else — Enter, "y",
-// "Yes", "no", typo, Ctrl+C — aborts with exit 1. The deploy did not complete,
-// and CI / scripting wrappers should treat an aborted destructive redeploy as
-// failure (not success) per the CLI's error convention in CLAUDE.md.
-//
-// Returns the on-chain account state when the account exists (so callers can
-// reuse it instead of probing again), null when it doesn't, or undefined when
-// the check was skipped (deploy_custom absent, or no contract id / account).
+// any other deploy step runs 
 export async function confirmDestructiveRedeployIfAccountExists() {
   const config = await getConfig();
   const deployCustom = config.deployment?.agent_contract?.deploy_custom;
