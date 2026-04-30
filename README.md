@@ -43,20 +43,22 @@ cargo add shade-attestation
 
 - Before testing, install dependencies and build libraries
 
-  In the shade-agent-framework root
+  In the shade-agent-framework root. We use `npm ci` so installs strictly match the committed lockfiles.
 
   ```bash
   cd shade-agent-cli
-  npm i
+  npm ci
   cd ../shade-agent-js
-  npm i
+  npm ci
   npm run build
   cd ../tests-in-tee
-  npm i
+  npm ci
   cd test-image
-  npm i
+  npm ci
   cd ../..
   ```
+
+  Note: lockfiles capture one platform's optional-dependency resolution. If `npm ci` errors on a missing native binding (e.g. `@napi-rs/keyring-linux-arm64-gnu`), install the platform-specific binding once with `npm install <binding-name>` in the affected package, or regenerate that package's lockfile on your platform.
 
 - Build the contract
 
