@@ -1,5 +1,5 @@
 # Stage 1: Dependencies
-FROM node:22-alpine AS deps
+FROM node:25-alpine AS deps
 WORKDIR /app/tests-in-tee/test-image
 COPY tests-in-tee/test-image/package.json tests-in-tee/test-image/package-lock.json ./
 # Copy shade-agent-js package so npm can link to it (package.json expects file:../../shade-agent-js)
@@ -13,7 +13,7 @@ WORKDIR /app/tests-in-tee/test-image
 RUN npm ci
 
 # Stage 2: Build
-FROM node:22-alpine AS builder
+FROM node:25-alpine AS builder
 WORKDIR /app/tests-in-tee/test-image
 COPY tests-in-tee/test-image/package.json tests-in-tee/test-image/package-lock.json tests-in-tee/test-image/tsconfig.json ./
 # Copy shade-agent-js package and source files so TypeScript can resolve imports
@@ -25,7 +25,7 @@ COPY tests-in-tee/test-image/src/ ./src/
 RUN npm run build
 
 # Stage 3: Production
-FROM node:22-alpine AS runner
+FROM node:25-alpine AS runner
 WORKDIR /app/tests-in-tee/test-image
 COPY --from=deps /app/tests-in-tee/test-image/node_modules ./node_modules
 COPY --from=builder /app/tests-in-tee/test-image/dist ./dist
