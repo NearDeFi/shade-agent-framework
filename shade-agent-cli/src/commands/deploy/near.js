@@ -228,13 +228,13 @@ export async function deployCustomContractFromSource() {
 
     const wasmPath = resolveWasmPath(absoluteSourcePath);
 
-    // Fix file ownership after Docker creates it (Docker runs as root, files owned by root)
+    // Fix file ownership after Docker creates them 
     if (!reproducible && process.platform === "linux") {
       const uid = process.getuid();
       const gid = process.getgid();
       runWithSudoOnLinux(
         "chown",
-        [`${uid}:${gid}`, wasmPath],
+        ["-R", `${uid}:${gid}`, path.join(absoluteSourcePath, "target")],
         { stdio: "pipe" },
       );
     }
