@@ -12,7 +12,7 @@
     "shade:cli": "node ../shade-agent-cli/src/cli.js"
   },
   "dependencies": {
-    "@hono/node-server": "1.19.14",
+    "@hono/node-server": "2.0.0",
     "@neardefi/shade-agent-js": "file:../shade-agent-js",
     "chainsig.js": "1.1.14",
     "cors": "2.8.6",
