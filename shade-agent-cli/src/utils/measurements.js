@@ -7,11 +7,18 @@ import { parse } from "yaml";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Read the pre launch script from a file
-const PRE_LAUNCH_SCRIPT = fs.readFileSync(
-  path.join(__dirname, "phala-cloud-prelaunch.sh"),
-  "utf8",
-);
+const preLaunchScriptPath = path.join(__dirname, "phala-cloud-prelaunch.sh");
+let PRE_LAUNCH_SCRIPT;
+try {
+  PRE_LAUNCH_SCRIPT = fs.readFileSync(preLaunchScriptPath, "utf8");
+} catch (error) {
+  console.log(
+    chalk.red(
+      `Error: failed to read pre-launch script at "${preLaunchScriptPath}": ${error.message}`,
+    ),
+  );
+  process.exit(1);
+}
 
 export function getMeasurements(isTee, dockerComposePath, dstackVersion, instanceType) {
   if (!isTee) {
