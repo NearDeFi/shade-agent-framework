@@ -16,7 +16,7 @@
     "@neardefi/shade-agent-js": "file:../shade-agent-js",
     "chainsig.js": "1.1.14",
     "cors": "2.8.6",
-    "dotenv": "16.6.1",
+    "dotenv": "17.4.2",
     "ethers": "6.16.0",
     "hono": "4.12.15",
     "tsx": "4.21.0"
