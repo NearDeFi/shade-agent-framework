@@ -35,10 +35,10 @@
     "near-seed-phrase": "0.2.1"
   },
   "devDependencies": {
-    "@types/node": "22.19.17",
+    "@types/node": "25.6.0",
     "@vitest/coverage-v8": "4.1.5",
     "tsup": "8.5.1",
-    "typescript": "5.9.3",
+    "typescript": "6.0.3",
     "vitest": "4.1.5"
   },
   "keywords": [
