@@ -18,7 +18,7 @@
     "cors": "2.8.6",
     "dotenv": "17.4.2",
     "ethers": "6.16.0",
-    "hono": "4.12.15",
+    "hono": "4.12.16",
     "tsx": "4.21.0"
   },
   "devDependencies": {
