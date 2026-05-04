@@ -234,7 +234,7 @@ export async function deployCustomContractFromSource() {
       const gid = process.getgid();
       runWithSudoOnLinux(
         "chown",
-        ["-R", `${uid}:${gid}`, path.join(absoluteSourcePath, "target")],
+        ["-R", `${uid}:${gid}`, path.join(absoluteSourcePath, "target", "near")],
         { stdio: "pipe" },
       );
     }
