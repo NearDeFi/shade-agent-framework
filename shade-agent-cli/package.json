@@ -29,7 +29,7 @@
     "@inquirer/input": "5.0.12",
     "@inquirer/password": "5.0.12",
     "@inquirer/select": "5.1.4",
-    "@napi-rs/keyring": "1.2.0",
+    "@napi-rs/keyring": "1.3.0",
     "@near-js/accounts": "2.5.1",
     "@near-js/crypto": "2.5.1",
     "@near-js/providers": "2.5.1",
