@@ -69,6 +69,8 @@ deploy_to_phala:
   env_file_path: ./.env
   dstack_version: 0.5.8
   instance_type: tdx.small
+  public_logs: true
+  public_sysinfo: true
 
 whitelist_agent_for_local:
   method_name: whitelist_agent_for_local

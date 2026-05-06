@@ -379,6 +379,10 @@ export async function approveMeasurements() {
       config.deployment.docker_compose_path,
       config.deployment.deploy_to_phala?.dstack_version,
       config.deployment.deploy_to_phala?.instance_type,
+      {
+        publicLogs: config.deployment.deploy_to_phala?.public_logs,
+        publicSysinfo: config.deployment.deploy_to_phala?.public_sysinfo,
+      },
     );
     // Pass the object directly, replacePlaceholders will handle JSON stringification
     replacements["<MEASUREMENTS>"] = measurements;

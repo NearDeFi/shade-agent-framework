@@ -59,7 +59,10 @@ describe("deployToPhala", () => {
   // YAML values must reach Phala as-is. Verifies provisionCvm is called with
   // the exact name / instance_type / image we passed in.
   it("passes appName, instanceType, and dstack image to provisionCvm", async () => {
-    const compose = buildAppComposeForDeploy(composeContent, []);
+    const compose = buildAppComposeForDeploy(composeContent, [], {
+      publicLogs: true,
+      publicSysinfo: true,
+    });
     mockClient.provisionCvm.mockResolvedValue({
       app_id: "app-1",
       app_env_encrypt_pubkey: "pubkey",
@@ -77,12 +80,48 @@ describe("deployToPhala", () => {
       composePath: "./docker-compose.yaml",
       dstackVersion: "0.5.7",
       instanceType: "tdx.medium",
+      publicLogs: true,
+      publicSysinfo: true,
     });
 
     const provisionArgs = mockClient.provisionCvm.mock.calls[0][0];
     expect(provisionArgs.name).toBe("my-app");
     expect(provisionArgs.instance_type).toBe("tdx.medium");
     expect(provisionArgs.image).toBe("dstack-0.5.7");
+    expect(provisionArgs.compose_file.public_logs).toBe(true);
+    expect(provisionArgs.compose_file.public_sysinfo).toBe(true);
+  });
+
+  // public_logs / public_sysinfo flow into the AppCompose Phala receives.
+  it("passes publicLogs:false and publicSysinfo:false through to provisionCvm", async () => {
+    const compose = buildAppComposeForDeploy(composeContent, [], {
+      publicLogs: false,
+      publicSysinfo: false,
+    });
+    mockClient.provisionCvm.mockResolvedValue({
+      app_id: "app-1",
+      app_env_encrypt_pubkey: "pubkey",
+      compose_hash: hashAppCompose(compose),
+    });
+    mockClient.commitCvmProvision.mockResolvedValue({
+      vm_uuid: "vm-abc",
+      name: "my-app",
+      app_id: "app-1",
+    });
+
+    await deployToPhala({
+      appName: "my-app",
+      apiKey: "key",
+      composePath: "./docker-compose.yaml",
+      dstackVersion: "0.5.7",
+      instanceType: "tdx.small",
+      publicLogs: false,
+      publicSysinfo: false,
+    });
+
+    const provisionArgs = mockClient.provisionCvm.mock.calls[0][0];
+    expect(provisionArgs.compose_file.public_logs).toBe(false);
+    expect(provisionArgs.compose_file.public_sysinfo).toBe(false);
   });
 
   // dstack_version is required.
@@ -97,6 +136,8 @@ describe("deployToPhala", () => {
         apiKey: "key",
         composePath: "./docker-compose.yaml",
         instanceType: "tdx.small",
+        publicLogs: true,
+        publicSysinfo: true,
       }),
     ).rejects.toThrow("exit:1");
     expect(exitSpy).toHaveBeenCalledWith(1);
@@ -114,6 +155,46 @@ describe("deployToPhala", () => {
         apiKey: "key",
         composePath: "./docker-compose.yaml",
         dstackVersion: "0.5.7",
+        publicLogs: true,
+        publicSysinfo: true,
+      }),
+    ).rejects.toThrow("exit:1");
+    expect(exitSpy).toHaveBeenCalledWith(1);
+  });
+
+  // public_logs is required and must be a boolean.
+  it("exits 1 when publicLogs is missing", async () => {
+    const exitSpy = vi.spyOn(process, "exit").mockImplementation((code) => {
+      throw new Error(`exit:${code}`);
+    });
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    await expect(
+      deployToPhala({
+        appName: "my-app",
+        apiKey: "key",
+        composePath: "./docker-compose.yaml",
+        dstackVersion: "0.5.7",
+        instanceType: "tdx.small",
+        publicSysinfo: true,
+      }),
+    ).rejects.toThrow("exit:1");
+    expect(exitSpy).toHaveBeenCalledWith(1);
+  });
+
+  // public_sysinfo is required and must be a boolean.
+  it("exits 1 when publicSysinfo is missing", async () => {
+    const exitSpy = vi.spyOn(process, "exit").mockImplementation((code) => {
+      throw new Error(`exit:${code}`);
+    });
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    await expect(
+      deployToPhala({
+        appName: "my-app",
+        apiKey: "key",
+        composePath: "./docker-compose.yaml",
+        dstackVersion: "0.5.7",
+        instanceType: "tdx.small",
+        publicLogs: true,
       }),
     ).rejects.toThrow("exit:1");
     expect(exitSpy).toHaveBeenCalledWith(1);
@@ -132,6 +213,8 @@ describe("deployToPhala", () => {
         composePath: "./docker-compose.yaml",
         dstackVersion: "0.5.7",
         instanceType: "tdx.small",
+        publicLogs: true,
+        publicSysinfo: true,
       }),
     ).rejects.toThrow("exit:1");
     expect(exitSpy).toHaveBeenCalledWith(1);
@@ -159,6 +242,8 @@ describe("deployToPhala", () => {
         composePath: "./docker-compose.yaml",
         dstackVersion: "0.5.7",
         instanceType: "tdx.small",
+        publicLogs: true,
+        publicSysinfo: true,
       }),
     ).rejects.toThrow("exit:1");
     expect(exitSpy).toHaveBeenCalledWith(1);

@@ -245,6 +245,8 @@ describe("deploy command orchestration", () => {
           app_name: "x",
           dstack_version: "0.5.8",
           instance_type: "tdx.small",
+          public_logs: true,
+          public_sysinfo: true,
         },
       }),
     );
@@ -261,6 +263,8 @@ describe("deploy command orchestration", () => {
           app_name: "x",
           dstack_version: "0.5.8",
           instance_type: "tdx.small",
+          public_logs: true,
+          public_sysinfo: true,
         },
       }),
     );

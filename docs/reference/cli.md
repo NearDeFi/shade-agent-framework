@@ -178,6 +178,8 @@ Placeholders in args:
 | **env_file_path** | Yes | Path to the environment variables file loaded when deploying to Phala (e.g. `./.env`). |
 | **dstack_version** | Yes | The dstack OS image version to deploy with and to use when calculating measurements. Supported: `0.5.7`, `0.5.8`. |
 | **instance_type** | Yes | The hardware instance type to deploy with and to use when calculating measurements. Supported: `tdx.small`, `tdx.medium`, `tdx.large`, `tdx.xlarge`, `tdx.2xlarge`, `tdx.4xlarge`, `tdx.8xlarge`. |
+| **public_logs** | Yes | Boolean. If `true`, the dstack guest-agent's `GET /logs/<container>` endpoint is publicly reachable on port 8090, exposing container stdout/stderr. Affects the app compose hash. |
+| **public_sysinfo** | Yes | Boolean. If `true`, the dstack guest-agent's `GET /metrics` endpoint is publicly reachable on port 8090, exposing OS, CPU, memory, swap, uptime, load, and disk telemetry. Affects the app compose hash. |
 
 ### whitelist_agent_for_local (local only)
 
@@ -223,8 +225,8 @@ The Shade Agent CLI supports specific Phala Cloud / Dstack configurations, as li
 - manifest_version: 2,
 - name: "",
 - no_instance_id: false,
-- public_logs: true,
-- public_sysinfo: true,
+- public_logs: per `deploy_to_phala.public_logs` (configurable, see table above)
+- public_sysinfo: per `deploy_to_phala.public_sysinfo` (configurable, see table above)
 - public_tcbinfo: true,
 - runner: "docker-compose",
 - secure_time: false,

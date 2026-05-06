@@ -20,7 +20,13 @@ try {
   process.exit(1);
 }
 
-export function getMeasurements(isTee, dockerComposePath, dstackVersion, instanceType) {
+export function getMeasurements(
+  isTee,
+  dockerComposePath,
+  dstackVersion,
+  instanceType,
+  { publicLogs, publicSysinfo } = {},
+) {
   if (!isTee) {
     return localMeasurements;
   }
@@ -41,7 +47,20 @@ export function getMeasurements(isTee, dockerComposePath, dstackVersion, instanc
     process.exit(1);
   }
 
-  return createTeeMeasurements(calculateAppComposeHash(dockerComposePath), dstackVersion, instanceType);
+  if (typeof publicLogs !== "boolean" || typeof publicSysinfo !== "boolean") {
+    console.log(
+      chalk.red(
+        "Error: public_logs and public_sysinfo (from deploy_to_phala) are required to calculate TEE measurements",
+      ),
+    );
+    process.exit(1);
+  }
+
+  return createTeeMeasurements(
+    calculateAppComposeHash(dockerComposePath, { publicLogs, publicSysinfo }),
+    dstackVersion,
+    instanceType,
+  );
 }
 
 function createTeeMeasurements(appComposeHash, dstackVersion, instanceType) {
@@ -118,9 +137,22 @@ export function extractAllowedEnvs(dockerComposePath) {
  *
  * @param {string} dockerComposeFileContent - Raw docker-compose YAML string
  * @param {string[]} allowedEnvs - List of env key names allowed in the CVM
+ * @param {{ publicLogs?: boolean, publicSysinfo?: boolean }} [options] - Toggles for public_logs and public_sysinfo (both required)
  * @returns {object} App compose object (same shape as used in calculateAppComposeHash)
  */
-export function buildAppComposeForDeploy(dockerComposeFileContent, allowedEnvs) {
+export function buildAppComposeForDeploy(
+  dockerComposeFileContent,
+  allowedEnvs,
+  { publicLogs, publicSysinfo } = {},
+) {
+  if (typeof publicLogs !== "boolean" || typeof publicSysinfo !== "boolean") {
+    console.log(
+      chalk.red(
+        "Error: buildAppComposeForDeploy requires boolean publicLogs and publicSysinfo options",
+      ),
+    );
+    process.exit(1);
+  }
   return {
     allowed_envs: allowedEnvs,
     docker_compose_file: dockerComposeFileContent,
@@ -132,8 +164,8 @@ export function buildAppComposeForDeploy(dockerComposeFileContent, allowedEnvs) 
     name: "",
     no_instance_id: false,
     pre_launch_script: PRE_LAUNCH_SCRIPT,
-    public_logs: true,
-    public_sysinfo: true,
+    public_logs: publicLogs,
+    public_sysinfo: publicSysinfo,
     public_tcbinfo: true,
     runner: "docker-compose",
     secure_time: false,
@@ -142,10 +174,18 @@ export function buildAppComposeForDeploy(dockerComposeFileContent, allowedEnvs) 
   };
 }
 
-// Calculate app compose hash with optional allowed envs override
+/**
+ * Calculate the SHA-256 of the AppCompose for a given docker-compose path.
+ *
+ * @param {string} dockerComposePath - Path to the docker-compose YAML on disk
+ * @param {{ allowedEnvsOverride?: string[] | null, publicLogs?: boolean, publicSysinfo?: boolean }} [options]
+ *   - allowedEnvsOverride: explicit allowed_envs list (else extracted from compose)
+ *   - publicLogs / publicSysinfo: required AppCompose toggles
+ * @returns {string} hex SHA-256 of the canonical AppCompose JSON
+ */
 export function calculateAppComposeHash(
   dockerComposePath,
-  allowedEnvsOverride = null,
+  { allowedEnvsOverride = null, publicLogs, publicSysinfo } = {},
 ) {
   const dockerComposeFile = fs.readFileSync(dockerComposePath, "utf8");
 
@@ -155,7 +195,10 @@ export function calculateAppComposeHash(
       ? allowedEnvsOverride
       : extractAllowedEnvs(dockerComposePath);
 
-  const appCompose = buildAppComposeForDeploy(dockerComposeFile, allowedEnvs);
+  const appCompose = buildAppComposeForDeploy(dockerComposeFile, allowedEnvs, {
+    publicLogs,
+    publicSysinfo,
+  });
 
   return hashAppCompose(appCompose);
 }

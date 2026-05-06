@@ -268,6 +268,14 @@ export function parseDeploymentConfig(deploymentPath) {
         `deploy_to_phala.instance_type "${deploy_to_phala.instance_type}" is not supported for dstack ${deploy_to_phala.dstack_version} (one of: ${supportedInstanceTypes.join(", ")})`,
       );
     }
+    requireField(
+      typeof deploy_to_phala.public_logs === "boolean",
+      "deploy_to_phala.public_logs is required and must be a boolean (true or false)",
+    );
+    requireField(
+      typeof deploy_to_phala.public_sysinfo === "boolean",
+      "deploy_to_phala.public_sysinfo is required and must be a boolean (true or false)",
+    );
   }
 
   return {
@@ -353,6 +361,8 @@ export function parseDeploymentConfig(deploymentPath) {
             app_name: deploy_to_phala.app_name,
             dstack_version: deploy_to_phala.dstack_version,
             instance_type: deploy_to_phala.instance_type,
+            public_logs: deploy_to_phala.public_logs,
+            public_sysinfo: deploy_to_phala.public_sysinfo,
           }
         : undefined,
     whitelist_agent_for_local: whitelist_agent_for_local

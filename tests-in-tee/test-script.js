@@ -358,6 +358,8 @@ async function deployToPhala() {
     composePath,
     envFilePath,
     allowedEnvKeys: allowedEnvs,
+    publicLogs: true,
+    publicSysinfo: true,
   });
 
   if (!deployResult.success) {
@@ -583,7 +585,10 @@ async function callTestEndpoint(baseUrl, testName, options = {}) {
 // Get correct measurements
 function getCorrectMeasurements() {
   const composePath = resolve(__dirname, "docker-compose.yaml");
-  return getMeasurements(true, composePath);
+  return getMeasurements(true, composePath, undefined, undefined, {
+    publicLogs: true,
+    publicSysinfo: true,
+  });
 }
 
 // Get correct PPIDs
@@ -627,10 +632,11 @@ function getWrongMeasurementsAppCompose() {
   const modifiedEnvs = allowedEnvs.slice(1); // Remove first env
 
   // Calculate hash with modified envs
-  const wrongAppComposeHash = calculateAppComposeHash(
-    composePath,
-    modifiedEnvs,
-  );
+  const wrongAppComposeHash = calculateAppComposeHash(composePath, {
+    allowedEnvsOverride: modifiedEnvs,
+    publicLogs: true,
+    publicSysinfo: true,
+  });
 
   return {
     ...correct,

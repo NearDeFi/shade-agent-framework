@@ -45,6 +45,8 @@ export async function deployToPhala() {
     const envFilePath = config.deployment?.deploy_to_phala?.env_file_path;
     const dstackVersion = config.deployment?.deploy_to_phala?.dstack_version;
     const instanceType = config.deployment?.deploy_to_phala?.instance_type;
+    const publicLogs = config.deployment?.deploy_to_phala?.public_logs;
+    const publicSysinfo = config.deployment?.deploy_to_phala?.public_sysinfo;
     const allowedEnvs = extractAllowedEnvs(composePath);
 
     const deployResult = await deployToPhalaSdk({
@@ -55,6 +57,8 @@ export async function deployToPhala() {
       allowedEnvKeys: allowedEnvs,
       dstackVersion,
       instanceType,
+      publicLogs,
+      publicSysinfo,
     });
 
     if (!deployResult.success) {

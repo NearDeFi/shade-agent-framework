@@ -51,8 +51,9 @@ function removeUndefined(obj) {
  * @param {Array<{ key: string, value: string }>} env_vars - Environment variables to inject
  * @param {object} args - Parsed CLI-style args, e.g. from arg(spec): --name, --instance-type, --disk-size, --region, --os-image, --kms, --private-key, --rpc-url, --env, --uuid
  * @param {string[]} [allowedEnvKeys] - Ordered env key names from docker-compose (used for allowed_envs in compose object to match measurement hash ordering). Falls back to env_vars key order if not provided.
+ * @param {{ publicLogs: boolean, publicSysinfo: boolean }} appComposeOptions - Toggles for public_logs and public_sysinfo (both required to keep compose_hash deterministic)
  */
-async function deploy_new_cvm(client, docker_compose_yml, env_vars, args, allowedEnvKeys) {
+async function deploy_new_cvm(client, docker_compose_yml, env_vars, args, allowedEnvKeys, appComposeOptions) {
   //
   // Step 1: Parse and validate parameters
   //
@@ -91,7 +92,11 @@ async function deploy_new_cvm(client, docker_compose_yml, env_vars, args, allowe
   const allowed_envs = Array.isArray(allowedEnvKeys) && allowedEnvKeys.length > 0
     ? allowedEnvKeys
     : env_vars.map((e) => e.key);
-  const compose_file = buildAppComposeForDeploy(docker_compose_yml, allowed_envs);
+  const compose_file = buildAppComposeForDeploy(
+    docker_compose_yml,
+    allowed_envs,
+    appComposeOptions,
+  );
 
   const provision_payload = /** @type {import('@phala/cloud').ProvisionCvmRequest} */ (
     removeUndefined({
@@ -215,10 +220,22 @@ async function deploy_new_cvm(client, docker_compose_yml, env_vars, args, allowe
  * @param {string[]} [options.allowedEnvKeys] - Env keys to pass (optional; if omitted, all keys from env file are used)
  * @param {string} options.dstackVersion - dstack OS image version (e.g. "0.5.8")
  * @param {string} options.instanceType - Hardware instance type (e.g. "tdx.small")
+ * @param {boolean} options.publicLogs - AppCompose public_logs flag
+ * @param {boolean} options.publicSysinfo - AppCompose public_sysinfo flag
  * @returns {Promise<{ success: boolean, vm_uuid: string, name: string, app_id: string, dashboard_url: string }>}
  */
 async function deployToPhala(options) {
-  const { appName, apiKey, composePath, envFilePath, allowedEnvKeys = null, dstackVersion, instanceType } = options;
+  const {
+    appName,
+    apiKey,
+    composePath,
+    envFilePath,
+    allowedEnvKeys = null,
+    dstackVersion,
+    instanceType,
+    publicLogs,
+    publicSysinfo,
+  } = options;
 
   if (!dstackVersion) {
     console.log(
@@ -229,6 +246,22 @@ async function deployToPhala(options) {
   if (!instanceType) {
     console.log(
       chalk.red("Error: deploy_to_phala.instance_type is required"),
+    );
+    process.exit(1);
+  }
+  if (typeof publicLogs !== "boolean") {
+    console.log(
+      chalk.red(
+        "Error: deploy_to_phala.public_logs is required and must be a boolean",
+      ),
+    );
+    process.exit(1);
+  }
+  if (typeof publicSysinfo !== "boolean") {
+    console.log(
+      chalk.red(
+        "Error: deploy_to_phala.public_sysinfo is required and must be a boolean",
+      ),
     );
     process.exit(1);
   }
@@ -275,7 +308,14 @@ async function deployToPhala(options) {
     "--instance-type": instanceType,
     "--os-image": `dstack-${dstackVersion}`,
   };
-  const result = await deploy_new_cvm(client, composeContent, envVars, args, allowedEnvKeys);
+  const result = await deploy_new_cvm(
+    client,
+    composeContent,
+    envVars,
+    args,
+    allowedEnvKeys,
+    { publicLogs, publicSysinfo },
+  );
 
   const vm_uuid = result.vm_uuid ?? String(result.id);
   return {
