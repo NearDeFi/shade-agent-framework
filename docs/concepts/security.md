@@ -1,5 +1,9 @@
 # Security Considerations
 
+A note on how to calibrate the considerations below: several are framed against a malicious host that tampers with what the application
+sees (env vars, network, time, disk). TEE confidentiality is not absolute — recent disclosures like TEE.fail have shown that a host with 
+physical access can extract secrets from Intel TDX through hardware side-channel attacks, including an agent's private keys. So defending against a maclious host may not be worth the time depending on your security tolerance. All considerations based on a malicious host are marked **host**.
+
 ## Restricting Actions
 
 While TEEs are considered trusted and tamper-resistant, implementing tight restrictions or **guardrails** on agent actions within the agent contract is recommended so that even in the event a TEE is compromised and the private key to an agent is extracted, funds can't be withdrawn. You can read more about guardrails [here](terminology.md#on-chain-guardrails).
@@ -96,6 +100,8 @@ You can use multiple reputable RPC providers and check the result across each pr
 
 ## Trusting Wall-Clock Time
 
+**host**
+
 The host can influence the guest's wall clock. The boot-time clock comes from the host, and a malicious host can block egress to the trusted NTS servers so chrony can never correct the offset. Treat **wall-clock time as host-influenced state**: any security decision based on "what time is it" can be manipulated.
 
 ### Use Monotonic Time for Intervals
@@ -105,3 +111,58 @@ For "run every N seconds/minutes" loops, use a **monotonic clock** (e.g. `setInt
 ### Authenticate Wall Time at the Source
 
 When you do need wall time for a security decision (e.g. "is it 03:00 UTC yet?", "has this credential expired?"), don't read it from the local clock. Use a verifiable source of time or check the wall clock against another clock.
+
+---
+
+## Environment Variables
+
+## Relying on Environment Variables 
+
+Do not let your applications logic be dictated by environment variables in hazardous ways. Environment variable values themselves are not measured therefore can be changed from instance to instance while passing attestation verification. If an application relied on an RPC URL provided by an  environment variable an operator could provide a malicious RPC URL that produces whatever values they like.
+
+## Host Changing Environemnt Variables
+
+**host**
+
+The host can change environment variables. They cannot change them to specific values since they are encrypted but they can change them to values you did not submit. As such you should sense check your environment variables. For example, does the CONTRACT_ID env end in ".near", does the PRIVATE_KEY env start with "ed22519:"?
+
+---
+
+## Validating TLS for External Calls
+
+**host**
+
+Inside the CVM, the host controls **DNS resolution** and the network path. Without proper **TLS certificate validation** on outbound HTTPS calls, the host can transparently MITM any external service the agent talks to. Never disable certificate verification or accept self-signed certs in production. With cert validation working correctly, the host's options collapse from "rewrite responses" to "drop or delay traffic."
+
+For services where you want stronger guarantees than the default trust roots, **pin the expected certificate or public key** so a compromised CA can't issue a fraudulent cert that the host would otherwise pass through.
+
+Note, this is not implemented for the NEAR RPC used in shade-agent-js.
+
+---
+
+## Verifying the CVM from External Callers
+
+**host**
+
+When external clients connect to a shade-agent over HTTPS, default TLS only proves they reached the published domain — not that they reached a CVM running approved code. A malicious host can route traffic to a different CVM and standard CA validation passes regardless.
+
+The typical shade-agent pattern avoids this entirely: the agent's effect is a signed on-chain transaction the caller verifies on-chain, so the API response is just a trigger and TLS-level CVM verification isn't load-bearing.
+
+If your agent's API responses are themselves the security boundary (the caller acts on the response without an on-chain check), see [Phala's domain attestation](https://docs.phala.com/phala-cloud/networking/domain-attestation) for the verification flow.
+
+---
+
+## Replay of Stale Responses
+
+**host**
+
+Even with TLS, the host can record a valid response and **replay it later**. An old block, an old balance, an old signed message — all decrypt cleanly and look fresh. For anything where freshness matters, include a recent anchor in the request (a nonce, a current block height, a per-request challenge) and reject responses that don't reference the anchor or reference one too old.
+
+---
+
+## Liveness and Host Denial
+
+**host**
+
+The host can pause, throttle, or refuse to schedule the CVM at any time. Wall time may jump arbitrarily across a pause, signed transactions may never be relayed, and outbound RPC calls may be silently dropped. None of this is detectable from inside the CVM in real time. Design the agent so **denial of execution is safe**, not catastrophic.
+
