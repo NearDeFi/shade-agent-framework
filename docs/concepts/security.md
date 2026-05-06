@@ -54,7 +54,7 @@ The attestation verification process iterates over all approved measurements and
 
 ## Public Logs
 
-By default, the Shade Agent CLI deploys the agent with **public logs** enabled. You should not emit any sensitive information in the logs when this is enabled.
+By default, the Shade Agent CLI allows you to deploy the agent with **public logs** enabled. You should not emit any sensitive information in the logs when this is enabled. You can turn off public logs in the deployment.yaml.
 
 ---
 
@@ -91,3 +91,17 @@ You can use RPC providers that leverage cryptographic proofs or run in TEEs them
 ### Multiple Reputable Providers
 
 You can use multiple reputable RPC providers and check the result across each provider to make sure they match.
+
+---
+
+## Trusting Wall-Clock Time
+
+The host can influence the guest's wall clock. The boot-time clock comes from the host, and a malicious host can block egress to the trusted NTS servers so chrony can never correct the offset. Treat **wall-clock time as host-influenced state**: any security decision based on "what time is it" can be manipulated.
+
+### Use Monotonic Time for Intervals
+
+For "run every N seconds/minutes" loops, use a **monotonic clock** (e.g. `setInterval`, `performance.now()` in Node). Monotonic time measures elapsed time so the host can't manipulate your loop's cadence. Only reach for wall time when the work itself needs to know "what time is it right now."
+
+### Authenticate Wall Time at the Source
+
+When you do need wall time for a security decision (e.g. "is it 03:00 UTC yet?", "has this credential expired?"), don't read it from the local clock. Use a verifiable source of time or check the wall clock against another clock.
