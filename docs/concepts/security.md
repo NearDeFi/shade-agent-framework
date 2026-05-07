@@ -68,6 +68,20 @@ The agent's **ephemeral keys should not be stored** anywhere, including on the h
 
 ---
 
+## On-Disk State
+
+### Don't rely on disk persistence
+
+The CVM may be rescheduled to a different instance and there is no guarantee that the disk follows. State written yesterday may simply not be there when the agent boots tomorrow. Your agent should be able to recover from a cold start.
+
+### Don't store secrets that survive upgrades
+
+Disk state is **not wiped on app upgrades**. When you push a new Docker image the new container inherits any persistent volumes the old one created. A future malicious upgrade can read everything previous versions wrote: derived keys, cached credentials, user data, anything. This does not require new measurements to be approved in the contract, just the agent deployer updating the image.
+
+If a value would be catastrophic for a future version of code to read, don't put it on disk. You should treat all data on disk as being potentially leaked unless you soely operate the deployed. 
+
+---
+
 ## Public PPIDs
 
 All PPIDs that are approved in the agent contract are made **public**. If you are using your own hardware, consider whether you are comfortable with its PPID being public since it could be used to track your hardware.

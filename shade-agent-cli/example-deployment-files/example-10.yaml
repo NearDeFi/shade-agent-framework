@@ -1,12 +1,7 @@
 # Locked-down telemetry: TEE deployment with public_logs and public_sysinfo both off
 
 # Same shape as the first-time TEE deployment in example-2.yaml, but with both
-# public telemetry surfaces disabled on the dstack guest agent:
-#   - public_logs:    false  -> /logs/<container> returns 404 externally
-#   - public_sysinfo: false  -> /metrics returns 404 externally
-# Both flags are part of the AppCompose, so flipping them produces a different
-# compose_hash than the defaults. The agent contract must approve this distinct
-# measurement before the agent can register.
+# public telemetry surfaces disabled
 
 environment: TEE
 network: testnet
