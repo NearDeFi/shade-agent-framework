@@ -1,3 +1,8 @@
+// Start the OpenTelemetry SDK BEFORE other imports so its
+// auto-instrumentations can wrap modules as they load.
+import { otelSDK, mountMetrics } from "./observability";
+otelSDK.start();
+
 import { Hono } from "hono";
 import { serve } from "@hono/node-server";
 import { cors } from "hono/cors";
@@ -42,6 +47,7 @@ app.use(cors());
 
 // Routes
 app.get("/", (c) => c.json({ message: "App is running" }));
+mountMetrics(app); // GET /metrics for Prometheus to scrape
 app.route("/api/eth-account", ethAccount);
 app.route("/api/agent-account", agentAccount);
 app.route("/api/transaction", transaction);

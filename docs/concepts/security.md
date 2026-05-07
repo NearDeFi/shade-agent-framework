@@ -78,7 +78,9 @@ The CVM may be rescheduled to a different instance and there is no guarantee tha
 
 Disk state is **not wiped on app upgrades**. When you push a new Docker image the new container inherits any persistent volumes the old one created. A future malicious upgrade can read everything previous versions wrote: derived keys, cached credentials, user data, anything. This does not require new measurements to be approved in the contract, just the agent deployer updating the image.
 
-If a value would be catastrophic for a future version of code to read, don't put it on disk. You should treat all data on disk as being potentially leaked unless you soely operate the deployed. 
+If a value would be catastrophic for a future version of code to read, don't put it on disk. You should treat all data on disk as being potentially leaked unless you soely operate the deployed agent. 
+
+Note that logs are stored on disk, including in the private logging setup.
 
 ---
 

@@ -1,0 +1,264 @@
+# Shade-agent template with full observability stack:
+#   - Loki       (logs)        ← Alloy ships from Docker socket
+#   - Prometheus (metrics)     ← scrapes shade-agent-app:3000/metrics
+#   - Tempo      (traces)      ← receives OTLP HTTP/gRPC from the agent
+#   - Grafana    (UI for all three pillars)
+#
+# Deploy with:
+#   1. deployment.yaml -> docker_compose_path: ./docker-compose-observability.yaml
+#   2. deployment.yaml -> deploy_to_phala.public_logs: false
+#   3. deployment.yaml -> deploy_to_phala.public_sysinfo: false
+#   4. deployment.yaml -> deploy_to_phala.instance_type: tdx.medium  (six containers don't fit on tdx.small)
+#   5. .env             -> add GF_SECURITY_ADMIN_PASSWORD=<long random string>
+#   6. Approve the new compose_hash on the agent contract (shade deploy does this).
+#
+# Agent code: see src/observability.ts for the canonical pattern for emitting
+# logs, metrics, and traces. Mount /metrics on the agent's HTTP server and
+# call otelSDK.start() at boot, otherwise Prometheus and Tempo will sit empty.
+#
+# Persistence: loki-data, prometheus-data, tempo-data, and grafana-data are
+# named Docker volumes on the LUKS-encrypted disk. They survive restarts and
+# image upgrades — see docs/concepts/security.md "On-Disk State" for the
+# malicious-upgrade caveat.
+
+services:
+  shade-agent-app:
+    environment:
+      AGENT_CONTRACT_ID: ${AGENT_CONTRACT_ID}
+      SPONSOR_ACCOUNT_ID: ${SPONSOR_ACCOUNT_ID}
+      SPONSOR_PRIVATE_KEY: ${SPONSOR_PRIVATE_KEY}
+    platform: linux/amd64
+    image: pivortex/my-first-agent@sha256:2b021fa9486d5ae619934bb3dae7927429a8ef914d196f67b8ac92ad9b24bb4c
+    container_name: shade-agent-app
+    ports:
+      - 3000:3000
+    volumes:
+      - /var/run/dstack.sock:/var/run/dstack.sock
+    restart: always
+
+  loki:
+    platform: linux/amd64
+    image: grafana/loki@sha256:73e905b51a7f917f7a1075e4be68759df30226e03dcb3cd2213b989cc0dc8eb4
+    container_name: loki
+    command: -config.file=/etc/loki/config.yaml
+    configs:
+      - source: loki-config
+        target: /etc/loki/config.yaml
+    volumes:
+      - loki-data:/loki
+    restart: always
+
+  alloy:
+    platform: linux/amd64
+    image: grafana/alloy@sha256:51aeb9d829239345070619dad3edd6873186f913c84f45b365b74574fcb38ec0
+    container_name: alloy
+    command: run --server.http.listen-addr=0.0.0.0:12345 /etc/alloy/config.alloy
+    configs:
+      - source: alloy-config
+        target: /etc/alloy/config.alloy
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+    restart: always
+
+  prometheus:
+    platform: linux/amd64
+    image: prom/prometheus@sha256:e4254400b85610324913f0dc4acf92603d9984e7519414c5a12811aa6146acc3
+    container_name: prometheus
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=30d
+    configs:
+      - source: prometheus-config
+        target: /etc/prometheus/prometheus.yml
+    volumes:
+      - prometheus-data:/prometheus
+    restart: always
+
+  tempo:
+    platform: linux/amd64
+    image: grafana/tempo@sha256:dce2c29bee447e43ac67d8289fdb2d777a962085a7b03b83dac9099166493092
+    container_name: tempo
+    command: -config.file=/etc/tempo/config.yaml
+    configs:
+      - source: tempo-config
+        target: /etc/tempo/config.yaml
+    volumes:
+      - tempo-data:/tempo
+    restart: always
+
+  grafana:
+    platform: linux/amd64
+    image: grafana/grafana@sha256:0f86bada30d65ef9d0183b90c1e2682ac92d53d95da8bed322b984ea78a4a73a
+    container_name: grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: ${GF_SECURITY_ADMIN_PASSWORD}
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    ports:
+      - 3030:3000
+    configs:
+      - source: grafana-datasources
+        target: /etc/grafana/provisioning/datasources/datasources.yaml
+    volumes:
+      - grafana-data:/var/lib/grafana
+    depends_on:
+      - loki
+      - prometheus
+      - tempo
+    restart: always
+
+configs:
+  loki-config:
+    content: |
+      auth_enabled: false
+      server:
+        http_listen_port: 3100
+        grpc_listen_port: 9096
+        log_level: warn
+      common:
+        instance_addr: 127.0.0.1
+        path_prefix: /loki
+        storage:
+          filesystem:
+            chunks_directory: /loki/chunks
+            rules_directory: /loki/rules
+        replication_factor: 1
+        ring:
+          kvstore:
+            store: inmemory
+      schema_config:
+        configs:
+          - from: 2024-01-01
+            store: tsdb
+            object_store: filesystem
+            schema: v13
+            index:
+              prefix: index_
+              period: 24h
+      limits_config:
+        reject_old_samples: true
+        reject_old_samples_max_age: 168h
+        retention_period: 168h
+      compactor:
+        working_directory: /loki/compactor
+        retention_enabled: true
+        delete_request_store: filesystem
+      ruler:
+        alertmanager_url: http://localhost:9093
+
+  alloy-config:
+    content: |
+      // Discover all containers via the local Docker daemon
+      discovery.docker "containers" {
+        host             = "unix:///var/run/docker.sock"
+        refresh_interval = "5s"
+      }
+
+      // Promote Docker container metadata to Loki labels.
+      // Without this every line ends up under service_name="unknown_service".
+      discovery.relabel "containers" {
+        targets = discovery.docker.containers.targets
+        rule {
+          source_labels = ["__meta_docker_container_name"]
+          regex         = "/?(.*)"
+          target_label  = "container"
+        }
+        rule {
+          source_labels = ["__meta_docker_container_name"]
+          regex         = "/?(.*)"
+          target_label  = "service_name"
+        }
+      }
+
+      // Tail their stdout/stderr through the Docker API and forward to Loki
+      loki.source.docker "containers" {
+        host             = "unix:///var/run/docker.sock"
+        targets          = discovery.relabel.containers.output
+        forward_to       = [loki.write.default.receiver]
+        refresh_interval = "5s"
+      }
+
+      // Push to local Loki
+      loki.write "default" {
+        endpoint {
+          url = "http://loki:3100/loki/api/v1/push"
+        }
+      }
+
+  prometheus-config:
+    content: |
+      global:
+        scrape_interval: 15s
+        evaluation_interval: 15s
+      scrape_configs:
+        - job_name: shade-agent-app
+          static_configs:
+            - targets: ['shade-agent-app:3000']
+          metrics_path: /metrics
+        - job_name: prometheus
+          static_configs:
+            - targets: ['localhost:9090']
+        - job_name: loki
+          static_configs:
+            - targets: ['loki:3100']
+          metrics_path: /metrics
+        - job_name: tempo
+          static_configs:
+            - targets: ['tempo:3200']
+          metrics_path: /metrics
+
+  tempo-config:
+    content: |
+      server:
+        http_listen_port: 3200
+      distributor:
+        receivers:
+          otlp:
+            protocols:
+              grpc:
+                endpoint: 0.0.0.0:4317
+              http:
+                endpoint: 0.0.0.0:4318
+      ingester:
+        max_block_duration: 5m
+      storage:
+        trace:
+          backend: local
+          local:
+            path: /tempo/traces
+          wal:
+            path: /tempo/wal
+      compactor:
+        compaction:
+          block_retention: 168h
+
+  grafana-datasources:
+    content: |
+      apiVersion: 1
+      datasources:
+        - name: Loki
+          type: loki
+          access: proxy
+          url: http://loki:3100
+          isDefault: true
+          editable: false
+        - name: Prometheus
+          type: prometheus
+          access: proxy
+          url: http://prometheus:9090
+          editable: false
+        - name: Tempo
+          type: tempo
+          access: proxy
+          url: http://tempo:3200
+          editable: false
+
+volumes:
+  loki-data: {}
+  prometheus-data: {}
+  tempo-data: {}
+  grafana-data: {}
