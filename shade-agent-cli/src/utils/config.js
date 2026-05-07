@@ -65,6 +65,16 @@ export function parseDeploymentConfig(deploymentPath) {
       typeof value === "string" && value.includes("\n"),
       `${label} must be a multiline string block`,
     );
+  const mustBeBoolean = (value, label) =>
+    requireField(
+      typeof value === "boolean",
+      `${label} must be a boolean (true or false)`,
+    );
+  const mustBeBooleanOrOmitted = (value, label) =>
+    requireField(
+      value === undefined || typeof value === "boolean",
+      `${label} must be a boolean (true or false) if specified`,
+    );
 
   // Auto-detect OS if not provided
   const detectedOS = os || detectOS();
@@ -93,10 +103,20 @@ export function parseDeploymentConfig(deploymentPath) {
   }
 
   // deploy_custom validations if enabled
+  if (agent_contract?.deploy_custom) {
+    mustBeBooleanOrOmitted(
+      agent_contract.deploy_custom.enabled,
+      "deploy_custom.enabled",
+    );
+  }
   if (
     agent_contract?.deploy_custom &&
     agent_contract.deploy_custom.enabled !== false
   ) {
+    mustBeBooleanOrOmitted(
+      agent_contract.deploy_custom.delete_key,
+      "deploy_custom.delete_key",
+    );
     requireField(
       typeof agent_contract.deploy_custom.funding_amount === "number" &&
         agent_contract.deploy_custom.funding_amount > 0 &&
@@ -107,6 +127,24 @@ export function parseDeploymentConfig(deploymentPath) {
     const deployFromSource = agent_contract.deploy_custom.deploy_from_source;
     const deployFromWasm = agent_contract.deploy_custom.deploy_from_wasm;
     const useGlobalByHash = agent_contract.deploy_custom.use_global_by_hash;
+    if (deployFromSource) {
+      mustBeBooleanOrOmitted(
+        deployFromSource.enabled,
+        "deploy_custom.deploy_from_source.enabled",
+      );
+    }
+    if (deployFromWasm) {
+      mustBeBooleanOrOmitted(
+        deployFromWasm.enabled,
+        "deploy_custom.deploy_from_wasm.enabled",
+      );
+    }
+    if (useGlobalByHash) {
+      mustBeBooleanOrOmitted(
+        useGlobalByHash.enabled,
+        "deploy_custom.use_global_by_hash.enabled",
+      );
+    }
     const deployFromSourceEnabled =
       deployFromSource && deployFromSource.enabled !== false;
     const deployFromWasmEnabled =
@@ -157,6 +195,9 @@ export function parseDeploymentConfig(deploymentPath) {
 
     // deploy_custom.init validations if enabled
     const init = agent_contract.deploy_custom.init;
+    if (init) {
+      mustBeBooleanOrOmitted(init.enabled, "deploy_custom.init.enabled");
+    }
     const initEnabled = init && init.enabled !== false;
     if (initEnabled) {
       // deploy_custom.init.method_name is required if init is enabled
@@ -175,6 +216,12 @@ export function parseDeploymentConfig(deploymentPath) {
   }
 
   // build_docker_image validations - only required when environment is TEE
+  if (build_docker_image) {
+    mustBeBooleanOrOmitted(
+      build_docker_image.enabled,
+      "build_docker_image.enabled",
+    );
+  }
   if (
     build_docker_image &&
     build_docker_image.enabled !== false &&
@@ -184,13 +231,9 @@ export function parseDeploymentConfig(deploymentPath) {
       !!build_docker_image.tag,
       "build_docker_image.tag is required when environment is TEE",
     );
-    requireField(
-      build_docker_image.cache !== undefined,
-      "build_docker_image.cache is required when environment is TEE",
-    );
-    requireField(
-      typeof build_docker_image.cache === "boolean",
-      "build_docker_image.cache must be boolean when environment is TEE",
+    mustBeBooleanOrOmitted(
+      build_docker_image.cache,
+      "build_docker_image.cache",
     );
     requireField(
       !!build_docker_image.dockerfile_path,
@@ -205,6 +248,12 @@ export function parseDeploymentConfig(deploymentPath) {
   }
 
   // approve_measurements validations
+  if (approve_measurements) {
+    mustBeBooleanOrOmitted(
+      approve_measurements.enabled,
+      "approve_measurements.enabled",
+    );
+  }
   if (approve_measurements && approve_measurements.enabled !== false) {
     requireField(
       !!approve_measurements.method_name,
@@ -221,6 +270,9 @@ export function parseDeploymentConfig(deploymentPath) {
   }
 
   // approve_ppids validations
+  if (approve_ppids) {
+    mustBeBooleanOrOmitted(approve_ppids.enabled, "approve_ppids.enabled");
+  }
   if (approve_ppids && approve_ppids.enabled !== false) {
     requireField(
       !!approve_ppids.method_name,
@@ -234,6 +286,9 @@ export function parseDeploymentConfig(deploymentPath) {
   }
 
   // deploy_to_phala validations
+  if (deploy_to_phala) {
+    mustBeBooleanOrOmitted(deploy_to_phala.enabled, "deploy_to_phala.enabled");
+  }
   if (deploy_to_phala && deploy_to_phala.enabled !== false) {
     requireField(
       !!deploy_to_phala.env_file_path,
@@ -332,7 +387,7 @@ export function parseDeploymentConfig(deploymentPath) {
       build_docker_image && build_docker_image.enabled !== false
         ? {
             tag: build_docker_image.tag,
-            cache: build_docker_image.cache,
+            cache: build_docker_image.cache === true,
             dockerfile_path: build_docker_image.dockerfile_path,
             reproducible_build:
               build_docker_image.reproducible_build === true,

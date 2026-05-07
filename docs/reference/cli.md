@@ -69,6 +69,8 @@ shade auth
 
 CLI configurations are read from a single `deployment.yaml` file in the project root. The following sections describe what each key configures.
 
+**Boolean fields** (every `enabled` flag, plus `delete_key`, `cache`, `reproducible_build`, `public_logs`, `public_sysinfo`) must be exactly `true` or `false`. Optional booleans may also be omitted; non-boolean values like `yes`, `no`, `1`, `0`, or quoted `"true"` are rejected by the parser.
+
 ### Top-Level Keys
 
 | Key | Required | Description |
@@ -165,7 +167,7 @@ Placeholders in args:
 |-----|----------|-------------|
 | **enabled** | No | If `false`, the Docker image is not built. If disabled, the CLI will use the existing Docker Compose file.  |
 | **tag** | Yes | Docker image tag (e.g. `username/my-first-agent`) for building and pushing. |
-| **cache** | Yes | Boolean; whether to use caching in the build process. |
+| **cache** | No | Boolean; whether to use caching in the build process. Defaults to `false` when omitted. |
 | **dockerfile_path** | Yes | Path to the Dockerfile to use for the build process (e.g. `./Dockerfile`). |
 | **reproducible_build** | No | If `true`, builds a reproducible Docker image. Your Dockerfile should pin base images by digest. You need **buildx** installed to use this flag.|
 
@@ -178,8 +180,8 @@ Placeholders in args:
 | **env_file_path** | Yes | Path to the environment variables file loaded when deploying to Phala (e.g. `./.env`). |
 | **dstack_version** | Yes | The dstack OS image version to deploy with and to use when calculating measurements. Supported: `0.5.7`, `0.5.8`. |
 | **instance_type** | Yes | The hardware instance type to deploy with and to use when calculating measurements. Supported: `tdx.small`, `tdx.medium`, `tdx.large`, `tdx.xlarge`, `tdx.2xlarge`, `tdx.4xlarge`, `tdx.8xlarge`. |
-| **public_logs** | Yes | Boolean. If `true`, the dstack guest-agent's `GET /logs/<container>` endpoint is publicly reachable on port 8090, exposing container stdout/stderr. Affects the app compose hash. |
-| **public_sysinfo** | Yes | Boolean. If `true`, the dstack guest-agent's `GET /metrics` endpoint is publicly reachable on port 8090, exposing OS, CPU, memory, swap, uptime, load, and disk telemetry. Affects the app compose hash. |
+| **public_logs** | Yes | Boolean. If `true`, the dstack guest-agent's `GET /logs/<container>` endpoint is publicly reachable on port 8090, exposing all container logs. |
+| **public_sysinfo** | Yes | Boolean. If `true`, the dstack guest-agent's `GET /metrics` endpoint is publicly reachable on port 8090, exposing OS, CPU, memory, swap, uptime, load, and disk telemetry. |
 
 ### whitelist_agent_for_local (local only)
 
