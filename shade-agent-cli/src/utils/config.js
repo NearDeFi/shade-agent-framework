@@ -65,11 +65,6 @@ export function parseDeploymentConfig(deploymentPath) {
       typeof value === "string" && value.includes("\n"),
       `${label} must be a multiline string block`,
     );
-  const mustBeBoolean = (value, label) =>
-    requireField(
-      typeof value === "boolean",
-      `${label} must be a boolean (true or false)`,
-    );
   const mustBeBooleanOrOmitted = (value, label) =>
     requireField(
       value === undefined || typeof value === "boolean",

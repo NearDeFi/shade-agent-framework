@@ -358,6 +358,8 @@ async function deployToPhala() {
     composePath,
     envFilePath,
     allowedEnvKeys: allowedEnvs,
+    dstackVersion: "0.5.8",
+    instanceType: "tdx.small",
     publicLogs: true,
     publicSysinfo: true,
   });
@@ -585,7 +587,7 @@ async function callTestEndpoint(baseUrl, testName, options = {}) {
 // Get correct measurements
 function getCorrectMeasurements() {
   const composePath = resolve(__dirname, "docker-compose.yaml");
-  return getMeasurements(true, composePath, undefined, undefined, {
+  return getMeasurements(true, composePath, "0.5.8", "tdx.small", {
     publicLogs: true,
     publicSysinfo: true,
   });
