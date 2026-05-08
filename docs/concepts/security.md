@@ -2,7 +2,7 @@
 
 A note on how to calibrate the considerations below: several are framed against a malicious host that tampers with what the application
 sees (env vars, network, time, disk). TEE confidentiality is not absolute — recent disclosures like TEE.fail have shown that a host with 
-physical access can extract secrets from Intel TDX through hardware side-channel attacks, including an agent's private keys. So defending against a maclious host may not be worth the time depending on your security tolerance. All considerations based on a malicious host are marked **host**.
+physical access can extract secrets from Intel TDX through hardware side-channel attacks, including an agent's private keys. So defending against a malicious host may not be worth the time depending on your security tolerance. All considerations based on a malicious host are marked **host**.
 
 ## Restricting Actions
 
@@ -78,7 +78,9 @@ The CVM may be rescheduled to a different instance and there is no guarantee tha
 
 Disk state is **not wiped on app upgrades**. When you push a new Docker image the new container inherits any persistent volumes the old one created. A future malicious upgrade can read everything previous versions wrote: derived keys, cached credentials, user data, anything. This does not require new measurements to be approved in the contract, just the agent deployer updating the image.
 
-If a value would be catastrophic for a future version of code to read, don't put it on disk. You should treat all data on disk as being potentially leaked unless you soely operate the deployed. 
+If a value would be catastrophic for a future version of code to read, don't put it on disk. You should treat all data on disk as being potentially leaked unless you solely operate the deployed agent.
+
+Note that logs are stored on disk, including in the private logging setup.
 
 ---
 
@@ -132,13 +134,13 @@ When you do need wall time for a security decision (e.g. "is it 03:00 UTC yet?",
 
 ## Relying on Environment Variables 
 
-Do not let your applications logic be dictated by environment variables in hazardous ways. Environment variable values themselves are not measured therefore can be changed from instance to instance while passing attestation verification. If an application relied on an RPC URL provided by an  environment variable an operator could provide a malicious RPC URL that produces whatever values they like.
+Do not let your application's logic be dictated by environment variables in hazardous ways. Environment variable values themselves are not measured, therefore can be changed from instance to instance while passing attestation verification. If an application relied on an RPC URL provided by an environment variable, an operator could provide a malicious RPC URL that produces whatever values they like.
 
-## Host Changing Environemnt Variables
+## Host Changing Environment Variables
 
 **host**
 
-The host can change environment variables. They cannot change them to specific values since they are encrypted but they can change them to values you did not submit. As such you should sense check your environment variables. For example, does the CONTRACT_ID env end in ".near", does the PRIVATE_KEY env start with "ed22519:"?
+The host can change environment variables. They cannot change them to specific values since they are encrypted but they can change them to values you did not submit. As such you should sense check your environment variables. For example, does the CONTRACT_ID env end in ".near", does the PRIVATE_KEY env start with "ed25519:"?
 
 ---
 
