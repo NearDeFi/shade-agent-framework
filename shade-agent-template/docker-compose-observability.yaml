@@ -200,6 +200,7 @@ configs:
             - targets: ['tempo:3200']
           metrics_path: /metrics
   # [TRACES] config
+  tempo-config:
     content: |
       server:
         http_listen_port: 3200             # HTTP API for Grafana queries (TraceQL, trace lookup)
