@@ -3,9 +3,9 @@
   "bomFormat": "CycloneDX",
   "specVersion": "1.6",
   "version": 1,
-  "serialNumber": "urn:uuid:547abb84-ded0-43b2-866d-ce17a7a70a7e",
+  "serialNumber": "urn:uuid:9e6d8eb9-10a5-440d-93a3-806dd9c1c06e",
   "metadata": {
-    "timestamp": "2026-05-11T04:02:25.658Z",
+    "timestamp": "2026-05-11T05:04:48.471Z",
     "tools": {
       "components": [
         {
@@ -27612,8 +27612,8 @@
     {
       "type": "library",
       "name": "chainsig.js",
-      "version": "1.1.14",
-      "bom-ref": "my-shade-agent-app@1.0.0|chainsig.js@1.1.14",
+      "version": "1.1.15",
+      "bom-ref": "my-shade-agent-app@1.0.0|chainsig.js@1.1.15",
       "description": "ChainSig Library",
       "licenses": [
         {
@@ -27623,7 +27623,20 @@
           }
         }
       ],
-      "purl": "pkg:npm/chainsig.js@1.1.14",
+      "purl": "pkg:npm/chainsig.js@1.1.15",
+      "externalReferences": [
+        {
+          "url": "https://registry.npmjs.org/chainsig.js/-/chainsig.js-1.1.15.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "120a5e00f26cde65b5899db5514abca47048739ca39bf9b7fcfbaeb1a1501ff61bba5ad30c8c8999fbb2d1853e645845f57bb536d3036a5226c2b4679c87c4be"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
       "properties": [
         {
           "name": "cdx:npm:package:path",
@@ -28195,8 +28208,8 @@
       "type": "library",
       "name": "amino",
       "group": "@cosmjs",
-      "version": "0.32.4",
-      "bom-ref": "my-shade-agent-app@1.0.0|@cosmjs/amino@0.32.4",
+      "version": "0.38.1",
+      "bom-ref": "my-shade-agent-app@1.0.0|@cosmjs/amino@0.38.1",
       "description": "Helpers for Amino based signing.",
       "licenses": [
         {
@@ -28206,7 +28219,7 @@
           }
         }
       ],
-      "purl": "pkg:npm/%40cosmjs/amino@0.32.4?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fcosmos%2Fcosmjs.git#main",
+      "purl": "pkg:npm/%40cosmjs/amino@0.38.1#main",
       "externalReferences": [
         {
           "url": "git+https://github.com/cosmos/cosmjs.git#main",
@@ -28222,6 +28235,17 @@
           "url": "https://github.com/cosmos/cosmjs/issues",
           "type": "issue-tracker",
           "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/@cosmjs/amino/-/amino-0.38.1.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "59a4e10e9ab62705322ae6b3ab4f176be147cd0de38751dc62718be31b327ea1703a502f9e5d040ef492cfd592c33d68a29231144f50b5fdce50a3a5c4165b60"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
         }
       ],
       "properties": [
@@ -28235,8 +28259,8 @@
       "type": "library",
       "name": "crypto",
       "group": "@cosmjs",
-      "version": "0.32.4",
-      "bom-ref": "my-shade-agent-app@1.0.0|@cosmjs/crypto@0.32.4",
+      "version": "0.38.1",
+      "bom-ref": "my-shade-agent-app@1.0.0|@cosmjs/crypto@0.38.1",
       "description": "Cryptography resources for blockchain projects",
       "licenses": [
         {
@@ -28246,7 +28270,7 @@
           }
         }
       ],
-      "purl": "pkg:npm/%40cosmjs/crypto@0.32.4?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fcosmos%2Fcosmjs.git#main",
+      "purl": "pkg:npm/%40cosmjs/crypto@0.38.1#main",
       "externalReferences": [
         {
           "url": "git+https://github.com/cosmos/cosmjs.git#main",
@@ -28262,6 +28286,17 @@
           "url": "https://github.com/cosmos/cosmjs/issues",
           "type": "issue-tracker",
           "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/@cosmjs/crypto/-/crypto-0.38.1.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "af52900a328074c81ad9a67f9e48142d11787e2b0f64c17a12bb9c56c32690048180397493dfef0fd2bd7c751d18294cbf4a0e6047f0393fd44c147b2b63ae60"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
         }
       ],
       "properties": [
@@ -28275,8 +28310,8 @@
       "type": "library",
       "name": "encoding",
       "group": "@cosmjs",
-      "version": "0.32.4",
-      "bom-ref": "my-shade-agent-app@1.0.0|@cosmjs/encoding@0.32.4",
+      "version": "0.38.1",
+      "bom-ref": "my-shade-agent-app@1.0.0|@cosmjs/encoding@0.38.1",
       "description": "Encoding helpers for blockchain projects",
       "licenses": [
         {
@@ -28286,7 +28321,7 @@
           }
         }
       ],
-      "purl": "pkg:npm/%40cosmjs/encoding@0.32.4?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fcosmos%2Fcosmjs.git#main",
+      "purl": "pkg:npm/%40cosmjs/encoding@0.38.1#main",
       "externalReferences": [
         {
           "url": "git+https://github.com/cosmos/cosmjs.git#main",
@@ -28302,6 +28337,17 @@
           "url": "https://github.com/cosmos/cosmjs/issues",
           "type": "issue-tracker",
           "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/@cosmjs/encoding/-/encoding-0.38.1.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "8b98c68098625ecedba1e3c6038f31cd8c6709b7f7312e674ff4761ef9ef490c95006d80f7d3722fdea50609b3e9eb4e25218e8b056b07cba1d50a796eae9629"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
         }
       ],
       "properties": [
@@ -28313,10 +28359,12 @@
       "components": [
         {
           "type": "library",
-          "name": "bech32",
-          "version": "1.1.4",
-          "bom-ref": "my-shade-agent-app@1.0.0|@cosmjs/encoding@0.32.4|bech32@1.1.4",
-          "description": "Bech32 encoding / decoding",
+          "name": "base",
+          "group": "@scure",
+          "version": "2.2.0",
+          "bom-ref": "my-shade-agent-app@1.0.0|@cosmjs/encoding@0.38.1|@scure/base@2.2.0",
+          "author": "Paul Miller",
+          "description": "Secure, audited & 0-dep implementation of base64, bech32, base58, base32 & base16",
           "licenses": [
             {
               "license": {
@@ -28325,28 +28373,39 @@
               }
             }
           ],
-          "purl": "pkg:npm/bech32@1.1.4?vcs_url=git%2Bssh%3A%2F%2Fgit%40github.com%2Fbitcoinjs%2Fbech32.git",
+          "purl": "pkg:npm/%40scure/base@2.2.0",
           "externalReferences": [
             {
-              "url": "git+ssh://git@github.com/bitcoinjs/bech32.git",
+              "url": "git+https://github.com/paulmillr/scure-base.git",
               "type": "vcs",
               "comment": "as detected from PackageJson property \"repository.url\""
             },
             {
-              "url": "https://github.com/bitcoinjs/bech32#readme",
+              "url": "https://paulmillr.com/noble/#scure",
               "type": "website",
               "comment": "as detected from PackageJson property \"homepage\""
             },
             {
-              "url": "https://github.com/bitcoinjs/bech32/issues",
+              "url": "https://github.com/paulmillr/scure-base/issues",
               "type": "issue-tracker",
               "comment": "as detected from PackageJson property \"bugs.url\""
+            },
+            {
+              "url": "https://registry.npmjs.org/@scure/base/-/base-2.2.0.tgz",
+              "type": "distribution",
+              "hashes": [
+                {
+                  "alg": "SHA-512",
+                  "content": "6fc5c4ba92626de8225d5fad0d4b1e23ca0b41cf1e8b777fe0991bd91a5b1e1dcc7c4d39e28bf7b88cf6761164077148f22c18904874806080a64ad882090f36"
+                }
+              ],
+              "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
             }
           ],
           "properties": [
             {
               "name": "cdx:npm:package:path",
-              "value": "node_modules/@cosmjs/encoding/node_modules/bech32"
+              "value": "node_modules/@cosmjs/encoding/node_modules/@scure/base"
             }
           ]
         }
@@ -28356,8 +28415,8 @@
       "type": "library",
       "name": "math",
       "group": "@cosmjs",
-      "version": "0.32.4",
-      "bom-ref": "my-shade-agent-app@1.0.0|@cosmjs/math@0.32.4",
+      "version": "0.38.1",
+      "bom-ref": "my-shade-agent-app@1.0.0|@cosmjs/math@0.38.1",
       "description": "Math helpers for blockchain projects",
       "licenses": [
         {
@@ -28367,7 +28426,7 @@
           }
         }
       ],
-      "purl": "pkg:npm/%40cosmjs/math@0.32.4?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fcosmos%2Fcosmjs.git#main",
+      "purl": "pkg:npm/%40cosmjs/math@0.38.1#main",
       "externalReferences": [
         {
           "url": "git+https://github.com/cosmos/cosmjs.git#main",
@@ -28383,6 +28442,17 @@
           "url": "https://github.com/cosmos/cosmjs/issues",
           "type": "issue-tracker",
           "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/@cosmjs/math/-/math-0.38.1.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "30193ba7a90f3542e2d13bac0fc3b7c6806c9052244733ada669de6b7b176d356782e5fb7a934f5432135cce2d96c83c90042b10e108034839cc0271cc7dc893"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
         }
       ],
       "properties": [
@@ -28396,8 +28466,8 @@
       "type": "library",
       "name": "proto-signing",
       "group": "@cosmjs",
-      "version": "0.32.4",
-      "bom-ref": "my-shade-agent-app@1.0.0|@cosmjs/proto-signing@0.32.4",
+      "version": "0.38.1",
+      "bom-ref": "my-shade-agent-app@1.0.0|@cosmjs/proto-signing@0.38.1",
       "description": "Utilities for protobuf based signing (Cosmos SDK 0.40+)",
       "licenses": [
         {
@@ -28407,7 +28477,7 @@
           }
         }
       ],
-      "purl": "pkg:npm/%40cosmjs/proto-signing@0.32.4?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fcosmos%2Fcosmjs.git#main",
+      "purl": "pkg:npm/%40cosmjs/proto-signing@0.38.1#main",
       "externalReferences": [
         {
           "url": "git+https://github.com/cosmos/cosmjs.git#main",
@@ -28423,6 +28493,17 @@
           "url": "https://github.com/cosmos/cosmjs/issues",
           "type": "issue-tracker",
           "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/@cosmjs/proto-signing/-/proto-signing-0.38.1.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "27b8c42d3c24dfdc1801951a9f8f1e4cb04acf1dff99ac7534841295a7ab76b52422a864f59cc2dbea7de119e5154064bec599e0e45b84d2d83e3c2e7f6a0cd2"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
         }
       ],
       "properties": [
@@ -28436,8 +28517,8 @@
       "type": "library",
       "name": "stargate",
       "group": "@cosmjs",
-      "version": "0.32.4",
-      "bom-ref": "my-shade-agent-app@1.0.0|@cosmjs/stargate@0.32.4",
+      "version": "0.38.1",
+      "bom-ref": "my-shade-agent-app@1.0.0|@cosmjs/stargate@0.38.1",
       "description": "Utilities for Cosmos SDK 0.40",
       "licenses": [
         {
@@ -28447,7 +28528,7 @@
           }
         }
       ],
-      "purl": "pkg:npm/%40cosmjs/stargate@0.32.4?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fcosmos%2Fcosmjs.git#main",
+      "purl": "pkg:npm/%40cosmjs/stargate@0.38.1#main",
       "externalReferences": [
         {
           "url": "git+https://github.com/cosmos/cosmjs.git#main",
@@ -28463,6 +28544,17 @@
           "url": "https://github.com/cosmos/cosmjs/issues",
           "type": "issue-tracker",
           "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/@cosmjs/stargate/-/stargate-0.38.1.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "1f12cc271be337c9de25c377f368abd57fa7aec99f618cc9f51a626c43a0ccde7422bdc3d6a5b5abaa6e9a30996f8b3cdf8881d053a5300d45d0b22495a4689e"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
         }
       ],
       "properties": [
@@ -28789,8 +28881,8 @@
     {
       "type": "library",
       "name": "cosmjs-types",
-      "version": "0.9.0",
-      "bom-ref": "my-shade-agent-app@1.0.0|cosmjs-types@0.9.0",
+      "version": "0.11.0",
+      "bom-ref": "my-shade-agent-app@1.0.0|cosmjs-types@0.11.0",
       "description": "JS and TS types relating to Protocol Buffers used by Cosmos SDK and other related projects",
       "licenses": [
         {
@@ -28800,7 +28892,7 @@
           }
         }
       ],
-      "purl": "pkg:npm/cosmjs-types@0.9.0?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fconfio%2Fcosmjs-types.git",
+      "purl": "pkg:npm/cosmjs-types@0.11.0",
       "externalReferences": [
         {
           "url": "git+https://github.com/confio/cosmjs-types.git",
@@ -28816,12 +28908,62 @@
           "url": "https://github.com/confio/cosmjs-types/issues",
           "type": "issue-tracker",
           "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/cosmjs-types/-/cosmjs-types-0.11.0.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "9034a4807a514eb835e35de308d7a14f73f6d7e101c59585301afd244cd57e63e235db6ec00a0b024098a3b73b8bfa536a4030c87b176f13a0f24903f80377df"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
         }
       ],
       "properties": [
         {
           "name": "cdx:npm:package:path",
           "value": "node_modules/cosmjs-types"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "got",
+      "version": "11.8.6",
+      "bom-ref": "my-shade-agent-app@1.0.0|got@11.8.6",
+      "description": "Human-friendly and powerful HTTP request library for Node.js",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/got@11.8.6?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fsindresorhus%2Fgot.git",
+      "externalReferences": [
+        {
+          "url": "git+https://github.com/sindresorhus/got.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/sindresorhus/got#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/sindresorhus/got/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/got"
         }
       ]
     },
@@ -29459,8 +29601,8 @@
       "type": "library",
       "name": "utils",
       "group": "@cosmjs",
-      "version": "0.32.4",
-      "bom-ref": "my-shade-agent-app@1.0.0|@cosmjs/utils@0.32.4",
+      "version": "0.38.1",
+      "bom-ref": "my-shade-agent-app@1.0.0|@cosmjs/utils@0.38.1",
       "description": "Utility tools, primarily for testing code",
       "licenses": [
         {
@@ -29470,7 +29612,7 @@
           }
         }
       ],
-      "purl": "pkg:npm/%40cosmjs/utils@0.32.4?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fcosmos%2Fcosmjs.git#main",
+      "purl": "pkg:npm/%40cosmjs/utils@0.38.1#main",
       "externalReferences": [
         {
           "url": "git+https://github.com/cosmos/cosmjs.git#main",
@@ -29486,6 +29628,17 @@
           "url": "https://github.com/cosmos/cosmjs/issues",
           "type": "issue-tracker",
           "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/@cosmjs/utils/-/utils-0.38.1.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "71c4398a7e88bec43ea3f4acb547501f58c2276f8c9093d92bb03f118c0c00572357cbf33a027decb572e804f6e27c1d8b4fe255ada76c01be7e2b5412c80b70"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
         }
       ],
       "properties": [
@@ -29497,51 +29650,61 @@
     },
     {
       "type": "library",
-      "name": "libsodium-wrappers-sumo",
-      "version": "0.7.16",
-      "bom-ref": "my-shade-agent-app@1.0.0|libsodium-wrappers-sumo@0.7.16",
-      "author": "Ahmad Ben Mrad",
-      "description": "The Sodium cryptographic library compiled to pure JavaScript (wrappers, sumo variant)",
+      "name": "hash-wasm",
+      "version": "4.12.0",
+      "bom-ref": "my-shade-agent-app@1.0.0|hash-wasm@4.12.0",
+      "author": "Dani Biró",
+      "description": "Lightning fast hash functions for browsers and Node.js using hand-tuned WebAssembly binaries (MD4, MD5, SHA-1, SHA-2, SHA-3, Keccak, BLAKE2, BLAKE3, PBKDF2, Argon2, bcrypt, scrypt, Adler-32, CRC32, CRC32C, RIPEMD-160, HMAC, xxHash, SM3, Whirlpool)",
       "licenses": [
         {
           "license": {
-            "id": "ISC",
+            "id": "MIT",
             "acknowledgement": "declared"
           }
         }
       ],
-      "purl": "pkg:npm/libsodium-wrappers-sumo@0.7.16?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fjedisct1%2Flibsodium.js.git",
+      "purl": "pkg:npm/hash-wasm@4.12.0",
       "externalReferences": [
         {
-          "url": "git+https://github.com/jedisct1/libsodium.js.git",
+          "url": "git+https://github.com/Daninet/hash-wasm.git",
           "type": "vcs",
           "comment": "as detected from PackageJson property \"repository.url\""
         },
         {
-          "url": "https://github.com/jedisct1/libsodium.js",
+          "url": "https://github.com/Daninet/hash-wasm#readme",
           "type": "website",
           "comment": "as detected from PackageJson property \"homepage\""
         },
         {
-          "url": "https://github.com/jedisct1/libsodium.js/issues",
+          "url": "https://github.com/Daninet/hash-wasm/issues",
           "type": "issue-tracker",
           "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/hash-wasm/-/hash-wasm-4.12.0.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "fbfd81dab60b6f8f08fdebdd38884ff8afc30f671ad9f8018e9e8ef860449c20e4d9ee2ba5e5c82bc1af23244f8d37b38265a7f6098ac244238f1e81b6a0c755"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
         }
       ],
       "properties": [
         {
           "name": "cdx:npm:package:path",
-          "value": "node_modules/libsodium-wrappers-sumo"
+          "value": "node_modules/hash-wasm"
         }
       ]
     },
     {
       "type": "library",
-      "name": "readonly-date",
-      "version": "1.0.0",
-      "bom-ref": "my-shade-agent-app@1.0.0|readonly-date@1.0.0",
-      "author": "IOV SAS",
-      "description": "An immutable drop-in replacement for JavaScript's Date type",
+      "name": "readonly-date-esm",
+      "version": "2.0.0",
+      "bom-ref": "my-shade-agent-app@1.0.0|readonly-date-esm@2.0.0",
+      "description": "An immutable drop-in replacement for JavaScript's Date type (ESM version)",
       "licenses": [
         {
           "license": {
@@ -29550,69 +29713,39 @@
           }
         }
       ],
-      "purl": "pkg:npm/readonly-date@1.0.0?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fiov-one%2Freadonly-date.git",
+      "purl": "pkg:npm/readonly-date-esm@2.0.0",
       "externalReferences": [
         {
-          "url": "git+https://github.com/iov-one/readonly-date.git",
+          "url": "git+https://github.com/webmaster128/readonly-date.git",
           "type": "vcs",
           "comment": "as detected from PackageJson property \"repository.url\""
         },
         {
-          "url": "https://github.com/iov-one/readonly-date#readme",
+          "url": "https://github.com/webmaster128/readonly-date#readme",
           "type": "website",
           "comment": "as detected from PackageJson property \"homepage\""
         },
         {
-          "url": "https://github.com/iov-one/readonly-date/issues",
+          "url": "https://github.com/webmaster128/readonly-date/issues",
           "type": "issue-tracker",
           "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/readonly-date-esm/-/readonly-date-esm-2.0.0.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "69d972cf3d78e287d4db69239e74483741cf3ea21b739219bcc98cb95b4480c63898a80dc8aa8e55be056b6194cc4d81cb84c43ce6281aa0e8291caa99e12e3d"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
         }
       ],
       "properties": [
         {
           "name": "cdx:npm:package:path",
-          "value": "node_modules/readonly-date"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "ics23",
-      "group": "@confio",
-      "version": "0.6.8",
-      "bom-ref": "my-shade-agent-app@1.0.0|@confio/ics23@0.6.8",
-      "author": "Ethan Frey",
-      "description": "Merkle proof verification library - implements Cosmos ICS23 Spec",
-      "licenses": [
-        {
-          "license": {
-            "id": "Apache-2.0",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/%40confio/ics23@0.6.8?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fconfio%2Fics23.git#master",
-      "externalReferences": [
-        {
-          "url": "git+https://github.com/confio/ics23.git#master",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/confio/ics23/tree/master#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/confio/ics23/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/@confio/ics23"
+          "value": "node_modules/readonly-date-esm"
         }
       ]
     },
@@ -29620,8 +29753,8 @@
       "type": "library",
       "name": "stream",
       "group": "@cosmjs",
-      "version": "0.32.4",
-      "bom-ref": "my-shade-agent-app@1.0.0|@cosmjs/stream@0.32.4",
+      "version": "0.38.1",
+      "bom-ref": "my-shade-agent-app@1.0.0|@cosmjs/stream@0.38.1",
       "description": "Utility functions for producing and consuming streams",
       "licenses": [
         {
@@ -29631,7 +29764,7 @@
           }
         }
       ],
-      "purl": "pkg:npm/%40cosmjs/stream@0.32.4?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fcosmos%2Fcosmjs.git#main",
+      "purl": "pkg:npm/%40cosmjs/stream@0.38.1#main",
       "externalReferences": [
         {
           "url": "git+https://github.com/cosmos/cosmjs.git#main",
@@ -29647,6 +29780,17 @@
           "url": "https://github.com/cosmos/cosmjs/issues",
           "type": "issue-tracker",
           "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/@cosmjs/stream/-/stream-0.38.1.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "608aee27a5df3d0a28319cf2edf4ccc75fc99c0320886320efce59c636be467b5bc6bb07c966147561a2f638bcb8e1c481935812b1e52b63676c5f15942a357b"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
         }
       ],
       "properties": [
@@ -29660,8 +29804,8 @@
       "type": "library",
       "name": "tendermint-rpc",
       "group": "@cosmjs",
-      "version": "0.32.4",
-      "bom-ref": "my-shade-agent-app@1.0.0|@cosmjs/tendermint-rpc@0.32.4",
+      "version": "0.38.1",
+      "bom-ref": "my-shade-agent-app@1.0.0|@cosmjs/tendermint-rpc@0.38.1",
       "description": "Tendermint RPC clients",
       "licenses": [
         {
@@ -29671,7 +29815,7 @@
           }
         }
       ],
-      "purl": "pkg:npm/%40cosmjs/tendermint-rpc@0.32.4?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fcosmos%2Fcosmjs.git#main",
+      "purl": "pkg:npm/%40cosmjs/tendermint-rpc@0.38.1#main",
       "externalReferences": [
         {
           "url": "git+https://github.com/cosmos/cosmjs.git#main",
@@ -29687,52 +29831,23 @@
           "url": "https://github.com/cosmos/cosmjs/issues",
           "type": "issue-tracker",
           "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/@cosmjs/tendermint-rpc/-/tendermint-rpc-0.38.1.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "ca819f235c1cc3df3aaaa089903e78e075c1e18c553af9dee6cd516643b8dfb46d82fa4b81555d4c1bc207525c80b0f0db98291cc15ed5d59ee529fd2cfcd0c4"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
         }
       ],
       "properties": [
         {
           "name": "cdx:npm:package:path",
           "value": "node_modules/@cosmjs/tendermint-rpc"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "xstream",
-      "version": "11.14.0",
-      "bom-ref": "my-shade-agent-app@1.0.0|xstream@11.14.0",
-      "author": "Andre Staltz",
-      "description": "An extremely intuitive, small, and fast functional reactive stream library for JavaScript",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/xstream@11.14.0?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fstaltz%2Fxstream.git",
-      "externalReferences": [
-        {
-          "url": "git+https://github.com/staltz/xstream.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/staltz/xstream#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/staltz/xstream/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/xstream"
         }
       ]
     },
@@ -30421,1009 +30536,6 @@
     },
     {
       "type": "library",
-      "name": "isomorphic",
-      "group": "@xrplf",
-      "version": "1.0.1",
-      "bom-ref": "my-shade-agent-app@1.0.0|@xrplf/isomorphic@1.0.1",
-      "description": "A collection of isomorphic and tree-shakeable crypto hashes and utils for xrpl.js",
-      "licenses": [
-        {
-          "license": {
-            "id": "ISC",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/%40xrplf/isomorphic@1.0.1?vcs_url=git%2Bssh%3A%2F%2Fgit%40github.com%2FXRPLF%2Fxrpl.js.git",
-      "externalReferences": [
-        {
-          "url": "git+ssh://git@github.com/XRPLF/xrpl.js.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/XRPLF/xrpl.js#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/XRPLF/xrpl.js/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/@xrplf/isomorphic"
-        }
-      ],
-      "components": [
-        {
-          "type": "library",
-          "name": "eventemitter3",
-          "version": "5.0.1",
-          "bom-ref": "my-shade-agent-app@1.0.0|@xrplf/isomorphic@1.0.1|eventemitter3@5.0.1",
-          "author": "Arnout Kazemier",
-          "description": "EventEmitter3 focuses on performance while maintaining a Node.js AND browser compatible interface.",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/eventemitter3@5.0.1?vcs_url=git%3A%2F%2Fgithub.com%2Fprimus%2Feventemitter3.git",
-          "externalReferences": [
-            {
-              "url": "git://github.com/primus/eventemitter3.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/primus/eventemitter3#readme",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            },
-            {
-              "url": "https://github.com/primus/eventemitter3/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/@xrplf/isomorphic/node_modules/eventemitter3"
-            }
-          ]
-        },
-        {
-          "type": "library",
-          "name": "ws",
-          "version": "8.20.0",
-          "bom-ref": "my-shade-agent-app@1.0.0|@xrplf/isomorphic@1.0.1|ws@8.20.0",
-          "author": "Einar Otto Stangvik",
-          "description": "Simple to use, blazing fast and thoroughly tested websocket client and server for Node.js",
-          "licenses": [
-            {
-              "license": {
-                "id": "MIT",
-                "acknowledgement": "declared"
-              }
-            }
-          ],
-          "purl": "pkg:npm/ws@8.20.0?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fwebsockets%2Fws.git",
-          "externalReferences": [
-            {
-              "url": "git+https://github.com/websockets/ws.git",
-              "type": "vcs",
-              "comment": "as detected from PackageJson property \"repository.url\""
-            },
-            {
-              "url": "https://github.com/websockets/ws",
-              "type": "website",
-              "comment": "as detected from PackageJson property \"homepage\""
-            },
-            {
-              "url": "https://github.com/websockets/ws/issues",
-              "type": "issue-tracker",
-              "comment": "as detected from PackageJson property \"bugs.url\""
-            }
-          ],
-          "properties": [
-            {
-              "name": "cdx:npm:package:path",
-              "value": "node_modules/@xrplf/isomorphic/node_modules/ws"
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "bignumber.js",
-      "version": "9.3.1",
-      "bom-ref": "my-shade-agent-app@1.0.0|bignumber.js@9.3.1",
-      "author": "Michael Mclaughlin",
-      "description": "A library for arbitrary-precision decimal and non-decimal arithmetic",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/bignumber.js@9.3.1?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2FMikeMcl%2Fbignumber.js.git",
-      "externalReferences": [
-        {
-          "url": "git+https://github.com/MikeMcl/bignumber.js.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/MikeMcl/bignumber.js#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/MikeMcl/bignumber.js/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/bignumber.js"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "secret-numbers",
-      "group": "@xrplf",
-      "version": "2.0.0",
-      "bom-ref": "my-shade-agent-app@1.0.0|@xrplf/secret-numbers@2.0.0",
-      "description": "Generate XRPL Accounts with a number-based secret: 8 chunks of 6 digits",
-      "licenses": [
-        {
-          "license": {
-            "id": "ISC",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/%40xrplf/secret-numbers@2.0.0?vcs_url=git%2Bssh%3A%2F%2Fgit%40github.com%2FXRPLF%2Fxrpl.js.git",
-      "externalReferences": [
-        {
-          "url": "git+ssh://git@github.com/XRPLF/xrpl.js.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/XRPLF/xrpl.js#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/XRPLF/xrpl.js/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/@xrplf/secret-numbers"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "fast-json-stable-stringify",
-      "version": "2.1.0",
-      "bom-ref": "my-shade-agent-app@1.0.0|fast-json-stable-stringify@2.1.0",
-      "author": "James Halliday",
-      "description": "deterministic `JSON.stringify()` - a faster version of substack's json-stable-strigify without jsonify",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/fast-json-stable-stringify@2.1.0?vcs_url=git%3A%2F%2Fgithub.com%2Fepoberezkin%2Ffast-json-stable-stringify.git",
-      "externalReferences": [
-        {
-          "url": "git://github.com/epoberezkin/fast-json-stable-stringify.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/epoberezkin/fast-json-stable-stringify",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/epoberezkin/fast-json-stable-stringify/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/fast-json-stable-stringify"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "ripple-keypairs",
-      "version": "2.0.0",
-      "bom-ref": "my-shade-agent-app@1.0.0|ripple-keypairs@2.0.0",
-      "description": "Cryptographic key pairs for the XRP Ledger",
-      "licenses": [
-        {
-          "license": {
-            "id": "ISC",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/ripple-keypairs@2.0.0?vcs_url=git%2Bssh%3A%2F%2Fgit%40github.com%2FXRPLF%2Fxrpl.js.git",
-      "externalReferences": [
-        {
-          "url": "git+ssh://git@github.com/XRPLF/xrpl.js.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/XRPLF/xrpl.js#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/XRPLF/xrpl.js/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/ripple-keypairs"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "resolve-pkg-maps",
-      "version": "1.0.0",
-      "bom-ref": "my-shade-agent-app@1.0.0|resolve-pkg-maps@1.0.0",
-      "author": "Hiroki Osame",
-      "description": "Resolve package.json exports & imports maps",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/resolve-pkg-maps@1.0.0?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fprivatenumber%2Fresolve-pkg-maps.git",
-      "externalReferences": [
-        {
-          "url": "git+https://github.com/privatenumber/resolve-pkg-maps.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/privatenumber/resolve-pkg-maps#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/privatenumber/resolve-pkg-maps/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/resolve-pkg-maps"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "commander",
-      "version": "12.1.0",
-      "bom-ref": "my-shade-agent-app@1.0.0|commander@12.1.0",
-      "author": "TJ Holowaychuk",
-      "description": "the complete solution for node.js command-line programs",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/commander@12.1.0?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Ftj%2Fcommander.js.git",
-      "externalReferences": [
-        {
-          "url": "git+https://github.com/tj/commander.js.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/tj/commander.js#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/tj/commander.js/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/commander"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "got",
-      "version": "11.8.6",
-      "bom-ref": "my-shade-agent-app@1.0.0|got@11.8.6",
-      "description": "Human-friendly and powerful HTTP request library for Node.js",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/got@11.8.6?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fsindresorhus%2Fgot.git",
-      "externalReferences": [
-        {
-          "url": "git+https://github.com/sindresorhus/got.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/sindresorhus/got#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/sindresorhus/got/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/got"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "asynckit",
-      "version": "0.4.0",
-      "bom-ref": "my-shade-agent-app@1.0.0|asynckit@0.4.0",
-      "author": "Alex Indigo",
-      "description": "Minimal async jobs utility library, with streams support",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/asynckit@0.4.0?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Falexindigo%2Fasynckit.git",
-      "externalReferences": [
-        {
-          "url": "git+https://github.com/alexindigo/asynckit.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/alexindigo/asynckit#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/alexindigo/asynckit/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/asynckit"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "combined-stream",
-      "version": "1.0.8",
-      "bom-ref": "my-shade-agent-app@1.0.0|combined-stream@1.0.8",
-      "author": "Felix Geisendörfer",
-      "description": "A stream that emits multiple other streams one after another.",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/combined-stream@1.0.8?vcs_url=git%3A%2F%2Fgithub.com%2Ffelixge%2Fnode-combined-stream.git",
-      "externalReferences": [
-        {
-          "url": "git://github.com/felixge/node-combined-stream.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/felixge/node-combined-stream",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/felixge/node-combined-stream/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/combined-stream"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "es-set-tostringtag",
-      "version": "2.1.0",
-      "bom-ref": "my-shade-agent-app@1.0.0|es-set-tostringtag@2.1.0",
-      "author": "Jordan Harband",
-      "description": "A helper to optimistically set Symbol.toStringTag, when possible.",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/es-set-tostringtag@2.1.0?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fes-shims%2Fes-set-tostringtag.git",
-      "externalReferences": [
-        {
-          "url": "git+https://github.com/es-shims/es-set-tostringtag.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/es-shims/es-set-tostringtag#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/es-shims/es-set-tostringtag/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/es-set-tostringtag"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "mime-types",
-      "version": "2.1.35",
-      "bom-ref": "my-shade-agent-app@1.0.0|mime-types@2.1.35",
-      "description": "The ultimate javascript content-type utility.",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/mime-types@2.1.35?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fjshttp%2Fmime-types.git",
-      "externalReferences": [
-        {
-          "url": "git+https://github.com/jshttp/mime-types.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/jshttp/mime-types#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/jshttp/mime-types/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/mime-types"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "libsodium-sumo",
-      "version": "0.7.16",
-      "bom-ref": "my-shade-agent-app@1.0.0|libsodium-sumo@0.7.16",
-      "author": "Ahmad Ben Mrad",
-      "description": "The Sodium cryptographic library compiled to pure JavaScript (raw library, no wrappers, sumo variant)",
-      "licenses": [
-        {
-          "license": {
-            "id": "ISC",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/libsodium-sumo@0.7.16?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fjedisct1%2Flibsodium.js.git",
-      "externalReferences": [
-        {
-          "url": "git+https://github.com/jedisct1/libsodium.js.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/jedisct1/libsodium.js",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/jedisct1/libsodium.js/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/libsodium-sumo"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "protobufjs",
-      "version": "6.11.5",
-      "bom-ref": "my-shade-agent-app@1.0.0|protobufjs@6.11.5",
-      "author": "Daniel Wirtz",
-      "description": "Protocol Buffers for JavaScript (& TypeScript).",
-      "licenses": [
-        {
-          "license": {
-            "id": "BSD-3-Clause",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/protobufjs@6.11.5?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fprotobufjs%2Fprotobuf.js.git",
-      "externalReferences": [
-        {
-          "url": "git+https://github.com/protobufjs/protobuf.js.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://protobufjs.github.io/protobuf.js/",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/dcodeIO/protobuf.js/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/protobufjs"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "json-rpc",
-      "group": "@cosmjs",
-      "version": "0.32.4",
-      "bom-ref": "my-shade-agent-app@1.0.0|@cosmjs/json-rpc@0.32.4",
-      "description": "Framework for implementing a JSON-RPC 2.0 API",
-      "licenses": [
-        {
-          "license": {
-            "id": "Apache-2.0",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/%40cosmjs/json-rpc@0.32.4?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fcosmos%2Fcosmjs.git#main",
-      "externalReferences": [
-        {
-          "url": "git+https://github.com/cosmos/cosmjs.git#main",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/cosmos/cosmjs/tree/main#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/cosmos/cosmjs/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/@cosmjs/json-rpc"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "socket",
-      "group": "@cosmjs",
-      "version": "0.32.4",
-      "bom-ref": "my-shade-agent-app@1.0.0|@cosmjs/socket@0.32.4",
-      "description": "Utility functions for working with WebSockets",
-      "licenses": [
-        {
-          "license": {
-            "id": "Apache-2.0",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/%40cosmjs/socket@0.32.4?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fcosmos%2Fcosmjs.git#main",
-      "externalReferences": [
-        {
-          "url": "git+https://github.com/cosmos/cosmjs.git#main",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/cosmos/cosmjs/tree/main#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/cosmos/cosmjs/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/@cosmjs/socket"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "axios",
-      "version": "1.15.2",
-      "bom-ref": "my-shade-agent-app@1.0.0|axios@1.15.2",
-      "author": "Matt Zabriskie",
-      "description": "Promise based HTTP client for the browser and node.js",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/axios@1.15.2?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Faxios%2Faxios.git",
-      "externalReferences": [
-        {
-          "url": "git+https://github.com/axios/axios.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://axios-http.com",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/axios/axios/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/axios"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "globalthis",
-      "version": "1.0.4",
-      "bom-ref": "my-shade-agent-app@1.0.0|globalthis@1.0.4",
-      "author": "Jordan Harband",
-      "description": "ECMAScript spec-compliant polyfill/shim for `globalThis`",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/globalthis@1.0.4?vcs_url=git%3A%2F%2Fgithub.com%2Fljharb%2FSystem.global.git",
-      "externalReferences": [
-        {
-          "url": "git://github.com/ljharb/System.global.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/ljharb/System.global#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/ljharb/System.global/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/globalthis"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "symbol-observable",
-      "version": "2.0.3",
-      "bom-ref": "my-shade-agent-app@1.0.0|symbol-observable@2.0.3",
-      "author": "Ben Lesh",
-      "description": "Symbol.observable ponyfill",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/symbol-observable@2.0.3?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fblesh%2Fsymbol-observable.git",
-      "externalReferences": [
-        {
-          "url": "git+https://github.com/blesh/symbol-observable.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/blesh/symbol-observable#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/blesh/symbol-observable/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/symbol-observable"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "graphql.web",
-      "group": "@0no-co",
-      "version": "1.2.0",
-      "bom-ref": "my-shade-agent-app@1.0.0|@0no-co/graphql.web@1.2.0",
-      "author": "0no.co",
-      "description": "A spec-compliant client-side GraphQL implementation",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/%400no-co/graphql.web@1.2.0?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2F0no-co%2Fgraphql.web.git",
-      "externalReferences": [
-        {
-          "url": "git+https://github.com/0no-co/graphql.web.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/0no-co/graphql.web#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/0no-co/graphql.web/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/@0no-co/graphql.web"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "graphqlsp",
-      "group": "@0no-co",
-      "version": "1.15.4",
-      "bom-ref": "my-shade-agent-app@1.0.0|@0no-co/graphqlsp@1.15.4",
-      "author": "0no.co",
-      "description": "TypeScript LSP plugin that finds GraphQL documents in your code and provides hints and auto-generates types.",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/%400no-co/graphqlsp@1.15.4?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2F0no-co%2FGraphQLSP.git",
-      "externalReferences": [
-        {
-          "url": "git+https://github.com/0no-co/GraphQLSP.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/0no-co/GraphQLSP#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/0no-co/GraphQLSP/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/@0no-co/graphqlsp"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "cli-utils",
-      "group": "@gql.tada",
-      "version": "1.7.3",
-      "bom-ref": "my-shade-agent-app@1.0.0|@gql.tada/cli-utils@1.7.3",
-      "author": "0no.co",
-      "description": "Main logic for gql.tada’s CLI tool.",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/%40gql.tada/cli-utils@1.7.3?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2F0no-co%2Fgql.tada.git#packages/cli-utils",
-      "externalReferences": [
-        {
-          "url": "git+https://github.com/0no-co/gql.tada.git#packages/cli-utils",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\" and \"repository.directory\""
-        },
-        {
-          "url": "https://gql-tada.0no.co/",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/0no-co/gql.tada/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/@gql.tada/cli-utils"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "internal",
-      "group": "@gql.tada",
-      "version": "1.0.9",
-      "bom-ref": "my-shade-agent-app@1.0.0|@gql.tada/internal@1.0.9",
-      "author": "0no.co",
-      "description": "Internal logic for gql.tada’s CLI tool and GraphQLSP.",
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/%40gql.tada/internal@1.0.9?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2F0no-co%2Fgql.tada.git#packages/internal",
-      "externalReferences": [
-        {
-          "url": "git+https://github.com/0no-co/gql.tada.git#packages/internal",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\" and \"repository.directory\""
-        },
-        {
-          "url": "https://gql-tada.0no.co/",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/0no-co/gql.tada/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/@gql.tada/internal"
-        }
-      ]
-    },
-    {
-      "type": "library",
       "name": "is",
       "group": "@sindresorhus",
       "version": "4.6.0",
@@ -31908,11 +31020,412 @@
     },
     {
       "type": "library",
-      "name": "delayed-stream",
+      "name": "isomorphic",
+      "group": "@xrplf",
+      "version": "1.0.1",
+      "bom-ref": "my-shade-agent-app@1.0.0|@xrplf/isomorphic@1.0.1",
+      "description": "A collection of isomorphic and tree-shakeable crypto hashes and utils for xrpl.js",
+      "licenses": [
+        {
+          "license": {
+            "id": "ISC",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/%40xrplf/isomorphic@1.0.1?vcs_url=git%2Bssh%3A%2F%2Fgit%40github.com%2FXRPLF%2Fxrpl.js.git",
+      "externalReferences": [
+        {
+          "url": "git+ssh://git@github.com/XRPLF/xrpl.js.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/XRPLF/xrpl.js#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/XRPLF/xrpl.js/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/@xrplf/isomorphic"
+        }
+      ],
+      "components": [
+        {
+          "type": "library",
+          "name": "eventemitter3",
+          "version": "5.0.1",
+          "bom-ref": "my-shade-agent-app@1.0.0|@xrplf/isomorphic@1.0.1|eventemitter3@5.0.1",
+          "author": "Arnout Kazemier",
+          "description": "EventEmitter3 focuses on performance while maintaining a Node.js AND browser compatible interface.",
+          "licenses": [
+            {
+              "license": {
+                "id": "MIT",
+                "acknowledgement": "declared"
+              }
+            }
+          ],
+          "purl": "pkg:npm/eventemitter3@5.0.1?vcs_url=git%3A%2F%2Fgithub.com%2Fprimus%2Feventemitter3.git",
+          "externalReferences": [
+            {
+              "url": "git://github.com/primus/eventemitter3.git",
+              "type": "vcs",
+              "comment": "as detected from PackageJson property \"repository.url\""
+            },
+            {
+              "url": "https://github.com/primus/eventemitter3#readme",
+              "type": "website",
+              "comment": "as detected from PackageJson property \"homepage\""
+            },
+            {
+              "url": "https://github.com/primus/eventemitter3/issues",
+              "type": "issue-tracker",
+              "comment": "as detected from PackageJson property \"bugs.url\""
+            }
+          ],
+          "properties": [
+            {
+              "name": "cdx:npm:package:path",
+              "value": "node_modules/@xrplf/isomorphic/node_modules/eventemitter3"
+            }
+          ]
+        },
+        {
+          "type": "library",
+          "name": "ws",
+          "version": "8.20.0",
+          "bom-ref": "my-shade-agent-app@1.0.0|@xrplf/isomorphic@1.0.1|ws@8.20.0",
+          "author": "Einar Otto Stangvik",
+          "description": "Simple to use, blazing fast and thoroughly tested websocket client and server for Node.js",
+          "licenses": [
+            {
+              "license": {
+                "id": "MIT",
+                "acknowledgement": "declared"
+              }
+            }
+          ],
+          "purl": "pkg:npm/ws@8.20.0?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fwebsockets%2Fws.git",
+          "externalReferences": [
+            {
+              "url": "git+https://github.com/websockets/ws.git",
+              "type": "vcs",
+              "comment": "as detected from PackageJson property \"repository.url\""
+            },
+            {
+              "url": "https://github.com/websockets/ws",
+              "type": "website",
+              "comment": "as detected from PackageJson property \"homepage\""
+            },
+            {
+              "url": "https://github.com/websockets/ws/issues",
+              "type": "issue-tracker",
+              "comment": "as detected from PackageJson property \"bugs.url\""
+            }
+          ],
+          "properties": [
+            {
+              "name": "cdx:npm:package:path",
+              "value": "node_modules/@xrplf/isomorphic/node_modules/ws"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "bignumber.js",
+      "version": "9.3.1",
+      "bom-ref": "my-shade-agent-app@1.0.0|bignumber.js@9.3.1",
+      "author": "Michael Mclaughlin",
+      "description": "A library for arbitrary-precision decimal and non-decimal arithmetic",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/bignumber.js@9.3.1?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2FMikeMcl%2Fbignumber.js.git",
+      "externalReferences": [
+        {
+          "url": "git+https://github.com/MikeMcl/bignumber.js.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/MikeMcl/bignumber.js#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/MikeMcl/bignumber.js/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/bignumber.js"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "secret-numbers",
+      "group": "@xrplf",
+      "version": "2.0.0",
+      "bom-ref": "my-shade-agent-app@1.0.0|@xrplf/secret-numbers@2.0.0",
+      "description": "Generate XRPL Accounts with a number-based secret: 8 chunks of 6 digits",
+      "licenses": [
+        {
+          "license": {
+            "id": "ISC",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/%40xrplf/secret-numbers@2.0.0?vcs_url=git%2Bssh%3A%2F%2Fgit%40github.com%2FXRPLF%2Fxrpl.js.git",
+      "externalReferences": [
+        {
+          "url": "git+ssh://git@github.com/XRPLF/xrpl.js.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/XRPLF/xrpl.js#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/XRPLF/xrpl.js/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/@xrplf/secret-numbers"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "fast-json-stable-stringify",
+      "version": "2.1.0",
+      "bom-ref": "my-shade-agent-app@1.0.0|fast-json-stable-stringify@2.1.0",
+      "author": "James Halliday",
+      "description": "deterministic `JSON.stringify()` - a faster version of substack's json-stable-strigify without jsonify",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/fast-json-stable-stringify@2.1.0?vcs_url=git%3A%2F%2Fgithub.com%2Fepoberezkin%2Ffast-json-stable-stringify.git",
+      "externalReferences": [
+        {
+          "url": "git://github.com/epoberezkin/fast-json-stable-stringify.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/epoberezkin/fast-json-stable-stringify",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/epoberezkin/fast-json-stable-stringify/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/fast-json-stable-stringify"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "ripple-keypairs",
+      "version": "2.0.0",
+      "bom-ref": "my-shade-agent-app@1.0.0|ripple-keypairs@2.0.0",
+      "description": "Cryptographic key pairs for the XRP Ledger",
+      "licenses": [
+        {
+          "license": {
+            "id": "ISC",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/ripple-keypairs@2.0.0?vcs_url=git%2Bssh%3A%2F%2Fgit%40github.com%2FXRPLF%2Fxrpl.js.git",
+      "externalReferences": [
+        {
+          "url": "git+ssh://git@github.com/XRPLF/xrpl.js.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/XRPLF/xrpl.js#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/XRPLF/xrpl.js/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/ripple-keypairs"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "resolve-pkg-maps",
       "version": "1.0.0",
-      "bom-ref": "my-shade-agent-app@1.0.0|delayed-stream@1.0.0",
+      "bom-ref": "my-shade-agent-app@1.0.0|resolve-pkg-maps@1.0.0",
+      "author": "Hiroki Osame",
+      "description": "Resolve package.json exports & imports maps",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/resolve-pkg-maps@1.0.0?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fprivatenumber%2Fresolve-pkg-maps.git",
+      "externalReferences": [
+        {
+          "url": "git+https://github.com/privatenumber/resolve-pkg-maps.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/privatenumber/resolve-pkg-maps#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/privatenumber/resolve-pkg-maps/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/resolve-pkg-maps"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "commander",
+      "version": "12.1.0",
+      "bom-ref": "my-shade-agent-app@1.0.0|commander@12.1.0",
+      "author": "TJ Holowaychuk",
+      "description": "the complete solution for node.js command-line programs",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/commander@12.1.0?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Ftj%2Fcommander.js.git",
+      "externalReferences": [
+        {
+          "url": "git+https://github.com/tj/commander.js.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/tj/commander.js#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/tj/commander.js/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/commander"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "asynckit",
+      "version": "0.4.0",
+      "bom-ref": "my-shade-agent-app@1.0.0|asynckit@0.4.0",
+      "author": "Alex Indigo",
+      "description": "Minimal async jobs utility library, with streams support",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/asynckit@0.4.0?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Falexindigo%2Fasynckit.git",
+      "externalReferences": [
+        {
+          "url": "git+https://github.com/alexindigo/asynckit.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/alexindigo/asynckit#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/alexindigo/asynckit/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/asynckit"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "combined-stream",
+      "version": "1.0.8",
+      "bom-ref": "my-shade-agent-app@1.0.0|combined-stream@1.0.8",
       "author": "Felix Geisendörfer",
-      "description": "Buffers events from a stream until you are ready to handle them.",
+      "description": "A stream that emits multiple other streams one after another.",
       "licenses": [
         {
           "license": {
@@ -31921,20 +31434,20 @@
           }
         }
       ],
-      "purl": "pkg:npm/delayed-stream@1.0.0?vcs_url=git%3A%2F%2Fgithub.com%2Ffelixge%2Fnode-delayed-stream.git",
+      "purl": "pkg:npm/combined-stream@1.0.8?vcs_url=git%3A%2F%2Fgithub.com%2Ffelixge%2Fnode-combined-stream.git",
       "externalReferences": [
         {
-          "url": "git://github.com/felixge/node-delayed-stream.git",
+          "url": "git://github.com/felixge/node-combined-stream.git",
           "type": "vcs",
           "comment": "as detected from PackageJson property \"repository.url\""
         },
         {
-          "url": "https://github.com/felixge/node-delayed-stream",
+          "url": "https://github.com/felixge/node-combined-stream",
           "type": "website",
           "comment": "as detected from PackageJson property \"homepage\""
         },
         {
-          "url": "https://github.com/felixge/node-delayed-stream/issues",
+          "url": "https://github.com/felixge/node-combined-stream/issues",
           "type": "issue-tracker",
           "comment": "as detected from PackageJson property \"bugs.url\""
         }
@@ -31942,16 +31455,17 @@
       "properties": [
         {
           "name": "cdx:npm:package:path",
-          "value": "node_modules/delayed-stream"
+          "value": "node_modules/combined-stream"
         }
       ]
     },
     {
       "type": "library",
-      "name": "mime-db",
-      "version": "1.52.0",
-      "bom-ref": "my-shade-agent-app@1.0.0|mime-db@1.52.0",
-      "description": "Media Type Database",
+      "name": "es-set-tostringtag",
+      "version": "2.1.0",
+      "bom-ref": "my-shade-agent-app@1.0.0|es-set-tostringtag@2.1.0",
+      "author": "Jordan Harband",
+      "description": "A helper to optimistically set Symbol.toStringTag, when possible.",
       "licenses": [
         {
           "license": {
@@ -31960,20 +31474,20 @@
           }
         }
       ],
-      "purl": "pkg:npm/mime-db@1.52.0?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fjshttp%2Fmime-db.git",
+      "purl": "pkg:npm/es-set-tostringtag@2.1.0?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fes-shims%2Fes-set-tostringtag.git",
       "externalReferences": [
         {
-          "url": "git+https://github.com/jshttp/mime-db.git",
+          "url": "git+https://github.com/es-shims/es-set-tostringtag.git",
           "type": "vcs",
           "comment": "as detected from PackageJson property \"repository.url\""
         },
         {
-          "url": "https://github.com/jshttp/mime-db#readme",
+          "url": "https://github.com/es-shims/es-set-tostringtag#readme",
           "type": "website",
           "comment": "as detected from PackageJson property \"homepage\""
         },
         {
-          "url": "https://github.com/jshttp/mime-db/issues",
+          "url": "https://github.com/es-shims/es-set-tostringtag/issues",
           "type": "issue-tracker",
           "comment": "as detected from PackageJson property \"bugs.url\""
         }
@@ -31981,427 +31495,16 @@
       "properties": [
         {
           "name": "cdx:npm:package:path",
-          "value": "node_modules/mime-db"
+          "value": "node_modules/es-set-tostringtag"
         }
       ]
     },
     {
       "type": "library",
-      "name": "aspromise",
-      "group": "@protobufjs",
-      "version": "1.1.2",
-      "bom-ref": "my-shade-agent-app@1.0.0|@protobufjs/aspromise@1.1.2",
-      "author": "Daniel Wirtz",
-      "description": "Returns a promise from a node-style callback function.",
-      "licenses": [
-        {
-          "license": {
-            "id": "BSD-3-Clause",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/%40protobufjs/aspromise@1.1.2?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2FdcodeIO%2Fprotobuf.js.git",
-      "externalReferences": [
-        {
-          "url": "git+https://github.com/dcodeIO/protobuf.js.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/dcodeIO/protobuf.js#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/dcodeIO/protobuf.js/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/@protobufjs/aspromise"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "base64",
-      "group": "@protobufjs",
-      "version": "1.1.2",
-      "bom-ref": "my-shade-agent-app@1.0.0|@protobufjs/base64@1.1.2",
-      "author": "Daniel Wirtz",
-      "description": "A minimal base64 implementation for number arrays.",
-      "licenses": [
-        {
-          "license": {
-            "id": "BSD-3-Clause",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/%40protobufjs/base64@1.1.2?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2FdcodeIO%2Fprotobuf.js.git",
-      "externalReferences": [
-        {
-          "url": "git+https://github.com/dcodeIO/protobuf.js.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/dcodeIO/protobuf.js#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/dcodeIO/protobuf.js/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/@protobufjs/base64"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "codegen",
-      "group": "@protobufjs",
-      "version": "2.0.4",
-      "bom-ref": "my-shade-agent-app@1.0.0|@protobufjs/codegen@2.0.4",
-      "author": "Daniel Wirtz",
-      "description": "A minimalistic code generation utility.",
-      "licenses": [
-        {
-          "license": {
-            "id": "BSD-3-Clause",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/%40protobufjs/codegen@2.0.4?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2FdcodeIO%2Fprotobuf.js.git",
-      "externalReferences": [
-        {
-          "url": "git+https://github.com/dcodeIO/protobuf.js.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/dcodeIO/protobuf.js#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/dcodeIO/protobuf.js/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/@protobufjs/codegen"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "eventemitter",
-      "group": "@protobufjs",
-      "version": "1.1.0",
-      "bom-ref": "my-shade-agent-app@1.0.0|@protobufjs/eventemitter@1.1.0",
-      "author": "Daniel Wirtz",
-      "description": "A minimal event emitter.",
-      "licenses": [
-        {
-          "license": {
-            "id": "BSD-3-Clause",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/%40protobufjs/eventemitter@1.1.0?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2FdcodeIO%2Fprotobuf.js.git",
-      "externalReferences": [
-        {
-          "url": "git+https://github.com/dcodeIO/protobuf.js.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/dcodeIO/protobuf.js#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/dcodeIO/protobuf.js/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/@protobufjs/eventemitter"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "fetch",
-      "group": "@protobufjs",
-      "version": "1.1.0",
-      "bom-ref": "my-shade-agent-app@1.0.0|@protobufjs/fetch@1.1.0",
-      "author": "Daniel Wirtz",
-      "description": "Fetches the contents of a file accross node and browsers.",
-      "licenses": [
-        {
-          "license": {
-            "id": "BSD-3-Clause",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/%40protobufjs/fetch@1.1.0?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2FdcodeIO%2Fprotobuf.js.git",
-      "externalReferences": [
-        {
-          "url": "git+https://github.com/dcodeIO/protobuf.js.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/dcodeIO/protobuf.js#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/dcodeIO/protobuf.js/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/@protobufjs/fetch"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "float",
-      "group": "@protobufjs",
-      "version": "1.0.2",
-      "bom-ref": "my-shade-agent-app@1.0.0|@protobufjs/float@1.0.2",
-      "author": "Daniel Wirtz",
-      "description": "Reads / writes floats / doubles from / to buffers in both modern and ancient browsers.",
-      "licenses": [
-        {
-          "license": {
-            "id": "BSD-3-Clause",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/%40protobufjs/float@1.0.2?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2FdcodeIO%2Fprotobuf.js.git",
-      "externalReferences": [
-        {
-          "url": "git+https://github.com/dcodeIO/protobuf.js.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/dcodeIO/protobuf.js#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/dcodeIO/protobuf.js/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/@protobufjs/float"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "inquire",
-      "group": "@protobufjs",
-      "version": "1.1.0",
-      "bom-ref": "my-shade-agent-app@1.0.0|@protobufjs/inquire@1.1.0",
-      "author": "Daniel Wirtz",
-      "description": "Requires a module only if available and hides the require call from bundlers.",
-      "licenses": [
-        {
-          "license": {
-            "id": "BSD-3-Clause",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/%40protobufjs/inquire@1.1.0?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2FdcodeIO%2Fprotobuf.js.git",
-      "externalReferences": [
-        {
-          "url": "git+https://github.com/dcodeIO/protobuf.js.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/dcodeIO/protobuf.js#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/dcodeIO/protobuf.js/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/@protobufjs/inquire"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "path",
-      "group": "@protobufjs",
-      "version": "1.1.2",
-      "bom-ref": "my-shade-agent-app@1.0.0|@protobufjs/path@1.1.2",
-      "author": "Daniel Wirtz",
-      "description": "A minimal path module to resolve Unix, Windows and URL paths alike.",
-      "licenses": [
-        {
-          "license": {
-            "id": "BSD-3-Clause",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/%40protobufjs/path@1.1.2?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2FdcodeIO%2Fprotobuf.js.git",
-      "externalReferences": [
-        {
-          "url": "git+https://github.com/dcodeIO/protobuf.js.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/dcodeIO/protobuf.js#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/dcodeIO/protobuf.js/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/@protobufjs/path"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "pool",
-      "group": "@protobufjs",
-      "version": "1.1.0",
-      "bom-ref": "my-shade-agent-app@1.0.0|@protobufjs/pool@1.1.0",
-      "author": "Daniel Wirtz",
-      "description": "A general purpose buffer pool.",
-      "licenses": [
-        {
-          "license": {
-            "id": "BSD-3-Clause",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/%40protobufjs/pool@1.1.0?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2FdcodeIO%2Fprotobuf.js.git",
-      "externalReferences": [
-        {
-          "url": "git+https://github.com/dcodeIO/protobuf.js.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/dcodeIO/protobuf.js#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/dcodeIO/protobuf.js/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/@protobufjs/pool"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "utf8",
-      "group": "@protobufjs",
-      "version": "1.1.0",
-      "bom-ref": "my-shade-agent-app@1.0.0|@protobufjs/utf8@1.1.0",
-      "author": "Daniel Wirtz",
-      "description": "A minimal UTF8 implementation for number arrays.",
-      "licenses": [
-        {
-          "license": {
-            "id": "BSD-3-Clause",
-            "acknowledgement": "declared"
-          }
-        }
-      ],
-      "purl": "pkg:npm/%40protobufjs/utf8@1.1.0?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2FdcodeIO%2Fprotobuf.js.git",
-      "externalReferences": [
-        {
-          "url": "git+https://github.com/dcodeIO/protobuf.js.git",
-          "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
-        },
-        {
-          "url": "https://github.com/dcodeIO/protobuf.js#readme",
-          "type": "website",
-          "comment": "as detected from PackageJson property \"homepage\""
-        },
-        {
-          "url": "https://github.com/dcodeIO/protobuf.js/issues",
-          "type": "issue-tracker",
-          "comment": "as detected from PackageJson property \"bugs.url\""
-        }
-      ],
-      "properties": [
-        {
-          "name": "cdx:npm:package:path",
-          "value": "node_modules/@protobufjs/utf8"
-        }
-      ]
-    },
-    {
-      "type": "library",
-      "name": "long",
-      "group": "@types",
-      "version": "4.0.2",
-      "bom-ref": "my-shade-agent-app@1.0.0|@types/long@4.0.2",
-      "description": "TypeScript definitions for long.js",
+      "name": "mime-types",
+      "version": "2.1.35",
+      "bom-ref": "my-shade-agent-app@1.0.0|mime-types@2.1.35",
+      "description": "The ultimate javascript content-type utility.",
       "licenses": [
         {
           "license": {
@@ -32410,20 +31513,20 @@
           }
         }
       ],
-      "purl": "pkg:npm/%40types/long@4.0.2?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2FDefinitelyTyped%2FDefinitelyTyped.git#types/long",
+      "purl": "pkg:npm/mime-types@2.1.35?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fjshttp%2Fmime-types.git",
       "externalReferences": [
         {
-          "url": "git+https://github.com/DefinitelyTyped/DefinitelyTyped.git#types/long",
+          "url": "git+https://github.com/jshttp/mime-types.git",
           "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\" and \"repository.directory\""
+          "comment": "as detected from PackageJson property \"repository.url\""
         },
         {
-          "url": "https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/long",
+          "url": "https://github.com/jshttp/mime-types#readme",
           "type": "website",
           "comment": "as detected from PackageJson property \"homepage\""
         },
         {
-          "url": "https://github.com/DefinitelyTyped/DefinitelyTyped/issues",
+          "url": "https://github.com/jshttp/mime-types/issues",
           "type": "issue-tracker",
           "comment": "as detected from PackageJson property \"bugs.url\""
         }
@@ -32431,17 +31534,68 @@
       "properties": [
         {
           "name": "cdx:npm:package:path",
-          "value": "node_modules/@types/long"
+          "value": "node_modules/mime-types"
         }
       ]
     },
     {
       "type": "library",
-      "name": "long",
-      "version": "4.0.0",
-      "bom-ref": "my-shade-agent-app@1.0.0|long@4.0.0",
-      "author": "Daniel Wirtz",
-      "description": "A Long class for representing a 64-bit two's-complement integer value.",
+      "name": "xstream",
+      "version": "11.14.0",
+      "bom-ref": "my-shade-agent-app@1.0.0|xstream@11.14.0",
+      "author": "Andre Staltz",
+      "description": "An extremely intuitive, small, and fast functional reactive stream library for JavaScript",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/xstream@11.14.0",
+      "externalReferences": [
+        {
+          "url": "git+https://github.com/staltz/xstream.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/staltz/xstream#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/staltz/xstream/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/xstream/-/xstream-11.14.0.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "d5b2dbfa428ab4a3db8132ba8bf05aa009f4de0e3b3e916cb656ded4103ecb7a4d4bf2dfbdc6a0852e4115ff7e104d49f8ac1242c1297c9bc53791aa16d88d9b"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/xstream"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "json-rpc",
+      "group": "@cosmjs",
+      "version": "0.38.1",
+      "bom-ref": "my-shade-agent-app@1.0.0|@cosmjs/json-rpc@0.38.1",
+      "description": "Framework for implementing a JSON-RPC 2.0 API",
       "licenses": [
         {
           "license": {
@@ -32450,38 +31604,101 @@
           }
         }
       ],
-      "purl": "pkg:npm/long@4.0.0?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2FdcodeIO%2Flong.js.git",
+      "purl": "pkg:npm/%40cosmjs/json-rpc@0.38.1#main",
       "externalReferences": [
         {
-          "url": "git+https://github.com/dcodeIO/long.js.git",
+          "url": "git+https://github.com/cosmos/cosmjs.git#main",
           "type": "vcs",
           "comment": "as detected from PackageJson property \"repository.url\""
         },
         {
-          "url": "https://github.com/dcodeIO/long.js#readme",
+          "url": "https://github.com/cosmos/cosmjs/tree/main#readme",
           "type": "website",
           "comment": "as detected from PackageJson property \"homepage\""
         },
         {
-          "url": "https://github.com/dcodeIO/long.js/issues",
+          "url": "https://github.com/cosmos/cosmjs/issues",
           "type": "issue-tracker",
           "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/@cosmjs/json-rpc/-/json-rpc-0.38.1.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "87e7a325e87e31e9fcba985e45c2044c62c01a1b06cc8416d37045bc2b027a740ea1ec29c676f13759a37cb13b33c52d393354b1bd2e435c849e169328f4d13e"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
         }
       ],
       "properties": [
         {
           "name": "cdx:npm:package:path",
-          "value": "node_modules/long"
+          "value": "node_modules/@cosmjs/json-rpc"
         }
       ]
     },
     {
       "type": "library",
-      "name": "follow-redirects",
-      "version": "1.16.0",
-      "bom-ref": "my-shade-agent-app@1.0.0|follow-redirects@1.16.0",
-      "author": "Ruben Verborgh",
-      "description": "HTTP and HTTPS modules that follow redirects.",
+      "name": "socket",
+      "group": "@cosmjs",
+      "version": "0.38.1",
+      "bom-ref": "my-shade-agent-app@1.0.0|@cosmjs/socket@0.38.1",
+      "description": "Utility functions for working with WebSockets",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/%40cosmjs/socket@0.38.1#main",
+      "externalReferences": [
+        {
+          "url": "git+https://github.com/cosmos/cosmjs.git#main",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/cosmos/cosmjs/tree/main#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/cosmos/cosmjs/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/@cosmjs/socket/-/socket-0.38.1.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "af9f11a65ac73a83bda0308f88566efa805381e4ea13afc7316f89480928d83cafdc0a1c74f841575e92250ae2ba61b155198551d71cce42b62fee8ec2782838"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/@cosmjs/socket"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "graphql.web",
+      "group": "@0no-co",
+      "version": "1.2.0",
+      "bom-ref": "my-shade-agent-app@1.0.0|@0no-co/graphql.web@1.2.0",
+      "author": "0no.co",
+      "description": "A spec-compliant client-side GraphQL implementation",
       "licenses": [
         {
           "license": {
@@ -32490,20 +31707,20 @@
           }
         }
       ],
-      "purl": "pkg:npm/follow-redirects@1.16.0?vcs_url=git%2Bssh%3A%2F%2Fgit%40github.com%2Ffollow-redirects%2Ffollow-redirects.git",
+      "purl": "pkg:npm/%400no-co/graphql.web@1.2.0?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2F0no-co%2Fgraphql.web.git",
       "externalReferences": [
         {
-          "url": "git+ssh://git@github.com/follow-redirects/follow-redirects.git",
+          "url": "git+https://github.com/0no-co/graphql.web.git",
           "type": "vcs",
           "comment": "as detected from PackageJson property \"repository.url\""
         },
         {
-          "url": "https://github.com/follow-redirects/follow-redirects",
+          "url": "https://github.com/0no-co/graphql.web#readme",
           "type": "website",
           "comment": "as detected from PackageJson property \"homepage\""
         },
         {
-          "url": "https://github.com/follow-redirects/follow-redirects/issues",
+          "url": "https://github.com/0no-co/graphql.web/issues",
           "type": "issue-tracker",
           "comment": "as detected from PackageJson property \"bugs.url\""
         }
@@ -32511,17 +31728,18 @@
       "properties": [
         {
           "name": "cdx:npm:package:path",
-          "value": "node_modules/follow-redirects"
+          "value": "node_modules/@0no-co/graphql.web"
         }
       ]
     },
     {
       "type": "library",
-      "name": "proxy-from-env",
-      "version": "2.1.0",
-      "bom-ref": "my-shade-agent-app@1.0.0|proxy-from-env@2.1.0",
-      "author": "Rob Wu",
-      "description": "Offers getProxyForUrl to get the proxy URL for a URL, respecting the *_PROXY (e.g. HTTP_PROXY) and NO_PROXY environment variables.",
+      "name": "graphqlsp",
+      "group": "@0no-co",
+      "version": "1.15.4",
+      "bom-ref": "my-shade-agent-app@1.0.0|@0no-co/graphqlsp@1.15.4",
+      "author": "0no.co",
+      "description": "TypeScript LSP plugin that finds GraphQL documents in your code and provides hints and auto-generates types.",
       "licenses": [
         {
           "license": {
@@ -32530,20 +31748,20 @@
           }
         }
       ],
-      "purl": "pkg:npm/proxy-from-env@2.1.0?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2FRob--W%2Fproxy-from-env.git",
+      "purl": "pkg:npm/%400no-co/graphqlsp@1.15.4?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2F0no-co%2FGraphQLSP.git",
       "externalReferences": [
         {
-          "url": "git+https://github.com/Rob--W/proxy-from-env.git",
+          "url": "git+https://github.com/0no-co/GraphQLSP.git",
           "type": "vcs",
           "comment": "as detected from PackageJson property \"repository.url\""
         },
         {
-          "url": "https://github.com/Rob--W/proxy-from-env#readme",
+          "url": "https://github.com/0no-co/GraphQLSP#readme",
           "type": "website",
           "comment": "as detected from PackageJson property \"homepage\""
         },
         {
-          "url": "https://github.com/Rob--W/proxy-from-env/issues",
+          "url": "https://github.com/0no-co/GraphQLSP/issues",
           "type": "issue-tracker",
           "comment": "as detected from PackageJson property \"bugs.url\""
         }
@@ -32551,17 +31769,18 @@
       "properties": [
         {
           "name": "cdx:npm:package:path",
-          "value": "node_modules/proxy-from-env"
+          "value": "node_modules/@0no-co/graphqlsp"
         }
       ]
     },
     {
       "type": "library",
-      "name": "define-properties",
-      "version": "1.2.1",
-      "bom-ref": "my-shade-agent-app@1.0.0|define-properties@1.2.1",
-      "author": "Jordan Harband",
-      "description": "Define multiple non-enumerable properties at once. Uses `Object.defineProperty` when available; falls back to standard assignment in older engines.",
+      "name": "cli-utils",
+      "group": "@gql.tada",
+      "version": "1.7.3",
+      "bom-ref": "my-shade-agent-app@1.0.0|@gql.tada/cli-utils@1.7.3",
+      "author": "0no.co",
+      "description": "Main logic for gql.tada’s CLI tool.",
       "licenses": [
         {
           "license": {
@@ -32570,20 +31789,20 @@
           }
         }
       ],
-      "purl": "pkg:npm/define-properties@1.2.1?vcs_url=git%3A%2F%2Fgithub.com%2Fljharb%2Fdefine-properties.git",
+      "purl": "pkg:npm/%40gql.tada/cli-utils@1.7.3?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2F0no-co%2Fgql.tada.git#packages/cli-utils",
       "externalReferences": [
         {
-          "url": "git://github.com/ljharb/define-properties.git",
+          "url": "git+https://github.com/0no-co/gql.tada.git#packages/cli-utils",
           "type": "vcs",
-          "comment": "as detected from PackageJson property \"repository.url\""
+          "comment": "as detected from PackageJson property \"repository.url\" and \"repository.directory\""
         },
         {
-          "url": "https://github.com/ljharb/define-properties#readme",
+          "url": "https://gql-tada.0no.co/",
           "type": "website",
           "comment": "as detected from PackageJson property \"homepage\""
         },
         {
-          "url": "https://github.com/ljharb/define-properties/issues",
+          "url": "https://github.com/0no-co/gql.tada/issues",
           "type": "issue-tracker",
           "comment": "as detected from PackageJson property \"bugs.url\""
         }
@@ -32591,7 +31810,48 @@
       "properties": [
         {
           "name": "cdx:npm:package:path",
-          "value": "node_modules/define-properties"
+          "value": "node_modules/@gql.tada/cli-utils"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "internal",
+      "group": "@gql.tada",
+      "version": "1.0.9",
+      "bom-ref": "my-shade-agent-app@1.0.0|@gql.tada/internal@1.0.9",
+      "author": "0no.co",
+      "description": "Internal logic for gql.tada’s CLI tool and GraphQLSP.",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/%40gql.tada/internal@1.0.9?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2F0no-co%2Fgql.tada.git#packages/internal",
+      "externalReferences": [
+        {
+          "url": "git+https://github.com/0no-co/gql.tada.git#packages/internal",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\" and \"repository.directory\""
+        },
+        {
+          "url": "https://gql-tada.0no.co/",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/0no-co/gql.tada/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/@gql.tada/internal"
         }
       ]
     },
@@ -32997,11 +32257,11 @@
     },
     {
       "type": "library",
-      "name": "object-keys",
-      "version": "1.1.1",
-      "bom-ref": "my-shade-agent-app@1.0.0|object-keys@1.1.1",
-      "author": "Jordan Harband",
-      "description": "An Object.keys replacement, in case Object.keys is not available. From https://github.com/es-shims/es5-shim",
+      "name": "delayed-stream",
+      "version": "1.0.0",
+      "bom-ref": "my-shade-agent-app@1.0.0|delayed-stream@1.0.0",
+      "author": "Felix Geisendörfer",
+      "description": "Buffers events from a stream until you are ready to handle them.",
       "licenses": [
         {
           "license": {
@@ -33010,20 +32270,20 @@
           }
         }
       ],
-      "purl": "pkg:npm/object-keys@1.1.1?vcs_url=git%3A%2F%2Fgithub.com%2Fljharb%2Fobject-keys.git",
+      "purl": "pkg:npm/delayed-stream@1.0.0?vcs_url=git%3A%2F%2Fgithub.com%2Ffelixge%2Fnode-delayed-stream.git",
       "externalReferences": [
         {
-          "url": "git://github.com/ljharb/object-keys.git",
+          "url": "git://github.com/felixge/node-delayed-stream.git",
           "type": "vcs",
           "comment": "as detected from PackageJson property \"repository.url\""
         },
         {
-          "url": "https://github.com/ljharb/object-keys#readme",
+          "url": "https://github.com/felixge/node-delayed-stream",
           "type": "website",
           "comment": "as detected from PackageJson property \"homepage\""
         },
         {
-          "url": "https://github.com/ljharb/object-keys/issues",
+          "url": "https://github.com/felixge/node-delayed-stream/issues",
           "type": "issue-tracker",
           "comment": "as detected from PackageJson property \"bugs.url\""
         }
@@ -33031,7 +32291,148 @@
       "properties": [
         {
           "name": "cdx:npm:package:path",
-          "value": "node_modules/object-keys"
+          "value": "node_modules/delayed-stream"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "mime-db",
+      "version": "1.52.0",
+      "bom-ref": "my-shade-agent-app@1.0.0|mime-db@1.52.0",
+      "description": "Media Type Database",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/mime-db@1.52.0?vcs_url=git%2Bhttps%3A%2F%2Fgithub.com%2Fjshttp%2Fmime-db.git",
+      "externalReferences": [
+        {
+          "url": "git+https://github.com/jshttp/mime-db.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/jshttp/mime-db#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/jshttp/mime-db/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/mime-db"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "globalthis",
+      "version": "1.0.4",
+      "bom-ref": "my-shade-agent-app@1.0.0|globalthis@1.0.4",
+      "author": "Jordan Harband",
+      "description": "ECMAScript spec-compliant polyfill/shim for `globalThis`",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/globalthis@1.0.4",
+      "externalReferences": [
+        {
+          "url": "git://github.com/ljharb/System.global.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/ljharb/System.global#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/ljharb/System.global/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/globalthis/-/globalthis-1.0.4.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "0e92ca6cd5385b2969c49ca442e8df09cc185a257f2619b9d06a28d30ad520b02fe633abf5df87f944773e14820f6ac2084220d2e73e1be9ae053c03e782610d"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/globalthis"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "symbol-observable",
+      "version": "2.0.3",
+      "bom-ref": "my-shade-agent-app@1.0.0|symbol-observable@2.0.3",
+      "author": "Ben Lesh",
+      "description": "Symbol.observable ponyfill",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/symbol-observable@2.0.3",
+      "externalReferences": [
+        {
+          "url": "git+https://github.com/blesh/symbol-observable.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/blesh/symbol-observable#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/blesh/symbol-observable/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/symbol-observable/-/symbol-observable-2.0.3.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "b1057ba618765826009fcd680246a40b9aa3ab6325d20f28ceacf4df03869f1f5d0e51b575eeb2ac5fb4440cd2243f1f3d4a30dcf4d231fd9201b386c5bf7704"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/symbol-observable"
         }
       ]
     },
@@ -33157,6 +32558,57 @@
     },
     {
       "type": "library",
+      "name": "define-properties",
+      "version": "1.2.1",
+      "bom-ref": "my-shade-agent-app@1.0.0|define-properties@1.2.1",
+      "author": "Jordan Harband",
+      "description": "Define multiple non-enumerable properties at once. Uses `Object.defineProperty` when available; falls back to standard assignment in older engines.",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/define-properties@1.2.1",
+      "externalReferences": [
+        {
+          "url": "git://github.com/ljharb/define-properties.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/ljharb/define-properties#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/ljharb/define-properties/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/define-properties/-/define-properties-1.2.1.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "f109902aa10048b7799f1d14d41d6890b1256d4baeb6d27f0276264576db6c60d687ab92db4f048c3e17aaafc8f702bbbb4bfa3b4f178535a7b795ed11b47a0e"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/define-properties"
+        }
+      ]
+    },
+    {
+      "type": "library",
       "name": "end-of-stream",
       "version": "1.4.5",
       "bom-ref": "my-shade-agent-app@1.0.0|end-of-stream@1.4.5",
@@ -33232,6 +32684,57 @@
         {
           "name": "cdx:npm:package:path",
           "value": "node_modules/once"
+        }
+      ]
+    },
+    {
+      "type": "library",
+      "name": "object-keys",
+      "version": "1.1.1",
+      "bom-ref": "my-shade-agent-app@1.0.0|object-keys@1.1.1",
+      "author": "Jordan Harband",
+      "description": "An Object.keys replacement, in case Object.keys is not available. From https://github.com/es-shims/es5-shim",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "acknowledgement": "declared"
+          }
+        }
+      ],
+      "purl": "pkg:npm/object-keys@1.1.1",
+      "externalReferences": [
+        {
+          "url": "git://github.com/ljharb/object-keys.git",
+          "type": "vcs",
+          "comment": "as detected from PackageJson property \"repository.url\""
+        },
+        {
+          "url": "https://github.com/ljharb/object-keys#readme",
+          "type": "website",
+          "comment": "as detected from PackageJson property \"homepage\""
+        },
+        {
+          "url": "https://github.com/ljharb/object-keys/issues",
+          "type": "issue-tracker",
+          "comment": "as detected from PackageJson property \"bugs.url\""
+        },
+        {
+          "url": "https://registry.npmjs.org/object-keys/-/object-keys-1.1.1.tgz",
+          "type": "distribution",
+          "hashes": [
+            {
+              "alg": "SHA-512",
+              "content": "36e00449439432b9485ce7c72b30fa6e93eeded62ddf1be335d44843e15e4f494d6f82bc591ef409a0f186e360b92d971be1a39323303b3b0de5992d2267e12c"
+            }
+          ],
+          "comment": "as detected from npm-ls property \"resolved\" and property \"integrity\""
+        }
+      ],
+      "properties": [
+        {
+          "name": "cdx:npm:package:path",
+          "value": "node_modules/object-keys"
         }
       ]
     },
@@ -57233,7 +56736,7 @@
         "my-shade-agent-app@1.0.0|@hono/node-server@2.0.1",
         "my-shade-agent-app@1.0.0|@neardefi/shade-agent-js@2.1.0",
         "my-shade-agent-app@1.0.0|@types/node@20.19.39",
-        "my-shade-agent-app@1.0.0|chainsig.js@1.1.14",
+        "my-shade-agent-app@1.0.0|chainsig.js@1.1.15",
         "my-shade-agent-app@1.0.0|cors@2.8.6",
         "my-shade-agent-app@1.0.0|dotenv@17.4.2",
         "my-shade-agent-app@1.0.0|ethers@6.16.0",
@@ -59046,15 +58549,15 @@
       ]
     },
     {
-      "ref": "my-shade-agent-app@1.0.0|chainsig.js@1.1.14",
+      "ref": "my-shade-agent-app@1.0.0|chainsig.js@1.1.15",
       "dependsOn": [
         "my-shade-agent-app@1.0.0|@aptos-labs/ts-sdk@2.0.1",
-        "my-shade-agent-app@1.0.0|@cosmjs/amino@0.32.4",
-        "my-shade-agent-app@1.0.0|@cosmjs/crypto@0.32.4",
-        "my-shade-agent-app@1.0.0|@cosmjs/encoding@0.32.4",
-        "my-shade-agent-app@1.0.0|@cosmjs/math@0.32.4",
-        "my-shade-agent-app@1.0.0|@cosmjs/proto-signing@0.32.4",
-        "my-shade-agent-app@1.0.0|@cosmjs/stargate@0.32.4",
+        "my-shade-agent-app@1.0.0|@cosmjs/amino@0.38.1",
+        "my-shade-agent-app@1.0.0|@cosmjs/crypto@0.38.1",
+        "my-shade-agent-app@1.0.0|@cosmjs/encoding@0.38.1",
+        "my-shade-agent-app@1.0.0|@cosmjs/math@0.38.1",
+        "my-shade-agent-app@1.0.0|@cosmjs/proto-signing@0.38.1",
+        "my-shade-agent-app@1.0.0|@cosmjs/stargate@0.38.1",
         "my-shade-agent-app@1.0.0|@mysten/sui@1.45.2",
         "my-shade-agent-app@1.0.0|@near-js/accounts@2.5.1",
         "my-shade-agent-app@1.0.0|@near-js/crypto@2.5.1",
@@ -59074,8 +58577,9 @@
         "my-shade-agent-app@1.0.0|bs58@6.0.0",
         "my-shade-agent-app@1.0.0|chain-registry@1.69.558",
         "my-shade-agent-app@1.0.0|coinselect@3.1.13",
-        "my-shade-agent-app@1.0.0|cosmjs-types@0.9.0",
+        "my-shade-agent-app@1.0.0|cosmjs-types@0.11.0",
         "my-shade-agent-app@1.0.0|elliptic@6.6.1",
+        "my-shade-agent-app@1.0.0|got@11.8.6",
         "my-shade-agent-app@1.0.0|js-sha3@0.9.3",
         "my-shade-agent-app@1.0.0|ripple-address-codec@5.0.0",
         "my-shade-agent-app@1.0.0|ripple-binary-codec@2.7.0",
@@ -59163,67 +58667,63 @@
       ]
     },
     {
-      "ref": "my-shade-agent-app@1.0.0|@cosmjs/amino@0.32.4",
+      "ref": "my-shade-agent-app@1.0.0|@cosmjs/amino@0.38.1",
       "dependsOn": [
-        "my-shade-agent-app@1.0.0|@cosmjs/crypto@0.32.4",
-        "my-shade-agent-app@1.0.0|@cosmjs/encoding@0.32.4",
-        "my-shade-agent-app@1.0.0|@cosmjs/math@0.32.4",
-        "my-shade-agent-app@1.0.0|@cosmjs/utils@0.32.4"
+        "my-shade-agent-app@1.0.0|@cosmjs/crypto@0.38.1",
+        "my-shade-agent-app@1.0.0|@cosmjs/encoding@0.38.1",
+        "my-shade-agent-app@1.0.0|@cosmjs/math@0.38.1",
+        "my-shade-agent-app@1.0.0|@cosmjs/utils@0.38.1"
       ]
     },
     {
-      "ref": "my-shade-agent-app@1.0.0|@cosmjs/crypto@0.32.4",
+      "ref": "my-shade-agent-app@1.0.0|@cosmjs/crypto@0.38.1",
       "dependsOn": [
-        "my-shade-agent-app@1.0.0|@cosmjs/encoding@0.32.4",
-        "my-shade-agent-app@1.0.0|@cosmjs/math@0.32.4",
-        "my-shade-agent-app@1.0.0|@cosmjs/utils@0.32.4",
+        "my-shade-agent-app@1.0.0|@cosmjs/encoding@0.38.1",
+        "my-shade-agent-app@1.0.0|@cosmjs/math@0.38.1",
+        "my-shade-agent-app@1.0.0|@cosmjs/utils@0.38.1",
+        "my-shade-agent-app@1.0.0|@noble/ciphers@1.3.0",
+        "my-shade-agent-app@1.0.0|@noble/curves@1.9.7",
         "my-shade-agent-app@1.0.0|@noble/hashes@1.8.0",
-        "my-shade-agent-app@1.0.0|bn.js@5.2.3",
-        "my-shade-agent-app@1.0.0|elliptic@6.6.1",
-        "my-shade-agent-app@1.0.0|libsodium-wrappers-sumo@0.7.16"
+        "my-shade-agent-app@1.0.0|@scure/bip39@1.6.0",
+        "my-shade-agent-app@1.0.0|hash-wasm@4.12.0"
       ]
     },
     {
-      "ref": "my-shade-agent-app@1.0.0|@cosmjs/encoding@0.32.4",
+      "ref": "my-shade-agent-app@1.0.0|@cosmjs/encoding@0.38.1",
       "dependsOn": [
+        "my-shade-agent-app@1.0.0|@cosmjs/encoding@0.38.1|@scure/base@2.2.0",
         "my-shade-agent-app@1.0.0|base64-js@1.5.1",
-        "my-shade-agent-app@1.0.0|@cosmjs/encoding@0.32.4|bech32@1.1.4",
-        "my-shade-agent-app@1.0.0|readonly-date@1.0.0"
+        "my-shade-agent-app@1.0.0|readonly-date-esm@2.0.0"
       ]
     },
     {
-      "ref": "my-shade-agent-app@1.0.0|@cosmjs/encoding@0.32.4|bech32@1.1.4"
+      "ref": "my-shade-agent-app@1.0.0|@cosmjs/encoding@0.38.1|@scure/base@2.2.0"
     },
     {
-      "ref": "my-shade-agent-app@1.0.0|@cosmjs/math@0.32.4",
+      "ref": "my-shade-agent-app@1.0.0|@cosmjs/math@0.38.1"
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|@cosmjs/proto-signing@0.38.1",
       "dependsOn": [
-        "my-shade-agent-app@1.0.0|bn.js@5.2.3"
+        "my-shade-agent-app@1.0.0|@cosmjs/amino@0.38.1",
+        "my-shade-agent-app@1.0.0|@cosmjs/crypto@0.38.1",
+        "my-shade-agent-app@1.0.0|@cosmjs/encoding@0.38.1",
+        "my-shade-agent-app@1.0.0|@cosmjs/math@0.38.1",
+        "my-shade-agent-app@1.0.0|@cosmjs/utils@0.38.1",
+        "my-shade-agent-app@1.0.0|cosmjs-types@0.11.0"
       ]
     },
     {
-      "ref": "my-shade-agent-app@1.0.0|@cosmjs/proto-signing@0.32.4",
+      "ref": "my-shade-agent-app@1.0.0|@cosmjs/stargate@0.38.1",
       "dependsOn": [
-        "my-shade-agent-app@1.0.0|@cosmjs/amino@0.32.4",
-        "my-shade-agent-app@1.0.0|@cosmjs/crypto@0.32.4",
-        "my-shade-agent-app@1.0.0|@cosmjs/encoding@0.32.4",
-        "my-shade-agent-app@1.0.0|@cosmjs/math@0.32.4",
-        "my-shade-agent-app@1.0.0|@cosmjs/utils@0.32.4",
-        "my-shade-agent-app@1.0.0|cosmjs-types@0.9.0"
-      ]
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|@cosmjs/stargate@0.32.4",
-      "dependsOn": [
-        "my-shade-agent-app@1.0.0|@confio/ics23@0.6.8",
-        "my-shade-agent-app@1.0.0|@cosmjs/amino@0.32.4",
-        "my-shade-agent-app@1.0.0|@cosmjs/encoding@0.32.4",
-        "my-shade-agent-app@1.0.0|@cosmjs/math@0.32.4",
-        "my-shade-agent-app@1.0.0|@cosmjs/proto-signing@0.32.4",
-        "my-shade-agent-app@1.0.0|@cosmjs/stream@0.32.4",
-        "my-shade-agent-app@1.0.0|@cosmjs/tendermint-rpc@0.32.4",
-        "my-shade-agent-app@1.0.0|@cosmjs/utils@0.32.4",
-        "my-shade-agent-app@1.0.0|cosmjs-types@0.9.0",
-        "my-shade-agent-app@1.0.0|xstream@11.14.0"
+        "my-shade-agent-app@1.0.0|@cosmjs/amino@0.38.1",
+        "my-shade-agent-app@1.0.0|@cosmjs/encoding@0.38.1",
+        "my-shade-agent-app@1.0.0|@cosmjs/math@0.38.1",
+        "my-shade-agent-app@1.0.0|@cosmjs/proto-signing@0.38.1",
+        "my-shade-agent-app@1.0.0|@cosmjs/stream@0.38.1",
+        "my-shade-agent-app@1.0.0|@cosmjs/tendermint-rpc@0.38.1",
+        "my-shade-agent-app@1.0.0|@cosmjs/utils@0.38.1",
+        "my-shade-agent-app@1.0.0|cosmjs-types@0.11.0"
       ]
     },
     {
@@ -59439,7 +58939,7 @@
       "ref": "my-shade-agent-app@1.0.0|coinselect@3.1.13"
     },
     {
-      "ref": "my-shade-agent-app@1.0.0|cosmjs-types@0.9.0"
+      "ref": "my-shade-agent-app@1.0.0|cosmjs-types@0.11.0"
     },
     {
       "ref": "my-shade-agent-app@1.0.0|elliptic@6.6.1",
@@ -59455,6 +58955,22 @@
     },
     {
       "ref": "my-shade-agent-app@1.0.0|elliptic@6.6.1|bn.js@4.12.3"
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|got@11.8.6",
+      "dependsOn": [
+        "my-shade-agent-app@1.0.0|@sindresorhus/is@4.6.0",
+        "my-shade-agent-app@1.0.0|@szmarczak/http-timer@4.0.6",
+        "my-shade-agent-app@1.0.0|@types/cacheable-request@6.0.3",
+        "my-shade-agent-app@1.0.0|@types/responselike@1.0.3",
+        "my-shade-agent-app@1.0.0|cacheable-lookup@5.0.4",
+        "my-shade-agent-app@1.0.0|cacheable-request@7.0.4",
+        "my-shade-agent-app@1.0.0|decompress-response@6.0.0",
+        "my-shade-agent-app@1.0.0|http2-wrapper@1.0.3",
+        "my-shade-agent-app@1.0.0|lowercase-keys@2.0.0",
+        "my-shade-agent-app@1.0.0|p-cancelable@2.1.1",
+        "my-shade-agent-app@1.0.0|responselike@2.0.1"
+      ]
     },
     {
       "ref": "my-shade-agent-app@1.0.0|js-sha3@0.9.3"
@@ -59601,53 +59117,38 @@
       "ref": "my-shade-agent-app@1.0.0|poseidon-lite@0.2.1"
     },
     {
-      "ref": "my-shade-agent-app@1.0.0|@cosmjs/utils@0.32.4"
+      "ref": "my-shade-agent-app@1.0.0|@cosmjs/utils@0.38.1"
     },
     {
-      "ref": "my-shade-agent-app@1.0.0|libsodium-wrappers-sumo@0.7.16",
-      "dependsOn": [
-        "my-shade-agent-app@1.0.0|libsodium-sumo@0.7.16"
-      ]
+      "ref": "my-shade-agent-app@1.0.0|@noble/ciphers@1.3.0"
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|hash-wasm@4.12.0"
     },
     {
       "ref": "my-shade-agent-app@1.0.0|base64-js@1.5.1"
     },
     {
-      "ref": "my-shade-agent-app@1.0.0|readonly-date@1.0.0"
+      "ref": "my-shade-agent-app@1.0.0|readonly-date-esm@2.0.0"
     },
     {
-      "ref": "my-shade-agent-app@1.0.0|@confio/ics23@0.6.8",
-      "dependsOn": [
-        "my-shade-agent-app@1.0.0|@noble/hashes@1.8.0",
-        "my-shade-agent-app@1.0.0|protobufjs@6.11.5"
-      ]
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|@cosmjs/stream@0.32.4",
+      "ref": "my-shade-agent-app@1.0.0|@cosmjs/stream@0.38.1",
       "dependsOn": [
         "my-shade-agent-app@1.0.0|xstream@11.14.0"
       ]
     },
     {
-      "ref": "my-shade-agent-app@1.0.0|@cosmjs/tendermint-rpc@0.32.4",
+      "ref": "my-shade-agent-app@1.0.0|@cosmjs/tendermint-rpc@0.38.1",
       "dependsOn": [
-        "my-shade-agent-app@1.0.0|@cosmjs/crypto@0.32.4",
-        "my-shade-agent-app@1.0.0|@cosmjs/encoding@0.32.4",
-        "my-shade-agent-app@1.0.0|@cosmjs/json-rpc@0.32.4",
-        "my-shade-agent-app@1.0.0|@cosmjs/math@0.32.4",
-        "my-shade-agent-app@1.0.0|@cosmjs/socket@0.32.4",
-        "my-shade-agent-app@1.0.0|@cosmjs/stream@0.32.4",
-        "my-shade-agent-app@1.0.0|@cosmjs/utils@0.32.4",
-        "my-shade-agent-app@1.0.0|axios@1.15.2",
-        "my-shade-agent-app@1.0.0|readonly-date@1.0.0",
+        "my-shade-agent-app@1.0.0|@cosmjs/crypto@0.38.1",
+        "my-shade-agent-app@1.0.0|@cosmjs/encoding@0.38.1",
+        "my-shade-agent-app@1.0.0|@cosmjs/json-rpc@0.38.1",
+        "my-shade-agent-app@1.0.0|@cosmjs/math@0.38.1",
+        "my-shade-agent-app@1.0.0|@cosmjs/socket@0.38.1",
+        "my-shade-agent-app@1.0.0|@cosmjs/stream@0.38.1",
+        "my-shade-agent-app@1.0.0|@cosmjs/utils@0.38.1",
+        "my-shade-agent-app@1.0.0|readonly-date-esm@2.0.0",
         "my-shade-agent-app@1.0.0|xstream@11.14.0"
-      ]
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|xstream@11.14.0",
-      "dependsOn": [
-        "my-shade-agent-app@1.0.0|globalthis@1.0.4",
-        "my-shade-agent-app@1.0.0|symbol-observable@2.0.3"
       ]
     },
     {
@@ -59909,6 +59410,73 @@
       "ref": "my-shade-agent-app@1.0.0|minimalistic-crypto-utils@1.0.1"
     },
     {
+      "ref": "my-shade-agent-app@1.0.0|@sindresorhus/is@4.6.0"
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|@szmarczak/http-timer@4.0.6",
+      "dependsOn": [
+        "my-shade-agent-app@1.0.0|defer-to-connect@2.0.1"
+      ]
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|@types/cacheable-request@6.0.3",
+      "dependsOn": [
+        "my-shade-agent-app@1.0.0|@types/http-cache-semantics@4.2.0",
+        "my-shade-agent-app@1.0.0|@types/keyv@3.1.4",
+        "my-shade-agent-app@1.0.0|@types/node@20.19.39",
+        "my-shade-agent-app@1.0.0|@types/responselike@1.0.3"
+      ]
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|@types/responselike@1.0.3",
+      "dependsOn": [
+        "my-shade-agent-app@1.0.0|@types/node@20.19.39"
+      ]
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|cacheable-lookup@5.0.4"
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|cacheable-request@7.0.4",
+      "dependsOn": [
+        "my-shade-agent-app@1.0.0|clone-response@1.0.3",
+        "my-shade-agent-app@1.0.0|get-stream@5.2.0",
+        "my-shade-agent-app@1.0.0|http-cache-semantics@4.2.0",
+        "my-shade-agent-app@1.0.0|keyv@4.5.4",
+        "my-shade-agent-app@1.0.0|lowercase-keys@2.0.0",
+        "my-shade-agent-app@1.0.0|normalize-url@6.1.0",
+        "my-shade-agent-app@1.0.0|responselike@2.0.1"
+      ]
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|decompress-response@6.0.0",
+      "dependsOn": [
+        "my-shade-agent-app@1.0.0|decompress-response@6.0.0|mimic-response@3.1.0"
+      ]
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|decompress-response@6.0.0|mimic-response@3.1.0"
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|http2-wrapper@1.0.3",
+      "dependsOn": [
+        "my-shade-agent-app@1.0.0|quick-lru@5.1.1",
+        "my-shade-agent-app@1.0.0|resolve-alpn@1.2.1"
+      ]
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|lowercase-keys@2.0.0"
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|p-cancelable@2.1.1"
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|responselike@2.0.1",
+      "dependsOn": [
+        "my-shade-agent-app@1.0.0|lowercase-keys@2.0.0"
+      ]
+    },
+    {
       "ref": "my-shade-agent-app@1.0.0|@xrplf/isomorphic@1.0.1",
       "dependsOn": [
         "my-shade-agent-app@1.0.0|@noble/hashes@1.8.0",
@@ -60000,22 +59568,6 @@
       "ref": "my-shade-agent-app@1.0.0|commander@12.1.0"
     },
     {
-      "ref": "my-shade-agent-app@1.0.0|got@11.8.6",
-      "dependsOn": [
-        "my-shade-agent-app@1.0.0|@sindresorhus/is@4.6.0",
-        "my-shade-agent-app@1.0.0|@szmarczak/http-timer@4.0.6",
-        "my-shade-agent-app@1.0.0|@types/cacheable-request@6.0.3",
-        "my-shade-agent-app@1.0.0|@types/responselike@1.0.3",
-        "my-shade-agent-app@1.0.0|cacheable-lookup@5.0.4",
-        "my-shade-agent-app@1.0.0|cacheable-request@7.0.4",
-        "my-shade-agent-app@1.0.0|decompress-response@6.0.0",
-        "my-shade-agent-app@1.0.0|http2-wrapper@1.0.3",
-        "my-shade-agent-app@1.0.0|lowercase-keys@2.0.0",
-        "my-shade-agent-app@1.0.0|p-cancelable@2.1.1",
-        "my-shade-agent-app@1.0.0|responselike@2.0.1"
-      ]
-    },
-    {
       "ref": "my-shade-agent-app@1.0.0|asynckit@0.4.0"
     },
     {
@@ -60046,59 +59598,27 @@
       ]
     },
     {
-      "ref": "my-shade-agent-app@1.0.0|libsodium-sumo@0.7.16"
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|protobufjs@6.11.5",
+      "ref": "my-shade-agent-app@1.0.0|xstream@11.14.0",
       "dependsOn": [
-        "my-shade-agent-app@1.0.0|@protobufjs/aspromise@1.1.2",
-        "my-shade-agent-app@1.0.0|@protobufjs/base64@1.1.2",
-        "my-shade-agent-app@1.0.0|@protobufjs/codegen@2.0.4",
-        "my-shade-agent-app@1.0.0|@protobufjs/eventemitter@1.1.0",
-        "my-shade-agent-app@1.0.0|@protobufjs/fetch@1.1.0",
-        "my-shade-agent-app@1.0.0|@protobufjs/float@1.0.2",
-        "my-shade-agent-app@1.0.0|@protobufjs/inquire@1.1.0",
-        "my-shade-agent-app@1.0.0|@protobufjs/path@1.1.2",
-        "my-shade-agent-app@1.0.0|@protobufjs/pool@1.1.0",
-        "my-shade-agent-app@1.0.0|@protobufjs/utf8@1.1.0",
-        "my-shade-agent-app@1.0.0|@types/long@4.0.2",
-        "my-shade-agent-app@1.0.0|@types/node@20.19.39",
-        "my-shade-agent-app@1.0.0|long@4.0.0"
+        "my-shade-agent-app@1.0.0|globalthis@1.0.4",
+        "my-shade-agent-app@1.0.0|symbol-observable@2.0.3"
       ]
     },
     {
-      "ref": "my-shade-agent-app@1.0.0|@cosmjs/json-rpc@0.32.4",
+      "ref": "my-shade-agent-app@1.0.0|@cosmjs/json-rpc@0.38.1",
       "dependsOn": [
-        "my-shade-agent-app@1.0.0|@cosmjs/stream@0.32.4",
+        "my-shade-agent-app@1.0.0|@cosmjs/stream@0.38.1",
         "my-shade-agent-app@1.0.0|xstream@11.14.0"
       ]
     },
     {
-      "ref": "my-shade-agent-app@1.0.0|@cosmjs/socket@0.32.4",
+      "ref": "my-shade-agent-app@1.0.0|@cosmjs/socket@0.38.1",
       "dependsOn": [
-        "my-shade-agent-app@1.0.0|@cosmjs/stream@0.32.4",
+        "my-shade-agent-app@1.0.0|@cosmjs/stream@0.38.1",
         "my-shade-agent-app@1.0.0|isomorphic-ws@4.0.1",
         "my-shade-agent-app@1.0.0|ws@7.5.10",
         "my-shade-agent-app@1.0.0|xstream@11.14.0"
       ]
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|axios@1.15.2",
-      "dependsOn": [
-        "my-shade-agent-app@1.0.0|follow-redirects@1.16.0",
-        "my-shade-agent-app@1.0.0|form-data@4.0.5",
-        "my-shade-agent-app@1.0.0|proxy-from-env@2.1.0"
-      ]
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|globalthis@1.0.4",
-      "dependsOn": [
-        "my-shade-agent-app@1.0.0|define-properties@1.2.1",
-        "my-shade-agent-app@1.0.0|gopd@1.2.0"
-      ]
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|symbol-observable@2.0.3"
     },
     {
       "ref": "my-shade-agent-app@1.0.0|@0no-co/graphql.web@1.2.0",
@@ -60262,187 +59782,6 @@
       "ref": "my-shade-agent-app@1.0.0|safe-buffer@5.2.1"
     },
     {
-      "ref": "my-shade-agent-app@1.0.0|@noble/ciphers@1.3.0"
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|@sindresorhus/is@4.6.0"
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|@szmarczak/http-timer@4.0.6",
-      "dependsOn": [
-        "my-shade-agent-app@1.0.0|defer-to-connect@2.0.1"
-      ]
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|@types/cacheable-request@6.0.3",
-      "dependsOn": [
-        "my-shade-agent-app@1.0.0|@types/http-cache-semantics@4.2.0",
-        "my-shade-agent-app@1.0.0|@types/keyv@3.1.4",
-        "my-shade-agent-app@1.0.0|@types/node@20.19.39",
-        "my-shade-agent-app@1.0.0|@types/responselike@1.0.3"
-      ]
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|@types/responselike@1.0.3",
-      "dependsOn": [
-        "my-shade-agent-app@1.0.0|@types/node@20.19.39"
-      ]
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|cacheable-lookup@5.0.4"
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|cacheable-request@7.0.4",
-      "dependsOn": [
-        "my-shade-agent-app@1.0.0|clone-response@1.0.3",
-        "my-shade-agent-app@1.0.0|get-stream@5.2.0",
-        "my-shade-agent-app@1.0.0|http-cache-semantics@4.2.0",
-        "my-shade-agent-app@1.0.0|keyv@4.5.4",
-        "my-shade-agent-app@1.0.0|lowercase-keys@2.0.0",
-        "my-shade-agent-app@1.0.0|normalize-url@6.1.0",
-        "my-shade-agent-app@1.0.0|responselike@2.0.1"
-      ]
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|decompress-response@6.0.0",
-      "dependsOn": [
-        "my-shade-agent-app@1.0.0|decompress-response@6.0.0|mimic-response@3.1.0"
-      ]
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|decompress-response@6.0.0|mimic-response@3.1.0"
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|http2-wrapper@1.0.3",
-      "dependsOn": [
-        "my-shade-agent-app@1.0.0|quick-lru@5.1.1",
-        "my-shade-agent-app@1.0.0|resolve-alpn@1.2.1"
-      ]
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|lowercase-keys@2.0.0"
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|p-cancelable@2.1.1"
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|responselike@2.0.1",
-      "dependsOn": [
-        "my-shade-agent-app@1.0.0|lowercase-keys@2.0.0"
-      ]
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|delayed-stream@1.0.0"
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|es-errors@1.3.0"
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|get-intrinsic@1.3.0",
-      "dependsOn": [
-        "my-shade-agent-app@1.0.0|call-bind-apply-helpers@1.0.2",
-        "my-shade-agent-app@1.0.0|es-define-property@1.0.1",
-        "my-shade-agent-app@1.0.0|es-errors@1.3.0",
-        "my-shade-agent-app@1.0.0|es-object-atoms@1.1.1",
-        "my-shade-agent-app@1.0.0|function-bind@1.1.2",
-        "my-shade-agent-app@1.0.0|get-proto@1.0.1",
-        "my-shade-agent-app@1.0.0|gopd@1.2.0",
-        "my-shade-agent-app@1.0.0|has-symbols@1.1.0",
-        "my-shade-agent-app@1.0.0|hasown@2.0.3",
-        "my-shade-agent-app@1.0.0|math-intrinsics@1.1.0"
-      ]
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|has-tostringtag@1.0.2",
-      "dependsOn": [
-        "my-shade-agent-app@1.0.0|has-symbols@1.1.0"
-      ]
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|function-bind@1.1.2"
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|mime-db@1.52.0"
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|@protobufjs/aspromise@1.1.2"
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|@protobufjs/base64@1.1.2"
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|@protobufjs/codegen@2.0.4"
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|@protobufjs/eventemitter@1.1.0"
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|@protobufjs/fetch@1.1.0",
-      "dependsOn": [
-        "my-shade-agent-app@1.0.0|@protobufjs/aspromise@1.1.2",
-        "my-shade-agent-app@1.0.0|@protobufjs/inquire@1.1.0"
-      ]
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|@protobufjs/float@1.0.2"
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|@protobufjs/inquire@1.1.0"
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|@protobufjs/path@1.1.2"
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|@protobufjs/pool@1.1.0"
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|@protobufjs/utf8@1.1.0"
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|@types/long@4.0.2"
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|long@4.0.0"
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|follow-redirects@1.16.0"
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|proxy-from-env@2.1.0"
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|define-properties@1.2.1",
-      "dependsOn": [
-        "my-shade-agent-app@1.0.0|define-data-property@1.1.4",
-        "my-shade-agent-app@1.0.0|has-property-descriptors@1.0.2",
-        "my-shade-agent-app@1.0.0|object-keys@1.1.1"
-      ]
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|gopd@1.2.0"
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|is-property@1.0.2"
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|tr46@0.0.3"
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|webidl-conversions@3.0.1"
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|chalk@5.6.2"
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|ms@2.1.3"
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|es6-promise@4.2.8"
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|stream-chain@2.2.5"
-    },
-    {
       "ref": "my-shade-agent-app@1.0.0|defer-to-connect@2.0.1"
     },
     {
@@ -60485,6 +59824,83 @@
       "ref": "my-shade-agent-app@1.0.0|resolve-alpn@1.2.1"
     },
     {
+      "ref": "my-shade-agent-app@1.0.0|delayed-stream@1.0.0"
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|es-errors@1.3.0"
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|get-intrinsic@1.3.0",
+      "dependsOn": [
+        "my-shade-agent-app@1.0.0|call-bind-apply-helpers@1.0.2",
+        "my-shade-agent-app@1.0.0|es-define-property@1.0.1",
+        "my-shade-agent-app@1.0.0|es-errors@1.3.0",
+        "my-shade-agent-app@1.0.0|es-object-atoms@1.1.1",
+        "my-shade-agent-app@1.0.0|function-bind@1.1.2",
+        "my-shade-agent-app@1.0.0|get-proto@1.0.1",
+        "my-shade-agent-app@1.0.0|gopd@1.2.0",
+        "my-shade-agent-app@1.0.0|has-symbols@1.1.0",
+        "my-shade-agent-app@1.0.0|hasown@2.0.3",
+        "my-shade-agent-app@1.0.0|math-intrinsics@1.1.0"
+      ]
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|has-tostringtag@1.0.2",
+      "dependsOn": [
+        "my-shade-agent-app@1.0.0|has-symbols@1.1.0"
+      ]
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|function-bind@1.1.2"
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|mime-db@1.52.0"
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|globalthis@1.0.4",
+      "dependsOn": [
+        "my-shade-agent-app@1.0.0|define-properties@1.2.1",
+        "my-shade-agent-app@1.0.0|gopd@1.2.0"
+      ]
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|symbol-observable@2.0.3"
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|is-property@1.0.2"
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|tr46@0.0.3"
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|webidl-conversions@3.0.1"
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|chalk@5.6.2"
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|ms@2.1.3"
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|es6-promise@4.2.8"
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|stream-chain@2.2.5"
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|mimic-response@1.0.1"
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|pump@3.0.4",
+      "dependsOn": [
+        "my-shade-agent-app@1.0.0|end-of-stream@1.4.5",
+        "my-shade-agent-app@1.0.0|once@1.4.0"
+      ]
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|json-buffer@3.0.1"
+    },
+    {
       "ref": "my-shade-agent-app@1.0.0|call-bind-apply-helpers@1.0.2",
       "dependsOn": [
         "my-shade-agent-app@1.0.0|es-errors@1.3.0",
@@ -60508,10 +59924,41 @@
       ]
     },
     {
+      "ref": "my-shade-agent-app@1.0.0|gopd@1.2.0"
+    },
+    {
       "ref": "my-shade-agent-app@1.0.0|has-symbols@1.1.0"
     },
     {
       "ref": "my-shade-agent-app@1.0.0|math-intrinsics@1.1.0"
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|define-properties@1.2.1",
+      "dependsOn": [
+        "my-shade-agent-app@1.0.0|define-data-property@1.1.4",
+        "my-shade-agent-app@1.0.0|has-property-descriptors@1.0.2",
+        "my-shade-agent-app@1.0.0|object-keys@1.1.1"
+      ]
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|end-of-stream@1.4.5",
+      "dependsOn": [
+        "my-shade-agent-app@1.0.0|once@1.4.0"
+      ]
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|once@1.4.0",
+      "dependsOn": [
+        "my-shade-agent-app@1.0.0|wrappy@1.0.2"
+      ]
+    },
+    {
+      "ref": "my-shade-agent-app@1.0.0|dunder-proto@1.0.1",
+      "dependsOn": [
+        "my-shade-agent-app@1.0.0|call-bind-apply-helpers@1.0.2",
+        "my-shade-agent-app@1.0.0|es-errors@1.3.0",
+        "my-shade-agent-app@1.0.0|gopd@1.2.0"
+      ]
     },
     {
       "ref": "my-shade-agent-app@1.0.0|define-data-property@1.1.4",
@@ -60529,39 +59976,6 @@
     },
     {
       "ref": "my-shade-agent-app@1.0.0|object-keys@1.1.1"
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|mimic-response@1.0.1"
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|pump@3.0.4",
-      "dependsOn": [
-        "my-shade-agent-app@1.0.0|end-of-stream@1.4.5",
-        "my-shade-agent-app@1.0.0|once@1.4.0"
-      ]
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|json-buffer@3.0.1"
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|dunder-proto@1.0.1",
-      "dependsOn": [
-        "my-shade-agent-app@1.0.0|call-bind-apply-helpers@1.0.2",
-        "my-shade-agent-app@1.0.0|es-errors@1.3.0",
-        "my-shade-agent-app@1.0.0|gopd@1.2.0"
-      ]
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|end-of-stream@1.4.5",
-      "dependsOn": [
-        "my-shade-agent-app@1.0.0|once@1.4.0"
-      ]
-    },
-    {
-      "ref": "my-shade-agent-app@1.0.0|once@1.4.0",
-      "dependsOn": [
-        "my-shade-agent-app@1.0.0|wrappy@1.0.2"
-      ]
     },
     {
       "ref": "my-shade-agent-app@1.0.0|wrappy@1.0.2"
