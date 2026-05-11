@@ -403,7 +403,7 @@ describe("parseDeploymentConfig", () => {
               },
             },
           }),
-          "deploy_custom.deploy_from_source.reproducible_build must be boolean",
+          "deploy_custom.deploy_from_source.reproducible_build must be a boolean (true or false) if specified",
         );
       });
 
@@ -795,7 +795,7 @@ describe("parseDeploymentConfig", () => {
               reproducible_build: "yes",
             },
           }),
-          "build_docker_image.reproducible_build must be boolean",
+          "build_docker_image.reproducible_build must be a boolean (true or false) if specified",
         );
       });
 

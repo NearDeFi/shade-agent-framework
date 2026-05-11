@@ -153,12 +153,10 @@ export function parseDeploymentConfig(deploymentPath) {
         !!deployFromSource.source_path,
         "deploy_custom.deploy_from_source.source_path is required",
       );
-      if (deployFromSource.reproducible_build !== undefined) {
-        requireField(
-          typeof deployFromSource.reproducible_build === "boolean",
-          "deploy_custom.deploy_from_source.reproducible_build must be boolean",
-        );
-      }
+      mustBeBooleanOrOmitted(
+        deployFromSource.reproducible_build,
+        "deploy_custom.deploy_from_source.reproducible_build",
+      );
     }
 
     // deploy_custom.deploy_from_wasm.wasm_path is required if deploy_from_wasm is enabled
@@ -234,12 +232,10 @@ export function parseDeploymentConfig(deploymentPath) {
       !!build_docker_image.dockerfile_path,
       "build_docker_image.dockerfile_path is required when environment is TEE",
     );
-    if (build_docker_image.reproducible_build !== undefined) {
-      requireField(
-        typeof build_docker_image.reproducible_build === "boolean",
-        "build_docker_image.reproducible_build must be boolean when environment is TEE",
-      );
-    }
+    mustBeBooleanOrOmitted(
+      build_docker_image.reproducible_build,
+      "build_docker_image.reproducible_build",
+    );
   }
 
   // approve_measurements validations
