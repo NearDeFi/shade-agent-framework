@@ -107,18 +107,14 @@ export async function getAppUrl(appId) {
       }
       const data = await response.json();
       if (!data.error) {
-        // List all non-empty public URLs
-        if (Array.isArray(data.public_urls)) {
-          const validUrls = data.public_urls.filter(
+        if (Array.isArray(data.endpoints)) {
+          const validUrls = data.endpoints.filter(
             (u) => u.app && u.app.trim() !== "",
           );
           if (validUrls.length > 0) {
-            // Print URLs and exit immediately
             console.log(`\nYour app is live at:`);
             validUrls.forEach((urlObj, index) => {
-              console.log(
-                `  ${index + 1}. ${urlObj.app}${urlObj.instance ? ` (instance: ${urlObj.instance})` : ""}`,
-              );
+              console.log(`  ${index + 1}. ${urlObj.app}`);
             });
             return validUrls;
           }
