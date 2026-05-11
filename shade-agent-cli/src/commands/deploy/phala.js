@@ -45,6 +45,8 @@ export async function deployToPhala() {
     const envFilePath = config.deployment?.deploy_to_phala?.env_file_path;
     const dstackVersion = config.deployment?.deploy_to_phala?.dstack_version;
     const instanceType = config.deployment?.deploy_to_phala?.instance_type;
+    const publicLogs = config.deployment?.deploy_to_phala?.public_logs;
+    const publicSysinfo = config.deployment?.deploy_to_phala?.public_sysinfo;
     const allowedEnvs = extractAllowedEnvs(composePath);
 
     const deployResult = await deployToPhalaSdk({
@@ -55,6 +57,8 @@ export async function deployToPhala() {
       allowedEnvKeys: allowedEnvs,
       dstackVersion,
       instanceType,
+      publicLogs,
+      publicSysinfo,
     });
 
     if (!deployResult.success) {
@@ -103,18 +107,14 @@ export async function getAppUrl(appId) {
       }
       const data = await response.json();
       if (!data.error) {
-        // List all non-empty public URLs
-        if (Array.isArray(data.public_urls)) {
-          const validUrls = data.public_urls.filter(
+        if (Array.isArray(data.endpoints)) {
+          const validUrls = data.endpoints.filter(
             (u) => u.app && u.app.trim() !== "",
           );
           if (validUrls.length > 0) {
-            // Print URLs and exit immediately
             console.log(`\nYour app is live at:`);
             validUrls.forEach((urlObj, index) => {
-              console.log(
-                `  ${index + 1}. ${urlObj.app}${urlObj.instance ? ` (instance: ${urlObj.instance})` : ""}`,
-              );
+              console.log(`  ${index + 1}. ${urlObj.app}`);
             });
             return validUrls;
           }

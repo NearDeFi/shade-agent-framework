@@ -13,7 +13,11 @@
     "allowJs": true,
     "checkJs": false,
     "forceConsistentCasingInFileNames": true,
-    "lib": ["ES2021"]
+    "lib": ["ES2021"],
+    "types": ["node"],
+    // Silences TS5101 (`baseUrl` deprecated) emitted from tsup's internal
+    // dts pipeline. Revisit when bumping TypeScript past 7.0.
+    "ignoreDeprecations": "6.0"
   },
   "include": ["src", "tests"],
   "exclude": ["node_modules", "dist"]

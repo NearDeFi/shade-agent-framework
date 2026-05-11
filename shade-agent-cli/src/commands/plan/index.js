@@ -296,6 +296,10 @@ export function planCommand() {
               deployment.docker_compose_path,
               deployment.deploy_to_phala?.dstack_version,
               deployment.deploy_to_phala?.instance_type,
+              {
+                publicLogs: deployment.deploy_to_phala?.public_logs,
+                publicSysinfo: deployment.deploy_to_phala?.public_sysinfo,
+              },
             );
             // Pass the object directly, replacePlaceholders will handle JSON stringification
             replacements["<MEASUREMENTS>"] = measurements;
@@ -368,6 +372,11 @@ export function planCommand() {
           );
           logWrapped(
             `• OS image: ${chalk.yellow(`dstack-${deployment.deploy_to_phala.dstack_version}`)}  Instance type: ${chalk.yellow(deployment.deploy_to_phala.instance_type)}`,
+            70,
+            2,
+          );
+          logWrapped(
+            `• Public logs: ${chalk.yellow(deployment.deploy_to_phala.public_logs ? "enabled" : "disabled")}  Public sysinfo: ${chalk.yellow(deployment.deploy_to_phala.public_sysinfo ? "enabled" : "disabled")}`,
             70,
             2,
           );

@@ -1,7 +1,7 @@
 /**
  * Unit tests for src/commands/deploy/index.js — config-driven orchestration.
  *
- * Given a synthetic deployment.yaml, these tests verify which side-effect
+ * Given a synthetic parsed config object, these tests verify which side-effect
  * helpers (dockerImage, createAccount, deploy*From*, initContract,
  * approveMeasurements, approvePpids, deleteContractKey, deployPhalaWorkflow,
  * confirmDestructiveRedeployIfAccountExists) are invoked and which are not.
@@ -245,6 +245,8 @@ describe("deploy command orchestration", () => {
           app_name: "x",
           dstack_version: "0.5.8",
           instance_type: "tdx.small",
+          public_logs: true,
+          public_sysinfo: true,
         },
       }),
     );
@@ -261,6 +263,8 @@ describe("deploy command orchestration", () => {
           app_name: "x",
           dstack_version: "0.5.8",
           instance_type: "tdx.small",
+          public_logs: true,
+          public_sysinfo: true,
         },
       }),
     );

@@ -41,9 +41,21 @@ function readReproducePaths() {
     );
     process.exit(1);
   }
+  const publicLogs = doc.deploy_to_phala?.public_logs;
+  const publicSysinfo = doc.deploy_to_phala?.public_sysinfo;
+  if (typeof publicLogs !== "boolean" || typeof publicSysinfo !== "boolean") {
+    console.log(
+      chalk.red(
+        "deployment.yaml must set deploy_to_phala.public_logs and deploy_to_phala.public_sysinfo (boolean) for `shade reproduce` (both affect the app compose hash).",
+      ),
+    );
+    process.exit(1);
+  }
   return {
     dockerfilePath: path.resolve(process.cwd(), dockerfilePath),
     composePath: path.resolve(process.cwd(), dockerComposePath),
+    publicLogs,
+    publicSysinfo,
   };
 }
 
@@ -55,7 +67,7 @@ export function reproduceCommand() {
   cmd.configureOutput(createCommandErrorHandler("reproduce", { maxArgs: 0 }));
 
   cmd.action(() => {
-    const { dockerfilePath, composePath } = readReproducePaths();
+    const { dockerfilePath, composePath, publicLogs, publicSysinfo } = readReproducePaths();
     if (!existsSync(composePath)) {
       console.log(
         chalk.red(`docker compose file not found at ${composePath}`),
@@ -70,7 +82,7 @@ export function reproduceCommand() {
 
     let appComposeHash;
     try {
-      appComposeHash = calculateAppComposeHash(composePath);
+      appComposeHash = calculateAppComposeHash(composePath, { publicLogs, publicSysinfo });
     } catch (e) {
       console.log(
         chalk.red(`Error computing app compose hash: ${e.message}`),

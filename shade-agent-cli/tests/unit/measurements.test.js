@@ -48,7 +48,10 @@ describe("buildAppComposeForDeploy", () => {
   // Locks the canonical 17-field shape Phala hashes — drift here breaks
   // compose_hash matching and the audit's hash-compare assertion.
   it("returns the expected 17-field object in alphabetical order", () => {
-    const out = buildAppComposeForDeploy("services: foo", ["A", "B"]);
+    const out = buildAppComposeForDeploy("services: foo", ["A", "B"], {
+      publicLogs: true,
+      publicSysinfo: true,
+    });
     expect(Object.keys(out)).toEqual([
       "allowed_envs",
       "docker_compose_file",
@@ -72,6 +75,54 @@ describe("buildAppComposeForDeploy", () => {
     expect(out.docker_compose_file).toBe("services: foo");
     expect(out.manifest_version).toBe(2);
     expect(out.runner).toBe("docker-compose");
+    expect(out.public_logs).toBe(true);
+    expect(out.public_sysinfo).toBe(true);
+  });
+
+  // Both flags propagate as `false` when explicitly disabled.
+  it("propagates publicLogs:false and publicSysinfo:false into the compose object", () => {
+    const out = buildAppComposeForDeploy("services: foo", [], {
+      publicLogs: false,
+      publicSysinfo: false,
+    });
+    expect(out.public_logs).toBe(false);
+    expect(out.public_sysinfo).toBe(false);
+  });
+
+  // Flipping either flag must change the compose-hash so reproducibility holds.
+  it("produces a different hash when public_logs or public_sysinfo flips", () => {
+    const both = buildAppComposeForDeploy("services: foo", ["A"], {
+      publicLogs: true,
+      publicSysinfo: true,
+    });
+    const logsOff = buildAppComposeForDeploy("services: foo", ["A"], {
+      publicLogs: false,
+      publicSysinfo: true,
+    });
+    const sysinfoOff = buildAppComposeForDeploy("services: foo", ["A"], {
+      publicLogs: true,
+      publicSysinfo: false,
+    });
+    expect(hashAppCompose(both)).not.toBe(hashAppCompose(logsOff));
+    expect(hashAppCompose(both)).not.toBe(hashAppCompose(sysinfoOff));
+    expect(hashAppCompose(logsOff)).not.toBe(hashAppCompose(sysinfoOff));
+  });
+
+  // Missing options should error+exit at the site of the failure (CLI convention).
+  it("exits 1 when publicLogs or publicSysinfo is missing", () => {
+    const exitSpy = vi.spyOn(process, "exit").mockImplementation((code) => {
+      throw new Error(`exit:${code}`);
+    });
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    expect(() => buildAppComposeForDeploy("services: foo", [])).toThrow("exit:1");
+    expect(() =>
+      buildAppComposeForDeploy("services: foo", [], { publicLogs: true }),
+    ).toThrow("exit:1");
+    expect(() =>
+      buildAppComposeForDeploy("services: foo", [], { publicSysinfo: false }),
+    ).toThrow("exit:1");
+    expect(exitSpy).toHaveBeenCalledWith(1);
+    exitSpy.mockRestore();
   });
 });
 
@@ -126,9 +177,33 @@ describe("calculateAppComposeHash", () => {
       FOO: \${FOO}
 `;
     const spy = vi.spyOn(fs, "readFileSync").mockReturnValue(content);
-    const h1 = calculateAppComposeHash("/fake/path");
-    const h2 = calculateAppComposeHash("/fake/path");
+    const h1 = calculateAppComposeHash("/fake/path", {
+      publicLogs: true,
+      publicSysinfo: true,
+    });
+    const h2 = calculateAppComposeHash("/fake/path", {
+      publicLogs: true,
+      publicSysinfo: true,
+    });
     expect(h1).toBe(h2);
+    spy.mockRestore();
+  });
+
+  // The two new flags must round-trip through to the hash so verifiers running
+  // `shade reproduce` against a deployment.yaml with public_logs:false get a
+  // matching hash.
+  it("produces a different hash when public_logs or public_sysinfo differ", () => {
+    const content = "services:\n  app:\n    image: x";
+    const spy = vi.spyOn(fs, "readFileSync").mockReturnValue(content);
+    const onOn = calculateAppComposeHash("/fake/path", {
+      publicLogs: true,
+      publicSysinfo: true,
+    });
+    const offOff = calculateAppComposeHash("/fake/path", {
+      publicLogs: false,
+      publicSysinfo: false,
+    });
+    expect(onOn).not.toBe(offOff);
     spy.mockRestore();
   });
 });

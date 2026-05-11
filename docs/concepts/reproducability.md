@@ -447,7 +447,7 @@ The key provider event digest is set to Phala's centralized key provider by CLI 
 
 Phala Cloud ensures that your connection to a TEE application is private and authentic. TLS certificate private keys are generated and controlled within the TEE hardware, meaning no one can intercept or decrypt your traffic. DNS CAA records further restrict certificate issuance to only the TEE's account, preventing unauthorized certificates.
 
-You can verify all of this yourself by following Phala's attestation documentation https://phala.network/docs/concepts/attestation#domain-attestation.
+You can verify all of this yourself by following Phala's attestation documentation https://docs.phala.com/phala-cloud/networking/domain-attestation.
 
 ---
 
