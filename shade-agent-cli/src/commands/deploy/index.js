@@ -2,7 +2,7 @@ import { Command } from "commander";
 import chalk from "chalk";
 import { dockerImage } from "./docker.js";
 import {
-  createAccount,
+  prepareContractAccount,
   deployCustomContractFromSource,
   deployCustomContractFromWasm,
   deployCustomContractFromGlobalHash,
@@ -32,7 +32,7 @@ export function deployCommand() {
       // Phala provisioning, account delete). If deploy_custom is true and the
       // contract account already exists, the user must type "yes" to allow
       // the irreversible state + asset wipe. The on-chain state is fetched
-      // here so createAccount() doesn't have to probe again.
+      // here so prepareContractAccount() doesn't have to probe again.
       const contractAccountState =
         await confirmDestructiveRedeployIfAccountExists();
 
@@ -43,7 +43,7 @@ export function deployCommand() {
         await dockerImage();
       }
       if (config.deployment.agent_contract.deploy_custom) {
-        await createAccount(contractAccountState);
+        await prepareContractAccount(contractAccountState);
 
         if (config.deployment.agent_contract.deploy_custom.source_path) {
           await deployCustomContractFromSource();
@@ -75,7 +75,7 @@ export function deployCommand() {
       }
 
       if (
-        config.deployment.deploy_to_phala &&
+        config.deployment.deploy_to_phala?.enabled &&
         config.deployment.environment === "TEE"
       ) {
         await deployPhalaWorkflow();

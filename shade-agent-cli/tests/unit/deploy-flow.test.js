@@ -2,7 +2,7 @@
  * Unit tests for src/commands/deploy/index.js — config-driven orchestration.
  *
  * Given a synthetic parsed config object, these tests verify which side-effect
- * helpers (dockerImage, createAccount, deploy*From*, initContract,
+ * helpers (dockerImage, prepareContractAccount, deploy*From*, initContract,
  * approveMeasurements, approvePpids, deleteContractKey, deployPhalaWorkflow,
  * confirmDestructiveRedeployIfAccountExists) are invoked and which are not.
  *
@@ -31,7 +31,7 @@ vi.mock("../../src/commands/deploy/docker.js", () => ({
   dockerImage: vi.fn(),
 }));
 vi.mock("../../src/commands/deploy/near.js", () => ({
-  createAccount: vi.fn(),
+  prepareContractAccount: vi.fn(),
   deployCustomContractFromSource: vi.fn(),
   deployCustomContractFromWasm: vi.fn(),
   deployCustomContractFromGlobalHash: vi.fn(),
@@ -60,7 +60,7 @@ vi.mock("../../src/utils/error-handler.js", () => ({
 const { deployCommand } = await import("../../src/commands/deploy/index.js");
 const { dockerImage } = await import("../../src/commands/deploy/docker.js");
 const {
-  createAccount,
+  prepareContractAccount,
   deployCustomContractFromSource,
   deployCustomContractFromWasm,
   deployCustomContractFromGlobalHash,
@@ -118,7 +118,7 @@ describe("deploy command orchestration", () => {
   it("skips ALL deploy_custom helpers when deploy_custom is absent", async () => {
     vi.mocked(getConfig).mockResolvedValue(baseConfig({}));
     await runDeploy();
-    expect(createAccount).not.toHaveBeenCalled();
+    expect(prepareContractAccount).not.toHaveBeenCalled();
     expect(deployCustomContractFromSource).not.toHaveBeenCalled();
     expect(deployCustomContractFromWasm).not.toHaveBeenCalled();
     expect(deployCustomContractFromGlobalHash).not.toHaveBeenCalled();
@@ -237,11 +237,12 @@ describe("deploy command orchestration", () => {
     expect(approvePpids).toHaveBeenCalledOnce();
   });
 
-  // Phala deploy is gated on TEE env.
-  it("calls deployPhalaWorkflow when deploy_to_phala is set and environment is TEE", async () => {
+  // Phala deploy is gated on TEE env AND deploy_to_phala.enabled.
+  it("calls deployPhalaWorkflow when deploy_to_phala is enabled and environment is TEE", async () => {
     vi.mocked(getConfig).mockResolvedValue(
       baseConfig({
         deploy_to_phala: {
+          enabled: true,
           app_name: "x",
           dstack_version: "0.5.8",
           instance_type: "tdx.small",
@@ -260,6 +261,7 @@ describe("deploy command orchestration", () => {
       baseConfig({
         environment: "local",
         deploy_to_phala: {
+          enabled: true,
           app_name: "x",
           dstack_version: "0.5.8",
           instance_type: "tdx.small",

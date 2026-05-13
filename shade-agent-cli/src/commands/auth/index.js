@@ -35,7 +35,7 @@ export function authCommand() {
     createCommandErrorHandler("set", { maxArgs: 3, parentCommand: "auth" }),
   );
   setCmd
-    .argument("[type]", "Type of credentials to set: all, near, or phala")
+    .argument("[type]", "Type of credentials to set: all, near, phala, or rpc")
     .argument("[network]", "Network: testnet or mainnet (only for near/all)")
     .argument(
       "[credentialOption]",
@@ -52,8 +52,8 @@ export function authCommand() {
     createCommandErrorHandler("get", { maxArgs: 2, parentCommand: "auth" }),
   );
   getCmd
-    .argument("[type]", "Type of credentials to get: all, near, or phala")
-    .argument("[network]", "Network: testnet or mainnet (only for near/all)")
+    .argument("[type]", "Type of credentials to get: all, near, phala, or rpc")
+    .argument("[network]", "Network: testnet or mainnet (only for near/rpc/all)")
     .action(async (type, network) => {
       await getCredentials(type, network);
     });
@@ -65,10 +65,13 @@ export function authCommand() {
     createCommandErrorHandler("clear", { maxArgs: 2, parentCommand: "auth" }),
   );
   clearCmd
-    .argument("[type]", "Type of credentials to clear: all, near, or phala")
+    .argument(
+      "[type]",
+      "Type of credentials to clear: all, near, phala, or rpc",
+    )
     .argument(
       "[network]",
-      "Network: all, testnet, or mainnet (only for near/all)",
+      "Network: all, testnet, or mainnet (only for near/rpc/all)",
     )
     .action(async (type, network) => {
       await clearCredentials(type, network);

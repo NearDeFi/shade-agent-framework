@@ -5,7 +5,7 @@
  *  - deploy_custom absent → returns undefined; prompt is not shown.
  *  - account does NOT exist (AccountDoesNotExist) → returns null.
  *  - account exists + user types "yes" → returns the on-chain state object
- *    so createAccount can reuse it (no second RPC probe).
+ *    so prepareContractAccount can reuse it (no second RPC probe).
  *  - account exists + "yes " (trailing whitespace) → accepted via trim().
  *  - account exists + "y", "Yes", "" (Enter) → process.exit(1).
  *  - account exists + input throws (Ctrl+C / EOF) → process.exit(1).
@@ -78,7 +78,7 @@ describe("confirmDestructiveRedeployIfAccountExists", () => {
   });
 
   // No account on-chain ⇒ nothing to delete ⇒ no prompt; returns null so
-  // createAccount knows there's nothing to delete and skips its RPC probe.
+  // prepareContractAccount knows there's nothing to delete and skips its RPC probe.
   it("returns null when the contract account doesn't exist", async () => {
     vi.mocked(getConfig).mockResolvedValue(accountMissing("x.testnet"));
     const result = await confirmDestructiveRedeployIfAccountExists();

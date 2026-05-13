@@ -90,3 +90,40 @@ export async function deletePhalaKey() {
   phalaEntry.deletePassword();
   return exists;
 }
+
+// Get RPC config for a network — returns { url, apiKey } or null if unset.
+export async function getRpcConfig(network) {
+  try {
+    const url = new Entry(SERVICE_NAME, `${network}_rpc_url`).getPassword();
+    if (!url) return null;
+    const apiKey =
+      new Entry(SERVICE_NAME, `${network}_rpc_api_key`).getPassword() || null;
+    return { url, apiKey };
+  } catch (error) {
+    return null;
+  }
+}
+
+// Set RPC config for a network. If apiKey is null/empty the entry is removed.
+export async function setRpcConfig(network, url, apiKey) {
+  new Entry(SERVICE_NAME, `${network}_rpc_url`).setPassword(url);
+  if (apiKey) {
+    new Entry(SERVICE_NAME, `${network}_rpc_api_key`).setPassword(apiKey);
+  } else {
+    try {
+      new Entry(SERVICE_NAME, `${network}_rpc_api_key`).deletePassword();
+    } catch (_) {}
+  }
+}
+
+// Delete RPC config for a network. Returns true if anything was removed.
+export async function deleteRpcConfig(network) {
+  const existed = (await getRpcConfig(network)) !== null;
+  try {
+    new Entry(SERVICE_NAME, `${network}_rpc_url`).deletePassword();
+  } catch (_) {}
+  try {
+    new Entry(SERVICE_NAME, `${network}_rpc_api_key`).deletePassword();
+  } catch (_) {}
+  return existed;
+}

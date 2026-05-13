@@ -5,7 +5,7 @@ import {
   getNearCredentialsOptional,
   getPhalaKeyOptional,
 } from "../../utils/config.js";
-import { replacePlaceholders } from "../../utils/placeholders.js";
+import { replacePlaceholders, hasPlaceholder } from "../../utils/placeholders.js";
 import { createCommandErrorHandler } from "../../utils/error-handler.js";
 import { getMeasurements } from "../../utils/measurements.js";
 import { getPpids } from "../../utils/ppids.js";
@@ -282,14 +282,17 @@ export function planCommand() {
           2,
         );
 
-        // Add measurements message below args in same bullet point
+        // Only resolve the <MEASUREMENTS> placeholder when args actually
+        // reference it; otherwise render the args literally and skip the
+        // measurement computation entirely.
+        const argsHasMeasurements = hasPlaceholder(approveCfg.args, "<MEASUREMENTS>");
         if (deployment.environment === "TEE") {
           console.log("");
-          if (deployment.build_docker_image) {
+          if (argsHasMeasurements && deployment.build_docker_image) {
             const measurementsMsg = `The ${chalk.magenta("<MEASUREMENTS>")} will be replaced by the computed measurements when the docker image is published.`;
-            const lines = wrapText(measurementsMsg, 70 - 2, 0); // No extra indent, we'll add it manually
+            const lines = wrapText(measurementsMsg, 70 - 2, 0);
             lines.forEach((line) => console.log("  " + line));
-          } else {
+          } else if (argsHasMeasurements) {
             const replacements = {};
             const measurements = getMeasurements(
               deployment.environment === "TEE",
@@ -301,12 +304,15 @@ export function planCommand() {
                 publicSysinfo: deployment.deploy_to_phala?.public_sysinfo,
               },
             );
-            // Pass the object directly, replacePlaceholders will handle JSON stringification
             replacements["<MEASUREMENTS>"] = measurements;
-
             const args = replacePlaceholders(approveCfg.args, replacements);
-
             const jsonLines = formatArgs(args).split("\n");
+            jsonLines.forEach((line) => {
+              console.log("  " + chalk.magenta(line));
+            });
+          } else {
+            // No <MEASUREMENTS> placeholder — render args as-is.
+            const jsonLines = formatArgs(approveCfg.args).split("\n");
             jsonLines.forEach((line) => {
               console.log("  " + chalk.magenta(line));
             });
@@ -361,7 +367,7 @@ export function planCommand() {
       console.log(chalk.gray("─".repeat(70)));
       console.log("");
       if (deployment.environment === "TEE") {
-        if (deployment.deploy_to_phala) {
+        if (deployment.deploy_to_phala?.enabled) {
           const dockerStatus = deployment.build_docker_image
             ? "new"
             : "existing";
@@ -416,13 +422,13 @@ export function planCommand() {
 
       if (
         deployment.environment === "TEE" &&
-        deployment.deploy_to_phala &&
+        deployment.deploy_to_phala?.enabled &&
         !phalaKey
       ) {
         missingCredentials.push("PHALA API key");
       } else if (
         deployment.environment === "TEE" &&
-        deployment.deploy_to_phala
+        deployment.deploy_to_phala?.enabled
       ) {
         console.log("✓ PHALA API key: configured");
       }

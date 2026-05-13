@@ -11,6 +11,7 @@ import { checkTransactionOutcome } from "../../utils/transaction-outcome.js";
 import { dockerExec, runWithSudoOnLinux } from "../../utils/docker-utils.js";
 import { getMeasurements } from "../../utils/measurements.js";
 import { getPpids } from "../../utils/ppids.js";
+import { wipeContractState } from "../../utils/state-cleanup.js";
 
 // Sleep for the specified number of milliseconds for nonce problems
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -25,11 +26,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 //   - state object → account exists; will be deleted before recreation
 //   - null         → account does not exist (no delete needed)
 //   - undefined    → caller forgot to pass it; this is a programming error
-export async function createAccount(prefetchedState) {
+export async function prepareContractAccount(prefetchedState) {
   if (prefetchedState === undefined) {
     console.log(
       chalk.red(
-        "Error: createAccount requires the contract account state to be prefetched (call confirmDestructiveRedeployIfAccountExists first).",
+        "Error: prepareContractAccount requires the contract account state to be prefetched (call confirmDestructiveRedeployIfAccountExists first).",
       ),
     );
     process.exit(1);
@@ -78,40 +79,40 @@ export async function createAccount(prefetchedState) {
     process.exit(1);
   }
 
-  // Delete the contract account if it exists
   if (contractAccountExists) {
-    console.log("Contract account already exists, deleting it");
-    try {
-      await contractAccount.deleteAccount(masterAccount.accountId);
-      await sleep(1000);
-    } catch (deleteError) {
-      if (deleteError.type === "AccessKeyDoesNotExist") {
-        console.log(
-          chalk.red(
-            "Error: You cannot delete a contract account that does not have the same public key as your master account, pick a new unique contract_id or change back to your old master account for which you created the contract account with",
-          ),
-        );
+    await wipeContractState(contractAccount);
+
+    const topUp = fundingAmount - contractBalanceDecimal;
+    if (topUp > 0) {
+      try {
+        const result = await masterAccount.transfer({
+          receiverId: contractId,
+          amount: NEAR.toUnits(topUp.toString()),
+        });
+        if (result?.final_execution_outcome) {
+          const success = checkTransactionOutcome(result.final_execution_outcome);
+          if (!success) {
+            console.log(chalk.red("✗ Failed to top up contract account"));
+            process.exit(1);
+          }
+        }
+        await sleep(1000);
+      } catch (e) {
+        console.log(chalk.red(`Error topping up contract account: ${e.message}`));
         process.exit(1);
       }
-      console.log(chalk.red(`Error: ${deleteError.message}`));
-      process.exit(1);
     }
-  } else {
-    console.log("Contract account does not exist, creating it");
+    return;
   }
 
-  // Create the contract account
+  console.log("Contract account does not exist, creating it");
   try {
-    console.log("Creating contract account");
     const result = await masterAccount.createAccount(
       contractId,
       await masterAccount.getSigner().getPublicKey(),
-      NEAR.toUnits(
-        config.deployment.agent_contract.deploy_custom.funding_amount,
-      ),
+      NEAR.toUnits(fundingAmount),
     );
 
-    // Check transaction outcome if result is available
     if (result && result.final_execution_outcome) {
       const success = checkTransactionOutcome(result.final_execution_outcome);
       if (!success) {

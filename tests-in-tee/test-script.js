@@ -28,6 +28,7 @@ import {
 import { getPpids } from "../shade-agent-cli/src/utils/ppids.js";
 import { tgasToGas } from "../shade-agent-cli/src/utils/near.js";
 import { deployToPhala as deployToPhalaSdk } from "../shade-agent-cli/src/utils/phala-deploy.js";
+import { wipeContractState } from "../shade-agent-cli/src/utils/state-cleanup.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -54,7 +55,7 @@ const AGENT_CONTRACT_ID = `shade-test-contract.${TESTNET_ACCOUNT_ID}`;
 const TEST_APP_NAME = "shade-integration-tests";
 
 // Toggle to skip redeploying account, contract, and initialization (useful for reusing existing deployment)
-const SKIP_CONTRACT_DEPLOYMENT = true;
+const SKIP_CONTRACT_DEPLOYMENT = false;
 
 // Toggle to skip Phala deployment - ON if TEST_APP_URL is specified, OFF if empty
 // const TEST_APP_URL = "https://45034fea45a406a829feea099c77bbe6cf26faed-3000.dstack-pha-prod7.phala.network";
@@ -168,36 +169,47 @@ async function createContractAccount() {
     );
   }
 
-  // Delete the contract account if it exists
   if (contractAccountExists) {
-    console.log("Contract account already exists, deleting it...");
+    // Wipe contract state instead of deleting (account + balance preserved).
     try {
-      await contractAccount.deleteAccount(TESTNET_ACCOUNT_ID);
+      await wipeContractState(contractAccount);
       await sleep(2000);
-    } catch (deleteError) {
-      if (deleteError.type === "AccessKeyDoesNotExist") {
+    } catch (e) {
+      if (e.type === "AccessKeyDoesNotExist") {
         throw new Error(
-          "Cannot delete contract account - access key mismatch. " +
+          "Cannot wipe contract account state - access key mismatch. " +
             "The contract account was created with a different master account.",
         );
       }
-      throw new Error(
-        `Failed to delete existing contract account: ${deleteError.message}`,
-      );
+      throw new Error(`Failed to wipe contract account state: ${e.message}`);
     }
-  } else {
-    console.log("Contract account does not exist, creating it");
+
+    // Top up if the wipe left the account below the funding floor.
+    const topUp = fundingAmount - contractBalanceDecimal;
+    if (topUp > 0) {
+      console.log(`Topping up contract account with ${topUp} NEAR...`);
+      try {
+        await account.transfer({
+          receiverId: AGENT_CONTRACT_ID,
+          amount: NEAR.toUnits(topUp.toString()),
+        });
+        await sleep(2000);
+      } catch (e) {
+        throw new Error(`Failed to top up contract account: ${e.message}`);
+      }
+    }
+    console.log(`✓ Contract account state wiped: ${AGENT_CONTRACT_ID}`);
+    return;
   }
 
-  // Create the contract account
+  console.log("Contract account does not exist, creating it");
   try {
     const publicKey = await account.getSigner().getPublicKey();
-    const result = await account.createAccount(
+    await account.createAccount(
       AGENT_CONTRACT_ID,
       publicKey,
       NEAR.toUnits(fundingAmount),
     );
-
     await sleep(2000);
     console.log(`✓ Contract account created: ${AGENT_CONTRACT_ID}`);
   } catch (e) {
@@ -395,18 +407,14 @@ async function getAppUrl(appId) {
       }
       const data = await response.json();
       if (!data.error) {
-        // List all non-empty public URLs
-        if (Array.isArray(data.public_urls)) {
-          const validUrls = data.public_urls.filter(
+        if (Array.isArray(data.endpoints)) {
+          const validUrls = data.endpoints.filter(
             (u) => u.app && u.app.trim() !== "",
           );
           if (validUrls.length > 0) {
-            // Print URLs and exit immediately
             console.log(`\nYour app is live at:`);
             validUrls.forEach((urlObj, index) => {
-              console.log(
-                `  ${index + 1}. ${urlObj.app}${urlObj.instance ? ` (instance: ${urlObj.instance})` : ""}`,
-              );
+              console.log(`  ${index + 1}. ${urlObj.app}`);
             });
             return validUrls;
           }

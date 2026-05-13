@@ -14,7 +14,7 @@
   "dependencies": {
     "@hono/node-server": "2.0.1",
     "@neardefi/shade-agent-js": "file:../shade-agent-js",
-    "chainsig.js": "1.1.15",
+    "chainsig.js": "1.1.16",
     "cors": "2.8.6",
     "dotenv": "17.4.2",
     "ethers": "6.16.0",
@@ -24,8 +24,5 @@
   "devDependencies": {
     "@types/node": "20.19.39",
     "typescript": "5.9.3"
-  },
-  "overrides": {
-    "@noble/curves": "1.9.7"
   }
 }

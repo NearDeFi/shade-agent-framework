@@ -3,23 +3,26 @@ import password from "@inquirer/password";
 import confirm from "@inquirer/confirm";
 import { validateAndSelectOption } from "../../utils/error-handler.js";
 
-// Select credential type (all/near/phala)
+// Select credential type (all/near/phala/rpc)
 export async function selectCredentialType(typeArg, actionType) {
   const typeOptions = {
     set: [
-      { value: "all", description: "Set both NEAR and PHALA credentials" },
+      { value: "all", description: "Set NEAR, PHALA, and RPC credentials" },
       { value: "near", description: "Set NEAR master account only" },
       { value: "phala", description: "Set PHALA API key only" },
+      { value: "rpc", description: "Set custom RPC provider only" },
     ],
     get: [
-      { value: "all", description: "Get both NEAR and PHALA credentials" },
+      { value: "all", description: "Get NEAR, PHALA, and RPC credentials" },
       { value: "near", description: "Get NEAR master account only" },
       { value: "phala", description: "Get PHALA API key only" },
+      { value: "rpc", description: "Get custom RPC provider only" },
     ],
     clear: [
-      { value: "all", description: "Clear both NEAR and PHALA credentials" },
+      { value: "all", description: "Clear NEAR, PHALA, and RPC credentials" },
       { value: "near", description: "Clear NEAR master account only" },
       { value: "phala", description: "Clear PHALA API key only" },
+      { value: "rpc", description: "Clear custom RPC provider only" },
     ],
   };
 
@@ -94,6 +97,26 @@ export async function promptForAccountCredentials() {
   });
 
   return { accountId: accountId.trim(), privateKey: privateKey.trim() };
+}
+
+// Prompt for an RPC URL + optional API key. API key is stored verbatim;
+// the consumer applies the `Authorization: Bearer <key>` header.
+export async function promptForRpcConfig() {
+  const url = await input({
+    message: "Enter RPC URL:",
+    validate: (value) => {
+      const v = (value || "").trim();
+      if (!v) return "RPC URL is required";
+      if (!/^https?:\/\//.test(v))
+        return 'URL must start with "http://" or "https://"';
+      return true;
+    },
+  });
+  const apiKey = await password({
+    message: "API key (optional — press Enter to skip):",
+    mask: true,
+  });
+  return { url: url.trim(), apiKey: (apiKey || "").trim() || null };
 }
 
 // Prompt for PHALA API key
