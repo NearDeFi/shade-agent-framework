@@ -17,7 +17,7 @@ const WASM_PATH = path.join(__dirname, "../assets/state_cleanup.wasm");
 // covers wasm execution (the contract's loop + base64 decode) and JSON
 // arg parsing on top of the host-function cost.
 //
-// On the rare unexpected failure (e.g. gas constants drifted), we sleep
+// On a the rare unexpected failure, we sleep
 // 1s and retry the same batch once. A second failure red+exits.
 //
 // MAX_CALLS caps the per-round batch count; if planning would exceed it,
@@ -33,9 +33,18 @@ const STEP_SLEEP_MS = 1000;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// Decoded byte length of a canonical base64 string, without allocating the
+// decoded buffer. view_state returns padded base64 with no whitespace, so
+// the formula `(len * 3 / 4) - padding` is exact.
+function base64DecodedByteLength(value) {
+  const paddingMatch = value.match(/=+$/);
+  const paddingLength = paddingMatch ? paddingMatch[0].length : 0;
+  return (value.length * 3) / 4 - paddingLength;
+}
+
 export function estimateKeyGas(keyB64, valueB64) {
-  const keyBytes = BigInt(Buffer.from(keyB64, "base64").length);
-  const valBytes = BigInt(Buffer.from(valueB64, "base64").length);
+  const keyBytes = BigInt(base64DecodedByteLength(keyB64));
+  const valBytes = BigInt(base64DecodedByteLength(valueB64));
   const raw =
     STORAGE_REMOVE_BASE +
     keyBytes * STORAGE_REMOVE_KEY_BYTE +
