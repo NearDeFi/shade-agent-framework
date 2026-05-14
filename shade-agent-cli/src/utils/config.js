@@ -551,11 +551,11 @@ export async function getConfig() {
     if (!phalaKey) {
       console.log(
         chalk.red(
-          "Error: PHALA API key is required for Phala Cloud deployments.",
+          "Error: Phala API key is required for Phala Cloud deployments.",
         ),
       );
       console.log(
-        chalk.red("Please run 'shade auth set' to store the PHALA API key."),
+        chalk.red("Please run 'shade auth set' to store the Phala API key."),
       );
       process.exit(1);
     }

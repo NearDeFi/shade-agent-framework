@@ -437,12 +437,12 @@ export function planCommand() {
         deployment.deploy_to_phala?.enabled &&
         !phalaKey
       ) {
-        missingCredentials.push("PHALA API key");
+        missingCredentials.push("Phala API key");
       } else if (
         deployment.environment === "TEE" &&
         deployment.deploy_to_phala?.enabled
       ) {
-        console.log("✓ PHALA API key: configured");
+        console.log("✓ Phala API key: configured");
       }
 
       if (missingCredentials.length > 0) {

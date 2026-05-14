@@ -78,13 +78,13 @@ export async function setCredentials(
     }
 
     if (whatToSet === "phala" || whatToSet === "all") {
-      // Prompt for PHALA API key (will replace if it exists)
+      // Prompt for Phala API key (will replace if it exists)
       const phalaKey = await promptForPhalaKey();
 
       const trimmedKey = phalaKey.trim();
       await setPhalaKey(trimmedKey);
-      console.log(chalk.green("✓ PHALA API key stored"));
-      console.log(chalk.green("\nStored PHALA API key:"));
+      console.log(chalk.green("✓ Phala API key stored"));
+      console.log(chalk.green("\nStored Phala API key:"));
       console.log(chalk.cyan(`  ${trimmedKey}`));
     }
 
@@ -127,12 +127,12 @@ export async function getCredentials(whatToGetArg, networkArg = null) {
     if (whatToGet === "phala" || whatToGet === "all") {
       const phalaKey = await getPhalaKey();
       if (!phalaKey) {
-        console.log(chalk.yellow("\nNo PHALA API key found"));
+        console.log(chalk.yellow("\nNo Phala API key found"));
         console.log(
-          chalk.yellow(`Use 'shade auth set' to store PHALA API key`),
+          chalk.yellow(`Use 'shade auth set' to store Phala API key`),
         );
       } else {
-        console.log(chalk.green("\nPHALA API key:"));
+        console.log(chalk.green("\nPhala API key:"));
         console.log(chalk.cyan(phalaKey));
       }
     }
@@ -210,9 +210,9 @@ export async function clearCredentials(whatToClearArg, networkArg = null) {
     if (whatToClear === "phala" || whatToClear === "all") {
       const deleted = await deletePhalaKey();
       if (deleted) {
-        console.log(chalk.green("✓ PHALA API key cleared"));
+        console.log(chalk.green("✓ Phala API key cleared"));
       } else {
-        console.log(chalk.yellow("No PHALA API key found to clear"));
+        console.log(chalk.yellow("No Phala API key found to clear"));
       }
     }
 

@@ -7,21 +7,21 @@ import { validateAndSelectOption } from "../../utils/error-handler.js";
 export async function selectCredentialType(typeArg, actionType) {
   const typeOptions = {
     set: [
-      { value: "all", description: "Set NEAR, PHALA, and RPC credentials" },
+      { value: "all", description: "Set NEAR, Phala, and RPC credentials" },
       { value: "near", description: "Set NEAR master account only" },
-      { value: "phala", description: "Set PHALA API key only" },
+      { value: "phala", description: "Set Phala API key only" },
       { value: "rpc", description: "Set custom RPC provider only" },
     ],
     get: [
-      { value: "all", description: "Get NEAR, PHALA, and RPC credentials" },
+      { value: "all", description: "Get NEAR, Phala, and RPC credentials" },
       { value: "near", description: "Get NEAR master account only" },
-      { value: "phala", description: "Get PHALA API key only" },
+      { value: "phala", description: "Get Phala API key only" },
       { value: "rpc", description: "Get custom RPC provider only" },
     ],
     clear: [
-      { value: "all", description: "Clear NEAR, PHALA, and RPC credentials" },
+      { value: "all", description: "Clear NEAR, Phala, and RPC credentials" },
       { value: "near", description: "Clear NEAR master account only" },
-      { value: "phala", description: "Clear PHALA API key only" },
+      { value: "phala", description: "Clear Phala API key only" },
       { value: "rpc", description: "Clear custom RPC provider only" },
     ],
   };
@@ -119,14 +119,14 @@ export async function promptForRpcConfig() {
   return { url: url.trim(), apiKey: (apiKey || "").trim() || null };
 }
 
-// Prompt for PHALA API key
+// Prompt for Phala API key
 export async function promptForPhalaKey() {
   return await password({
-    message: "Enter PHALA API key:",
+    message: "Enter Phala API key:",
     mask: true,
     validate: (value) => {
       if (!value || value.trim().length === 0) {
-        return "PHALA API key is required";
+        return "Phala API key is required";
       }
       return true;
     },
