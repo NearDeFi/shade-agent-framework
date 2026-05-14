@@ -282,53 +282,55 @@ export function planCommand() {
           2,
         );
 
-        // Only resolve the <MEASUREMENTS> placeholder when args actually
-        // reference it; otherwise render the args literally and skip the
-        // measurement computation entirely.
+        // Render args. In local mode getMeasurements returns mock values;
+        // in TEE with build_docker_image we defer to a placeholder message
+        // because the real measurements aren't known until publish time.
         const argsHasMeasurements = hasPlaceholder(approveCfg.args, "<MEASUREMENTS>");
-        if (deployment.environment === "TEE") {
-          console.log("");
-          if (argsHasMeasurements && deployment.build_docker_image) {
-            const measurementsMsg = `The ${chalk.magenta("<MEASUREMENTS>")} will be replaced by the computed measurements when the docker image is published.`;
-            const lines = wrapText(measurementsMsg, 70 - 2, 0);
-            lines.forEach((line) => console.log("  " + line));
-          } else if (argsHasMeasurements) {
-            const replacements = {};
-            const measurements = getMeasurements(
-              deployment.environment === "TEE",
-              deployment.docker_compose_path,
-              deployment.deploy_to_phala?.dstack_version,
-              deployment.deploy_to_phala?.instance_type,
-              {
-                publicLogs: deployment.deploy_to_phala?.public_logs,
-                publicSysinfo: deployment.deploy_to_phala?.public_sysinfo,
-              },
-            );
-            replacements["<MEASUREMENTS>"] = measurements;
-            const args = replacePlaceholders(approveCfg.args, replacements);
-            const jsonLines = formatArgs(args).split("\n");
-            jsonLines.forEach((line) => {
-              console.log("  " + chalk.magenta(line));
-            });
-          } else {
-            // No <MEASUREMENTS> placeholder — render args. Parse the template
-            // string into JSON first so formatArgs pretty-prints the object
-            // instead of quoting/escaping the raw string. Fall back to the
-            // raw text if parsing fails (plan is a preview, not a deploy).
-            let parsed;
-            try {
-              parsed =
-                typeof approveCfg.args === "string"
-                  ? JSON.parse(approveCfg.args.trim())
-                  : approveCfg.args;
-            } catch (_) {
-              parsed = approveCfg.args;
-            }
-            const jsonLines = formatArgs(parsed).split("\n");
-            jsonLines.forEach((line) => {
-              console.log("  " + chalk.magenta(line));
-            });
+        console.log("");
+        if (
+          argsHasMeasurements &&
+          deployment.environment === "TEE" &&
+          deployment.build_docker_image
+        ) {
+          const measurementsMsg = `The ${chalk.magenta("<MEASUREMENTS>")} will be replaced by the computed measurements when the docker image is published.`;
+          const lines = wrapText(measurementsMsg, 70 - 2, 0);
+          lines.forEach((line) => console.log("  " + line));
+        } else if (argsHasMeasurements) {
+          const replacements = {};
+          const measurements = getMeasurements(
+            deployment.environment === "TEE",
+            deployment.docker_compose_path,
+            deployment.deploy_to_phala?.dstack_version,
+            deployment.deploy_to_phala?.instance_type,
+            {
+              publicLogs: deployment.deploy_to_phala?.public_logs,
+              publicSysinfo: deployment.deploy_to_phala?.public_sysinfo,
+            },
+          );
+          replacements["<MEASUREMENTS>"] = measurements;
+          const args = replacePlaceholders(approveCfg.args, replacements);
+          const jsonLines = formatArgs(args).split("\n");
+          jsonLines.forEach((line) => {
+            console.log("  " + chalk.magenta(line));
+          });
+        } else {
+          // No <MEASUREMENTS> placeholder — render args literally. Parse the
+          // template string into JSON first so formatArgs pretty-prints the
+          // object instead of quoting/escaping the raw string. Fall back to
+          // the raw text if parsing fails (plan is a preview, not a deploy).
+          let parsed;
+          try {
+            parsed =
+              typeof approveCfg.args === "string"
+                ? JSON.parse(approveCfg.args.trim())
+                : approveCfg.args;
+          } catch (_) {
+            parsed = approveCfg.args;
           }
+          const jsonLines = formatArgs(parsed).split("\n");
+          jsonLines.forEach((line) => {
+            console.log("  " + chalk.magenta(line));
+          });
         }
         console.log("");
         console.log("");
