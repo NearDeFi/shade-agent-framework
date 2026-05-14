@@ -13,9 +13,6 @@ import { tgasToGas } from "./near.js";
 // covers wasm execution (the contract's loop + base64 decode) and JSON
 // arg parsing on top of the host-function cost.
 //
-// On the rare unexpected failure, we sleep 1s and retry the same batch
-// once. A second failure red+exits.
-//
 // MAX_CALLS caps the per-round batch count; if planning would exceed it,
 // we bail before sending anything.
 
@@ -149,17 +146,12 @@ export async function wipeContractState(contractAccount) {
       try {
         await sendCleanBatch(contractAccount, accountId, batch);
       } catch (e) {
-        await sleep(STEP_SLEEP_MS);
-        try {
-          await sendCleanBatch(contractAccount, accountId, batch);
-        } catch (e2) {
-          console.log(
-            chalk.red(
-              `Error calling state-cleanup 'clean' (batch of ${batch.length} keys, retried once): ${e2.message}`,
-            ),
-          );
-          process.exit(1);
-        }
+        console.log(
+          chalk.red(
+            `Error calling state-cleanup 'clean' (batch of ${batch.length} keys): ${e.message}`,
+          ),
+        );
+        process.exit(1);
       }
       await sleep(STEP_SLEEP_MS);
     }
