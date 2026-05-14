@@ -43,9 +43,10 @@ export async function prepareContractAccount(prefetchedState) {
   const fundingAmount =
     config.deployment.agent_contract.deploy_custom.funding_amount;
 
-  // Check if master account has enough balance (including contract account
-  // balance if it exists — that NEAR is returned to master on delete).
-  const requiredBalance = fundingAmount + 0.1;
+  // Buffer to cover transaction fees plus the worst-case wipe gas burn
+  // (up to 10 clean() calls × 300 Tgas ≈ 0.3 NEAR at baseline gas price).
+  const FEE_BUFFER = 0.5;
+  const requiredBalance = fundingAmount + FEE_BUFFER;
   const masterBalance = await masterAccount.getBalance(NEAR);
   const masterBalanceDecimal = parseFloat(NEAR.toDecimal(masterBalance));
 
@@ -66,7 +67,7 @@ export async function prepareContractAccount(prefetchedState) {
     );
     console.log(
       chalk.yellow(
-        `It has balance ${totalBalance} NEAR (master: ${masterBalanceDecimal} NEAR${contractBalanceDecimal > 0 ? ` + contract: ${contractBalanceDecimal} NEAR` : ""}) but needs ${requiredBalance} NEAR (${fundingAmount} NEAR for the contract + 0.1 NEAR for transaction fees)`,
+        `It has balance ${totalBalance} NEAR (master: ${masterBalanceDecimal} NEAR${contractBalanceDecimal > 0 ? ` + contract: ${contractBalanceDecimal} NEAR` : ""}) but needs ${requiredBalance} NEAR (${fundingAmount} NEAR for the contract + ${FEE_BUFFER} NEAR extra for transaction fees and wipe gas)`,
       ),
     );
     if (config.deployment.network === "testnet") {
@@ -82,7 +83,12 @@ export async function prepareContractAccount(prefetchedState) {
   if (contractAccountExists) {
     await wipeContractState(contractAccount);
 
-    const topUp = fundingAmount - contractBalanceDecimal;
+    // Cleanup deploy + clean() calls burn gas, so re-fetch the post-wipe
+    // balance before computing the top-up. The pre-wipe balance is stale.
+    const postWipeBalanceDecimal = parseFloat(
+      NEAR.toDecimal(await contractAccount.getBalance(NEAR)),
+    );
+    const topUp = fundingAmount - postWipeBalanceDecimal;
     if (topUp > 0) {
       try {
         const result = await masterAccount.transfer({

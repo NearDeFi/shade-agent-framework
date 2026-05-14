@@ -85,9 +85,17 @@ describe("planBatches", () => {
   });
 
   it("places an oversized single entry in its own batch", () => {
+    // Derive the smallest value byte count that pushes estimateKeyGas above
+    // TARGET (with a 10-byte key) instead of overshooting with ~21 MB.
+    const KEY_BYTES = 10n;
+    const rawCap = (TARGET * 100n) / SAFETY;
+    const overhead = STORAGE_REMOVE_BASE + KEY_BYTES * STORAGE_REMOVE_KEY_BYTE;
+    const oversizedValueBytes =
+      Number((rawCap - overhead) / STORAGE_REMOVE_RET_VALUE_BYTE) + 1;
+
     const entries = [
       { key: b64OfLength(10), value: b64OfLength(50) },
-      { key: b64OfLength(10), value: b64OfLength(21_000_000) },
+      { key: b64OfLength(10), value: b64OfLength(oversizedValueBytes) },
       { key: b64OfLength(10), value: b64OfLength(50) },
     ];
     const batches = planBatches(entries);
@@ -105,11 +113,14 @@ describe("planBatches", () => {
       { key: b64OfLength(20), value: b64OfLength(800_000) },
     ];
     const batches = planBatches(entries);
+    let entryIndex = 0;
     for (const batch of batches) {
+      const batchEntries = entries.slice(entryIndex, entryIndex + batch.length);
+      entryIndex += batch.length;
       if (batch.length === 1) continue;
       let sum = 0n;
-      for (const _key of batch) {
-        sum += (STORAGE_REMOVE_BASE * SAFETY) / 100n;
+      for (const entry of batchEntries) {
+        sum += estimateKeyGas(entry.key, entry.value);
       }
       expect(sum < TARGET).toBe(true);
     }

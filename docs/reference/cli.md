@@ -56,7 +56,7 @@ Must be executed in the same directory as your `deployment.yaml` file.
 
 ### Auth
 
-Configure **NEAR** and **Phala** credentials required for deploying your Shade Agent. Must be run before using the `deploy` or `whitelist` commands.
+Configure **NEAR**, **Phala** and **RPC** credentials required for deploying your Shade Agent. Must be run before using the `deploy` or `whitelist` commands.
 
 ```bash
 shade auth
