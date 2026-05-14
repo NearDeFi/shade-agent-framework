@@ -50,9 +50,10 @@ export default async function testDifferentAccountId(
     };
   }
 
-  const provider = new JsonRpcProvider({
-    url: "https://rpc.testnet.near.org",
-  });
+  const provider = new JsonRpcProvider(
+    { url: "https://rpc.testnet.near.org" },
+    { retries: 3, backoff: 2, wait: 1000 },
+  );
 
   const differentSigner = new KeyPairSigner(differentKeyPair);
   const differentAccount = new Account(

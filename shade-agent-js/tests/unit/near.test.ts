@@ -166,27 +166,7 @@ describe("near utils", () => {
       });
     });
 
-    it("should retry on failure and succeed on second attempt", async () => {
-      const { mockProvider, mockTransfer } = setupFundAgentMocks(() =>
-        vi
-          .fn()
-          .mockRejectedValueOnce(new Error("Network error"))
-          .mockResolvedValueOnce({ status: { SuccessValue: "" } }),
-      );
-
-      const sponsorKey = generateTestKey("sponsor-key");
-      await internalFundAgent(
-        "agent.testnet",
-        "sponsor.testnet",
-        sponsorKey,
-        2.0,
-        mockProvider,
-      );
-
-      expect(mockTransfer).toHaveBeenCalledTimes(2);
-    });
-
-    it("should throw error after all retries exhausted", async () => {
+    it("should throw error on transfer failure", async () => {
       const { mockProvider, mockTransfer } = setupFundAgentMocks(() =>
         vi.fn().mockRejectedValue(new Error("Network error")),
       );
@@ -202,10 +182,10 @@ describe("near utils", () => {
         ),
       ).rejects.toThrow("Failed to fund agent account agent.testnet");
 
-      expect(mockTransfer).toHaveBeenCalledTimes(3);
+      expect(mockTransfer).toHaveBeenCalledTimes(1);
     });
 
-    it("should handle non-Error exceptions after all retries exhausted", async () => {
+    it("should handle non-Error exceptions", async () => {
       const { mockProvider, mockTransfer } = setupFundAgentMocks(() =>
         vi.fn().mockRejectedValue("String error"),
       );
@@ -221,7 +201,7 @@ describe("near utils", () => {
         ),
       ).rejects.toThrow("Failed to fund agent account agent.testnet");
 
-      expect(mockTransfer).toHaveBeenCalledTimes(3);
+      expect(mockTransfer).toHaveBeenCalledTimes(1);
     });
 
     it("should handle sanitize returning non-string (defensive branch)", async () => {
@@ -246,11 +226,11 @@ describe("near utils", () => {
       expect(errorSpy).toHaveBeenCalledWith(
         "Transfer transaction failed: [object Object]",
       );
-      expect(mockTransfer).toHaveBeenCalledTimes(3);
+      expect(mockTransfer).toHaveBeenCalledTimes(1);
       errorSpy.mockRestore();
     });
 
-    it("should throw error with error_type after retries when no error_message", async () => {
+    it("should throw error with error_type when no error_message", async () => {
       const { mockProvider, mockTransfer } = setupFundAgentMocks({
         status: { Failure: { error_type: "TypeOnlyError" } },
       });
@@ -263,11 +243,9 @@ describe("near utils", () => {
           1.0,
           mockProvider,
         ),
-      ).rejects.toThrow(
-        "Failed to fund agent account agent.testnet after 3 attempts",
-      );
+      ).rejects.toThrow("Failed to fund agent account agent.testnet");
 
-      expect(mockTransfer).toHaveBeenCalledTimes(3);
+      expect(mockTransfer).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -291,24 +269,7 @@ describe("near utils", () => {
       expect(mockAccount.provider.sendTransaction).toHaveBeenCalledWith(mockTx);
     });
 
-    it("should retry on failure and succeed on second attempt", async () => {
-      const { mockAccount, setSendTransactionBehavior } =
-        setupKeyOperationMocks();
-
-      setSendTransactionBehavior(() =>
-        vi
-          .fn()
-          .mockRejectedValueOnce(new Error("Network error"))
-          .mockResolvedValueOnce({ status: { SuccessValue: "" } }),
-      );
-
-      const key1 = generateTestKey("key1");
-      await addKeysToAccount(mockAccount, [key1]);
-
-      expect(mockAccount.provider.sendTransaction).toHaveBeenCalledTimes(2);
-    });
-
-    it("should throw error after all retries exhausted", async () => {
+    it("should throw error on transaction failure", async () => {
       const { mockAccount, setSendTransactionBehavior } =
         setupKeyOperationMocks();
 
@@ -320,7 +281,7 @@ describe("near utils", () => {
         addKeysToAccount(mockAccount, [generateTestKey("key1")]),
       ).rejects.toThrow("Failed to add keys");
 
-      expect(mockAccount.provider.sendTransaction).toHaveBeenCalledTimes(3);
+      expect(mockAccount.provider.sendTransaction).toHaveBeenCalledTimes(1);
     });
 
     it("should handle non-Error exceptions when adding keys", async () => {
@@ -335,29 +296,10 @@ describe("near utils", () => {
         addKeysToAccount(mockAccount, [generateTestKey("key1")]),
       ).rejects.toThrow("Failed to add keys");
 
-      expect(mockAccount.provider.sendTransaction).toHaveBeenCalledTimes(3);
+      expect(mockAccount.provider.sendTransaction).toHaveBeenCalledTimes(1);
     });
 
-    it("should retry on transaction failure status", async () => {
-      const { mockAccount, setSendTransactionBehavior } =
-        setupKeyOperationMocks();
-
-      setSendTransactionBehavior(() =>
-        vi
-          .fn()
-          .mockResolvedValueOnce({
-            status: { Failure: { error_message: "Transaction failed" } },
-          })
-          .mockResolvedValueOnce({ status: { SuccessValue: "" } }),
-      );
-
-      const key1 = generateTestKey("key1");
-      await addKeysToAccount(mockAccount, [key1]);
-
-      expect(mockAccount.provider.sendTransaction).toHaveBeenCalledTimes(2);
-    });
-
-    it("should throw error with error_type when add keys fails after retries", async () => {
+    it("should throw error on Failure status", async () => {
       const { mockAccount, setSendTransactionBehavior } =
         setupKeyOperationMocks();
 
@@ -367,9 +309,9 @@ describe("near utils", () => {
 
       await expect(
         addKeysToAccount(mockAccount, [generateTestKey("key1")]),
-      ).rejects.toThrow("Failed to add keys after 3 attempts");
+      ).rejects.toThrow("Failed to add keys");
 
-      expect(mockAccount.provider.sendTransaction).toHaveBeenCalledTimes(3);
+      expect(mockAccount.provider.sendTransaction).toHaveBeenCalledTimes(1);
     });
   });
 
@@ -393,24 +335,7 @@ describe("near utils", () => {
       expect(mockAccount.provider.sendTransaction).toHaveBeenCalledWith(mockTx);
     });
 
-    it("should retry on failure and succeed on second attempt", async () => {
-      const { mockAccount, setSendTransactionBehavior } =
-        setupKeyOperationMocks();
-
-      setSendTransactionBehavior(() =>
-        vi
-          .fn()
-          .mockRejectedValueOnce(new Error("Network error"))
-          .mockResolvedValueOnce({ status: { SuccessValue: "" } }),
-      );
-
-      const key1 = generateTestKey("key1");
-      await removeKeysFromAccount(mockAccount, [key1]);
-
-      expect(mockAccount.provider.sendTransaction).toHaveBeenCalledTimes(2);
-    });
-
-    it("should throw error after all retries exhausted", async () => {
+    it("should throw error on transaction failure", async () => {
       const { mockAccount, setSendTransactionBehavior } =
         setupKeyOperationMocks();
 
@@ -422,7 +347,7 @@ describe("near utils", () => {
         removeKeysFromAccount(mockAccount, [generateTestKey("key1")]),
       ).rejects.toThrow("Failed to remove keys");
 
-      expect(mockAccount.provider.sendTransaction).toHaveBeenCalledTimes(3);
+      expect(mockAccount.provider.sendTransaction).toHaveBeenCalledTimes(1);
     });
 
     it("should handle non-Error exceptions when removing keys", async () => {
@@ -437,29 +362,10 @@ describe("near utils", () => {
         removeKeysFromAccount(mockAccount, [generateTestKey("key1")]),
       ).rejects.toThrow("Failed to remove keys");
 
-      expect(mockAccount.provider.sendTransaction).toHaveBeenCalledTimes(3);
+      expect(mockAccount.provider.sendTransaction).toHaveBeenCalledTimes(1);
     });
 
-    it("should retry on transaction failure status", async () => {
-      const { mockAccount, setSendTransactionBehavior } =
-        setupKeyOperationMocks();
-
-      setSendTransactionBehavior(() =>
-        vi
-          .fn()
-          .mockResolvedValueOnce({
-            status: { Failure: { error_type: "ActionError" } },
-          })
-          .mockResolvedValueOnce({ status: { SuccessValue: "" } }),
-      );
-
-      const key1 = generateTestKey("key1");
-      await removeKeysFromAccount(mockAccount, [key1]);
-
-      expect(mockAccount.provider.sendTransaction).toHaveBeenCalledTimes(2);
-    });
-
-    it("should throw error with error_type when remove keys fails after retries", async () => {
+    it("should throw error on Failure status", async () => {
       const { mockAccount, setSendTransactionBehavior } =
         setupKeyOperationMocks();
 
@@ -469,9 +375,9 @@ describe("near utils", () => {
 
       await expect(
         removeKeysFromAccount(mockAccount, [generateTestKey("key1")]),
-      ).rejects.toThrow("Failed to remove keys after 3 attempts");
+      ).rejects.toThrow("Failed to remove keys");
 
-      expect(mockAccount.provider.sendTransaction).toHaveBeenCalledTimes(3);
+      expect(mockAccount.provider.sendTransaction).toHaveBeenCalledTimes(1);
     });
   });
 });

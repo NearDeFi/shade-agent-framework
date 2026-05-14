@@ -28,7 +28,7 @@ async function verifyRpcOrExit(url, apiKey, expectedNetwork) {
     : undefined;
   const candidate = new JsonRpcProvider(
     { url, headers },
-    { retries: 0, backoff: 1, wait: 0 },
+    { retries: 3, backoff: 2, wait: 1000 },
   );
   let status;
   try {
