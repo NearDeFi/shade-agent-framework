@@ -311,8 +311,20 @@ export function planCommand() {
               console.log("  " + chalk.magenta(line));
             });
           } else {
-            // No <MEASUREMENTS> placeholder — render args as-is.
-            const jsonLines = formatArgs(approveCfg.args).split("\n");
+            // No <MEASUREMENTS> placeholder — render args. Parse the template
+            // string into JSON first so formatArgs pretty-prints the object
+            // instead of quoting/escaping the raw string. Fall back to the
+            // raw text if parsing fails (plan is a preview, not a deploy).
+            let parsed;
+            try {
+              parsed =
+                typeof approveCfg.args === "string"
+                  ? JSON.parse(approveCfg.args.trim())
+                  : approveCfg.args;
+            } catch (_) {
+              parsed = approveCfg.args;
+            }
+            const jsonLines = formatArgs(parsed).split("\n");
             jsonLines.forEach((line) => {
               console.log("  " + chalk.magenta(line));
             });
