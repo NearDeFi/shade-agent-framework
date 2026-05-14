@@ -4,11 +4,7 @@ import { fileURLToPath } from "url";
 import chalk from "chalk";
 import { tgasToGas } from "./near.js";
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const WASM_PATH = path.join(__dirname, "../assets/state_cleanup.wasm");
-
-// Gas-aware batching
-//
+// Gas-aware batching.
 // viewContractState returns each storage entry's key AND value (both
 // base64-encoded). NEAR's storage_remove host function has a published
 // gas cost that scales with key bytes and value bytes, so we can predict
@@ -17,11 +13,15 @@ const WASM_PATH = path.join(__dirname, "../assets/state_cleanup.wasm");
 // covers wasm execution (the contract's loop + base64 decode) and JSON
 // arg parsing on top of the host-function cost.
 //
-// On a the rare unexpected failure, we sleep
-// 1s and retry the same batch once. A second failure red+exits.
+// On the rare unexpected failure, we sleep 1s and retry the same batch
+// once. A second failure red+exits.
 //
 // MAX_CALLS caps the per-round batch count; if planning would exceed it,
 // we bail before sending anything.
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const WASM_PATH = path.join(__dirname, "../assets/state_cleanup.wasm");
+
 const STORAGE_REMOVE_BASE = 53_473_030_500n;
 const STORAGE_REMOVE_KEY_BYTE = 38_220_384n;
 const STORAGE_REMOVE_RET_VALUE_BYTE = 11_531_556n;
@@ -70,6 +70,35 @@ export function planBatches(entries) {
   return batches;
 }
 
+async function readStateOrExit(provider, accountId) {
+  try {
+    const view = await provider.viewContractState(accountId, "", {
+      finality: "final",
+    });
+    return view.values;
+  } catch (e) {
+    console.log(
+      chalk.red(
+        `Error: view_state RPC failed for ${accountId} try a different RPC provider or deploy to a new contract: ${e.message}`,
+      ),
+    );
+    process.exit(1);
+  }
+}
+
+function planBatchesOrExit(entries) {
+  const batches = planBatches(entries);
+  if (batches.length > MAX_CALLS) {
+    console.log(
+      chalk.red(
+        `Error: state-cleanup would need ${batches.length} clean() calls to remove ${entries.length} keys (max ${MAX_CALLS}). Contract state is too large. Deploy to a new contract instead or manually attempt to clean state.`,
+      ),
+    );
+    process.exit(1);
+  }
+  return batches;
+}
+
 async function sendCleanBatch(contractAccount, accountId, keys) {
   return contractAccount.callFunctionRaw({
     contractId: accountId,
@@ -80,10 +109,20 @@ async function sendCleanBatch(contractAccount, accountId, keys) {
 }
 
 export async function wipeContractState(contractAccount) {
-  console.log("Contract account already exists, wiping state");
-
   const provider = contractAccount.provider;
   const accountId = contractAccount.accountId;
+
+  // Pre-flight before touching the contract code: read state and verify the
+  // plan fits within MAX_CALLS. If view_state fails or the plan would
+  // exceed the cap, exit with the previous contract still deployed.
+  let entries = await readStateOrExit(provider, accountId);
+  if (entries.length === 0) {
+    console.log("Contract account already exists with no state to wipe");
+    return;
+  }
+  let batches = planBatchesOrExit(entries);
+
+  console.log("Contract account already exists, wiping state");
 
   try {
     const wasm = fs.readFileSync(WASM_PATH);
@@ -102,34 +141,10 @@ export async function wipeContractState(contractAccount) {
     process.exit(1);
   }
 
+  // Run rounds. First round uses the plan we already computed; subsequent
+  // rounds re-query and re-plan defensively in case state was added between
+  // calls (shouldn't happen for an idle contract, but cheap insurance).
   while (true) {
-    let entries;
-    try {
-      const view = await provider.viewContractState(accountId, "", {
-        finality: "final",
-      });
-      entries = view.values;
-    } catch (e) {
-      console.log(
-        chalk.red(
-          `Error: view_state RPC failed for ${accountId} try a different RPC provider or deploy to a new contract: ${e.message}`,
-        ),
-      );
-      process.exit(1);
-    }
-
-    if (entries.length === 0) return;
-
-    const batches = planBatches(entries);
-    if (batches.length > MAX_CALLS) {
-      console.log(
-        chalk.red(
-          `Error: state-cleanup would need ${batches.length} clean() calls to remove ${entries.length} keys (max ${MAX_CALLS}). Contract state is too large. Deploy to a new contract instead or manually attempt to clean state.`,
-        ),
-      );
-      process.exit(1);
-    }
-
     for (const batch of batches) {
       try {
         await sendCleanBatch(contractAccount, accountId, batch);
@@ -148,5 +163,9 @@ export async function wipeContractState(contractAccount) {
       }
       await sleep(STEP_SLEEP_MS);
     }
+
+    entries = await readStateOrExit(provider, accountId);
+    if (entries.length === 0) return;
+    batches = planBatchesOrExit(entries);
   }
 }
