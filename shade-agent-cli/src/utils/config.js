@@ -6,8 +6,9 @@ import { KeyPairSigner } from "@near-js/signers";
 import { JsonRpcProvider } from "@near-js/providers";
 import { Account } from "@near-js/accounts";
 import { platform } from "os";
-import { getNearCredentials, getPhalaKey } from "./keystore.js";
+import { getNearCredentials, getPhalaKey, getRpcConfig } from "./keystore.js";
 import { hardwareAndOSMeasurements } from "./measurements.js";
+import { hasPlaceholder } from "./placeholders.js";
 
 function detectOS() {
   const platformName = platform();
@@ -280,7 +281,17 @@ export function parseDeploymentConfig(deploymentPath) {
   if (deploy_to_phala) {
     mustBeBooleanOrOmitted(deploy_to_phala.enabled, "deploy_to_phala.enabled");
   }
-  if (deploy_to_phala && deploy_to_phala.enabled !== false) {
+
+  const phalaEnabled = deploy_to_phala && deploy_to_phala.enabled !== false;
+  // Only require measurement fields when <MEASUREMENTS> is in the args.
+  const needsMeasurementFields =
+    environment === "TEE" &&
+    approve_measurements &&
+    approve_measurements.enabled !== false &&
+    hasPlaceholder(approve_measurements.args, "<MEASUREMENTS>");
+
+  // Phala-deploy-only fields — only needed when the workflow will actually run.
+  if (phalaEnabled) {
     requireField(
       !!deploy_to_phala.env_file_path,
       "deploy_to_phala.env_file_path is required",
@@ -289,38 +300,50 @@ export function parseDeploymentConfig(deploymentPath) {
       !!deploy_to_phala.app_name,
       "deploy_to_phala.app_name is required",
     );
-    if (environment === "TEE") {
-      const supportedVersions = Object.keys(hardwareAndOSMeasurements);
-      requireField(
-        typeof deploy_to_phala.dstack_version === "string" &&
-          deploy_to_phala.dstack_version.length > 0,
-        `deploy_to_phala.dstack_version is required (one of: ${supportedVersions.join(", ")})`,
-      );
-      requireField(
-        supportedVersions.includes(deploy_to_phala.dstack_version),
-        `deploy_to_phala.dstack_version "${deploy_to_phala.dstack_version}" is not supported (one of: ${supportedVersions.join(", ")})`,
-      );
+  }
 
-      const supportedInstanceTypes = Object.keys(
-        hardwareAndOSMeasurements[deploy_to_phala.dstack_version],
-      );
-      requireField(
-        typeof deploy_to_phala.instance_type === "string" &&
-          deploy_to_phala.instance_type.length > 0,
-        `deploy_to_phala.instance_type is required (one of: ${supportedInstanceTypes.join(", ")})`,
-      );
-      requireField(
-        supportedInstanceTypes.includes(deploy_to_phala.instance_type),
-        `deploy_to_phala.instance_type "${deploy_to_phala.instance_type}" is not supported for dstack ${deploy_to_phala.dstack_version} (one of: ${supportedInstanceTypes.join(", ")})`,
-      );
-    }
+  // public_logs / public_sysinfo feed the compose hash (for phala manifest
+  // and the TEE measurement). Required whenever phala deploy is on OR
+  // approve_measurements will run in TEE.
+  if (phalaEnabled || needsMeasurementFields) {
     requireField(
-      typeof deploy_to_phala.public_logs === "boolean",
+      !!deploy_to_phala,
+      "deploy_to_phala block is required (needs dstack_version, instance_type, public_logs, public_sysinfo)",
+    );
+    requireField(
+      typeof deploy_to_phala?.public_logs === "boolean",
       "deploy_to_phala.public_logs is required and must be a boolean (true or false)",
     );
     requireField(
-      typeof deploy_to_phala.public_sysinfo === "boolean",
+      typeof deploy_to_phala?.public_sysinfo === "boolean",
       "deploy_to_phala.public_sysinfo is required and must be a boolean (true or false)",
+    );
+  }
+
+  // dstack_version / instance_type are TEE-specific (compose hash + measurement).
+  if ((phalaEnabled || needsMeasurementFields) && environment === "TEE") {
+    const supportedVersions = Object.keys(hardwareAndOSMeasurements);
+    requireField(
+      typeof deploy_to_phala?.dstack_version === "string" &&
+        deploy_to_phala.dstack_version.length > 0,
+      `deploy_to_phala.dstack_version is required (one of: ${supportedVersions.join(", ")})`,
+    );
+    requireField(
+      supportedVersions.includes(deploy_to_phala?.dstack_version),
+      `deploy_to_phala.dstack_version "${deploy_to_phala?.dstack_version}" is not supported (one of: ${supportedVersions.join(", ")})`,
+    );
+
+    const supportedInstanceTypes = Object.keys(
+      hardwareAndOSMeasurements[deploy_to_phala?.dstack_version] || {},
+    );
+    requireField(
+      typeof deploy_to_phala?.instance_type === "string" &&
+        deploy_to_phala.instance_type.length > 0,
+      `deploy_to_phala.instance_type is required (one of: ${supportedInstanceTypes.join(", ")})`,
+    );
+    requireField(
+      supportedInstanceTypes.includes(deploy_to_phala?.instance_type),
+      `deploy_to_phala.instance_type "${deploy_to_phala?.instance_type}" is not supported for dstack ${deploy_to_phala?.dstack_version} (one of: ${supportedInstanceTypes.join(", ")})`,
     );
   }
 
@@ -400,17 +423,26 @@ export function parseDeploymentConfig(deploymentPath) {
             tgas: approve_ppids.tgas ?? 30,
           }
         : undefined,
-    deploy_to_phala:
-      deploy_to_phala && deploy_to_phala.enabled !== false
-        ? {
-            env_file_path: deploy_to_phala.env_file_path,
-            app_name: deploy_to_phala.app_name,
-            dstack_version: deploy_to_phala.dstack_version,
-            instance_type: deploy_to_phala.instance_type,
-            public_logs: deploy_to_phala.public_logs,
-            public_sysinfo: deploy_to_phala.public_sysinfo,
-          }
-        : undefined,
+    // TODO: dstack_version / instance_type / public_logs / public_sysinfo
+    // are read by `approve_measurements` regardless of phala deploy status.
+    // They should live in their own top-level block (e.g. `tee_config:`)
+    // rather than under `deploy_to_phala`. Left here for now to avoid a
+    // breaking deployment.yaml change.
+    deploy_to_phala: deploy_to_phala
+      ? {
+          // `enabled` defaults to true when the block exists without an
+          // explicit `enabled` field. The measurement-related fields below
+          // are emitted regardless of `enabled` so `approve_measurements`
+          // can read them even when the actual phala deploy is disabled.
+          enabled: deploy_to_phala.enabled !== false,
+          env_file_path: deploy_to_phala.env_file_path,
+          app_name: deploy_to_phala.app_name,
+          dstack_version: deploy_to_phala.dstack_version,
+          instance_type: deploy_to_phala.instance_type,
+          public_logs: deploy_to_phala.public_logs,
+          public_sysinfo: deploy_to_phala.public_sysinfo,
+        }
+      : undefined,
     whitelist_agent_for_local: whitelist_agent_for_local
       ? {
           method_name: whitelist_agent_for_local.method_name,
@@ -421,21 +453,25 @@ export function parseDeploymentConfig(deploymentPath) {
   };
 }
 
-// Function to create the default RPC provider based on deployment network
-function createDefaultProvider(network) {
-  return new JsonRpcProvider(
-    {
-      url:
-        network === "testnet"
-          ? "https://test.rpc.fastnear.com"
-          : "https://free.rpc.fastnear.com",
-    },
-    {
-      retries: 3,
-      backoff: 2,
-      wait: 1000,
-    },
-  );
+const FASTNEAR_TESTNET = "https://test.rpc.fastnear.com";
+const FASTNEAR_MAINNET = "https://free.rpc.fastnear.com";
+
+// Build the RPC provider for a network. Honors a per-network override stored
+// via `shade auth set rpc` (URL + optional Bearer API key); falls back to
+// FastNEAR's public endpoints when nothing is set.
+async function createDefaultProvider(network) {
+  const override = await getRpcConfig(network);
+  const url =
+    override?.url ??
+    (network === "testnet" ? FASTNEAR_TESTNET : FASTNEAR_MAINNET);
+  const connectionInfo = override?.apiKey
+    ? { url, headers: { Authorization: `Bearer ${override.apiKey}` } }
+    : { url };
+  return new JsonRpcProvider(connectionInfo, {
+    retries: 3,
+    backoff: 2,
+    wait: 1000,
+  });
 }
 
 // Memoized config - only loads when getConfig() is called
@@ -505,28 +541,28 @@ export async function getConfig() {
   }
   const { accountId, privateKey } = credentials;
 
-  // Fetch PHALA key if needed (only required for TEE environment with deploy_to_phala)
+  // Fetch PHALA key if needed (only required for TEE environment with deploy_to_phala enabled)
   let phalaKey = null;
   if (
     deploymentConfig?.environment === "TEE" &&
-    deploymentConfig?.deploy_to_phala
+    deploymentConfig?.deploy_to_phala?.enabled
   ) {
     phalaKey = await getPhalaKey();
     if (!phalaKey) {
       console.log(
         chalk.red(
-          "Error: PHALA API key is required for Phala Cloud deployments.",
+          "Error: Phala API key is required for Phala Cloud deployments.",
         ),
       );
       console.log(
-        chalk.red("Please run 'shade auth set' to store the PHALA API key."),
+        chalk.red("Please run 'shade auth set' to store the Phala API key."),
       );
       process.exit(1);
     }
   }
 
   // Select provider based on network from deployment.yaml
-  const provider = createDefaultProvider(networkId);
+  const provider = await createDefaultProvider(networkId);
 
   const signer = KeyPairSigner.fromSecretKey(
     /** @type {import('@near-js/crypto').KeyPairString} */ (privateKey),

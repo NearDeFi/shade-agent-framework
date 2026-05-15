@@ -11,6 +11,7 @@ import { checkTransactionOutcome } from "../../utils/transaction-outcome.js";
 import { dockerExec, runWithSudoOnLinux } from "../../utils/docker-utils.js";
 import { getMeasurements } from "../../utils/measurements.js";
 import { getPpids } from "../../utils/ppids.js";
+import { wipeContractState } from "../../utils/state-cleanup.js";
 
 // Sleep for the specified number of milliseconds for nonce problems
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -25,11 +26,11 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 //   - state object → account exists; will be deleted before recreation
 //   - null         → account does not exist (no delete needed)
 //   - undefined    → caller forgot to pass it; this is a programming error
-export async function createAccount(prefetchedState) {
+export async function prepareContractAccount(prefetchedState) {
   if (prefetchedState === undefined) {
     console.log(
       chalk.red(
-        "Error: createAccount requires the contract account state to be prefetched (call confirmDestructiveRedeployIfAccountExists first).",
+        "Error: prepareContractAccount requires the contract account state to be prefetched (call confirmDestructiveRedeployIfAccountExists first).",
       ),
     );
     process.exit(1);
@@ -42,9 +43,10 @@ export async function createAccount(prefetchedState) {
   const fundingAmount =
     config.deployment.agent_contract.deploy_custom.funding_amount;
 
-  // Check if master account has enough balance (including contract account
-  // balance if it exists — that NEAR is returned to master on delete).
-  const requiredBalance = fundingAmount + 0.1;
+  // Buffer to cover transaction fees plus the worst-case wipe gas burn
+  // (up to 10 clean() calls × 300 Tgas ≈ 0.3 NEAR at baseline gas price).
+  const FEE_BUFFER = 0.5;
+  const requiredBalance = fundingAmount + FEE_BUFFER;
   const masterBalance = await masterAccount.getBalance(NEAR);
   const masterBalanceDecimal = parseFloat(NEAR.toDecimal(masterBalance));
 
@@ -65,7 +67,7 @@ export async function createAccount(prefetchedState) {
     );
     console.log(
       chalk.yellow(
-        `It has balance ${totalBalance} NEAR (master: ${masterBalanceDecimal} NEAR${contractBalanceDecimal > 0 ? ` + contract: ${contractBalanceDecimal} NEAR` : ""}) but needs ${requiredBalance} NEAR (${fundingAmount} NEAR for the contract + 0.1 NEAR for transaction fees)`,
+        `It has balance ${totalBalance} NEAR (master: ${masterBalanceDecimal} NEAR${contractBalanceDecimal > 0 ? ` + contract: ${contractBalanceDecimal} NEAR` : ""}) but needs ${requiredBalance} NEAR (${fundingAmount} NEAR for the contract + ${FEE_BUFFER} NEAR extra for transaction fees and wipe gas)`,
       ),
     );
     if (config.deployment.network === "testnet") {
@@ -78,40 +80,45 @@ export async function createAccount(prefetchedState) {
     process.exit(1);
   }
 
-  // Delete the contract account if it exists
   if (contractAccountExists) {
-    console.log("Contract account already exists, deleting it");
-    try {
-      await contractAccount.deleteAccount(masterAccount.accountId);
-      await sleep(1000);
-    } catch (deleteError) {
-      if (deleteError.type === "AccessKeyDoesNotExist") {
-        console.log(
-          chalk.red(
-            "Error: You cannot delete a contract account that does not have the same public key as your master account, pick a new unique contract_id or change back to your old master account for which you created the contract account with",
-          ),
-        );
+    await wipeContractState(contractAccount);
+
+    // Cleanup deploy + clean() calls burn gas, so re-fetch the post-wipe
+    // balance before computing the top-up. The pre-wipe balance is stale.
+    const postWipeBalanceDecimal = parseFloat(
+      NEAR.toDecimal(await contractAccount.getBalance(NEAR)),
+    );
+    const topUp = fundingAmount - postWipeBalanceDecimal;
+    if (topUp > 0) {
+      try {
+        const result = await masterAccount.transfer({
+          receiverId: contractId,
+          amount: NEAR.toUnits(topUp.toString()),
+        });
+        if (result?.final_execution_outcome) {
+          const success = checkTransactionOutcome(result.final_execution_outcome);
+          if (!success) {
+            console.log(chalk.red("✗ Failed to top up contract account"));
+            process.exit(1);
+          }
+        }
+        await sleep(1000);
+      } catch (e) {
+        console.log(chalk.red(`Error topping up contract account: ${e.message}`));
         process.exit(1);
       }
-      console.log(chalk.red(`Error: ${deleteError.message}`));
-      process.exit(1);
     }
-  } else {
-    console.log("Contract account does not exist, creating it");
+    return;
   }
 
-  // Create the contract account
+  console.log("Contract account does not exist, creating it");
   try {
-    console.log("Creating contract account");
     const result = await masterAccount.createAccount(
       contractId,
       await masterAccount.getSigner().getPublicKey(),
-      NEAR.toUnits(
-        config.deployment.agent_contract.deploy_custom.funding_amount,
-      ),
+      NEAR.toUnits(fundingAmount),
     );
 
-    // Check transaction outcome if result is available
     if (result && result.final_execution_outcome) {
       const success = checkTransactionOutcome(result.final_execution_outcome);
       if (!success) {

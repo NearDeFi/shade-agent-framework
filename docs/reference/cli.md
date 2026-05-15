@@ -56,7 +56,7 @@ Must be executed in the same directory as your `deployment.yaml` file.
 
 ### Auth
 
-Configure **NEAR** and **Phala** credentials required for deploying your Shade Agent. Must be run before using the `deploy` or `whitelist` commands.
+Configure **NEAR**, **Phala** and **RPC** credentials required for deploying your Shade Agent. Must be run before using the `deploy` or `whitelist` commands.
 
 ```bash
 shade auth
@@ -100,7 +100,7 @@ CLI configurations are read from a single `deployment.yaml` file in the project 
 | Key | Required | Description |
 |-----|----------|-------------|
 | **enabled** | No | If `false`, deploy_custom is skipped. |
-| **funding_amount** | Yes | NEAR amount to fund the new contract account with, used to fund the deployment of the contract (number between 0 and 100). |
+| **funding_amount** | Yes | NEAR amount to fund the new contract account with, used to fund the deployment of the contract from the master account (number between 0 and 100). If the contract account already has funds it will be topped up to the funding amount. |
 | **delete_key** | No | If `true`, the key for the contract account is deleted after deployment, locking the contract (defaults `false`). |
 | **deploy_from_source** | One of three | Build the contract from source and deploy: set `enabled: true` and `source_path` to the contract directory. See [deploy_from_source](#deploy_from_source). |
 | **deploy_from_wasm** | One of three | Deploy a pre-built WASM file: set `enabled: true` and `wasm_path` to the `.wasm` file. |
@@ -147,6 +147,8 @@ Placeholders in args:
 Placeholders in args:
 
 - `<MEASUREMENTS>` — Resolves to real calculated measurements for the application for TEE and mock measurements for local. For TEE, the measurements depend on the docker compose file, the dstack version and instance type.
+
+> **Note:** When `args` contains `<MEASUREMENTS>` in TEE mode, the placeholder is computed from `deploy_to_phala.dstack_version`, `instance_type`, `public_logs`, and `public_sysinfo`. The CLI reads these fields even when `deploy_to_phala.enabled: false`, so the block must still be present with valid values. If `args` doesn't reference `<MEASUREMENTS>`, the `deploy_to_phala` block is not required.
 
 ### approve_ppids
 

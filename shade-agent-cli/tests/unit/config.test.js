@@ -1164,6 +1164,7 @@ describe("parseDeploymentConfig", () => {
           }),
         );
         expect(config.deploy_to_phala).toEqual({
+          enabled: true,
           app_name: "my-other-agent",
           env_file_path: "./envs/prod.env",
           dstack_version: "0.5.7",
@@ -1173,11 +1174,68 @@ describe("parseDeploymentConfig", () => {
         });
       });
 
-      it("returns deploy_to_phala === undefined when enabled is false", () => {
+      // No <MEASUREMENTS> placeholder → measurement fields aren't required.
+      it("skips measurement-field validation when args omit <MEASUREMENTS>", () => {
         const config = parse(
-          validYaml({ deploy_to_phala: { enabled: false } }),
+          validYaml({
+            approve_measurements: {
+              enabled: true,
+              method_name: "approve_measurements",
+              args: '{ "list": [] }\n',
+            },
+            deploy_to_phala: undefined,
+          }),
         );
         expect(config.deploy_to_phala).toBeUndefined();
+      });
+
+      // approve_measurements in TEE still needs valid dstack_version,
+      // instance_type, and public_* even when deploy_to_phala.enabled is
+      // false — those fields feed the measurement calculation.
+      it("validates measurement fields when phala is off but approve_measurements is on in TEE", () => {
+        expectExit(
+          validYaml({
+            approve_measurements: {
+              enabled: true,
+              method_name: "approve_measurements",
+              args: '{\n  "measurements": <MEASUREMENTS>\n}\n',
+            },
+            deploy_to_phala: {
+              enabled: false,
+              dstack_version: "9.9.9",
+            },
+          }),
+          'deploy_to_phala.dstack_version "9.9.9" is not supported',
+        );
+      });
+
+      // When the block is present with enabled=false, the parser still
+      // emits the measurement-related fields (dstack_version, instance_type,
+      // public_*) so `approve_measurements` can read them; only `enabled`
+      // is flipped so the phala deploy workflow itself is skipped.
+      it("returns enabled=false when enabled is false but keeps the fields", () => {
+        const config = parse(
+          validYaml({
+            deploy_to_phala: {
+              enabled: false,
+              app_name: "x",
+              env_file_path: "./.env",
+              dstack_version: "0.5.7",
+              instance_type: "tdx.medium",
+              public_logs: false,
+              public_sysinfo: true,
+            },
+          }),
+        );
+        expect(config.deploy_to_phala).toEqual({
+          enabled: false,
+          app_name: "x",
+          env_file_path: "./.env",
+          dstack_version: "0.5.7",
+          instance_type: "tdx.medium",
+          public_logs: false,
+          public_sysinfo: true,
+        });
       });
 
       it("returns deploy_to_phala === undefined when the section is omitted", () => {

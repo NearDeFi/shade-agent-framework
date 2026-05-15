@@ -22,34 +22,20 @@ function replacePlaceholderInValue(val, placeholder, value) {
   return val;
 }
 
-// Check if a placeholder exists anywhere in the args object
-function hasPlaceholder(args, placeholder) {
+// Check if a placeholder exists anywhere in the args.
+// For string args (template form), does a substring match — pre-substitution
+// templates aren't valid JSON, so JSON-parsing here would give false negatives.
+// For object args, recursively checks any string value for an exact match.
+export function hasPlaceholder(args, placeholder) {
+  if (typeof args === "string") {
+    return args.includes(placeholder);
+  }
   const check = (val) => {
-    if (typeof val === "string") {
-      return val === placeholder;
-    }
-    if (Array.isArray(val)) {
-      return val.some(check);
-    }
-    if (val && typeof val === "object") {
-      return Object.values(val).some(check);
-    }
+    if (typeof val === "string") return val === placeholder;
+    if (Array.isArray(val)) return val.some(check);
+    if (val && typeof val === "object") return Object.values(val).some(check);
     return false;
   };
-
-  // Handle string args (JSON)
-  if (typeof args === "string") {
-    if (args === placeholder) {
-      return true;
-    }
-    try {
-      const parsed = JSON.parse(args);
-      return check(parsed);
-    } catch (e) {
-      return false;
-    }
-  }
-
   return check(args);
 }
 
