@@ -52,25 +52,42 @@ export async function internalFundAgent(
 
   const account = new Account(sponsorAccountId, provider, signer);
 
-  try {
-    const fundResult = await account.transfer({
-      token: NEAR,
-      amount: NEAR.toUnits(amount),
-      receiverId: agentAccountId,
-    });
+  const maxRetries = 3;
 
-    if (typeof fundResult.status === "object" && fundResult.status.Failure) {
-      const rawMsg =
-        fundResult.status.Failure.error_message ||
-        fundResult.status.Failure.error_type;
-      const sanitized = sanitize(String(rawMsg));
-      const errorMsg =
-        typeof sanitized === "string" ? sanitized : String(sanitized);
-      throw new Error(`Transfer transaction failed: ${errorMsg}`);
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const fundResult = await account.transfer({
+        token: NEAR,
+        amount: NEAR.toUnits(amount),
+        receiverId: agentAccountId,
+      });
+
+      // Check transaction status
+      if (typeof fundResult.status === "object" && fundResult.status.Failure) {
+        const rawMsg =
+          fundResult.status.Failure.error_message ||
+          fundResult.status.Failure.error_type;
+        const sanitized = sanitize(String(rawMsg));
+        const errorMsg =
+          typeof sanitized === "string" ? sanitized : String(sanitized);
+        const error = new Error(`Transfer transaction failed: ${errorMsg}`);
+        // Throw on final attempt, otherwise retry
+        if (attempt === maxRetries) {
+          throw error;
+        }
+        continue;
+      } else {
+        // Success - transaction completed without failure
+        return;
+      }
+    } catch {
+      // Throw on final attempt, otherwise retry - do not propagate error message to avoid leaking sensitive data
+      if (attempt === maxRetries) {
+        throw new Error(
+          `Failed to fund agent account ${agentAccountId} after ${maxRetries} attempts`,
+        );
+      }
     }
-  } catch {
-    // Generic error to avoid leaking sensitive data
-    throw new Error(`Failed to fund agent account ${agentAccountId}`);
   }
 }
 
@@ -79,28 +96,45 @@ export async function addKeysToAccount(
   account: Account,
   secrets: string[],
 ): Promise<void> {
-  try {
-    const actions = secrets.map((secretKey) => {
-      const keyPair = KeyPair.fromString(secretKey as KeyPairString);
-      return actionCreators.addKey(
-        keyPair.getPublicKey(),
-        actionCreators.fullAccessKey(),
+  const maxRetries = 3;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      // Build actions for adding keys
+      const actions = secrets.map((secretKey) => {
+        const keyPair = KeyPair.fromString(secretKey as KeyPairString);
+        return actionCreators.addKey(
+          keyPair.getPublicKey(),
+          actionCreators.fullAccessKey(),
+        );
+      });
+
+      // Create signed transaction
+      const tx = await account.createSignedTransaction(
+        account.accountId,
+        actions,
       );
-    });
 
-    const tx = await account.createSignedTransaction(
-      account.accountId,
-      actions,
-    );
+      // Send transaction
+      const txResult = await account.provider.sendTransaction(tx);
 
-    const txResult = await account.provider.sendTransaction(tx);
-
-    if (typeof txResult.status === "object" && txResult.status.Failure) {
-      throw new Error(`Failed to add keys`);
+      // Check transaction status
+      if (typeof txResult.status === "object" && txResult.status.Failure) {
+        // Throw on final attempt, otherwise retry - generic message only
+        if (attempt === maxRetries) {
+          throw new Error(`Failed to add keys after ${maxRetries} attempts`);
+        }
+        continue;
+      } else {
+        // Success - transaction completed without failure
+        return;
+      }
+    } catch {
+      // Throw on final attempt, otherwise retry - do not propagate error message to avoid leaking sensitive data
+      if (attempt === maxRetries) {
+        throw new Error(`Failed to add keys after ${maxRetries} attempts`);
+      }
     }
-  } catch {
-    // Generic error to avoid leaking sensitive data
-    throw new Error(`Failed to add keys`);
   }
 }
 
@@ -109,24 +143,41 @@ export async function removeKeysFromAccount(
   account: Account,
   secrets: string[],
 ): Promise<void> {
-  try {
-    const actions = secrets.map((secretKey) => {
-      const keyPair = KeyPair.fromString(secretKey as KeyPairString);
-      return actionCreators.deleteKey(keyPair.getPublicKey());
-    });
+  const maxRetries = 3;
 
-    const tx = await account.createSignedTransaction(
-      account.accountId,
-      actions,
-    );
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      // Build actions for removing keys
+      const actions = secrets.map((secretKey) => {
+        const keyPair = KeyPair.fromString(secretKey as KeyPairString);
+        return actionCreators.deleteKey(keyPair.getPublicKey());
+      });
 
-    const txResult = await account.provider.sendTransaction(tx);
+      // Create signed transaction
+      const tx = await account.createSignedTransaction(
+        account.accountId,
+        actions,
+      );
 
-    if (typeof txResult.status === "object" && txResult.status.Failure) {
-      throw new Error(`Failed to remove keys`);
+      // Send transaction
+      const txResult = await account.provider.sendTransaction(tx);
+
+      // Check transaction status
+      if (typeof txResult.status === "object" && txResult.status.Failure) {
+        // Throw on final attempt, otherwise retry - generic message only
+        if (attempt === maxRetries) {
+          throw new Error(`Failed to remove keys after ${maxRetries} attempts`);
+        }
+        continue;
+      } else {
+        // Success - transaction completed without failure
+        return;
+      }
+    } catch {
+      // Throw on final attempt, otherwise retry - do not propagate error message to avoid leaking sensitive data
+      if (attempt === maxRetries) {
+        throw new Error(`Failed to remove keys after ${maxRetries} attempts`);
+      }
     }
-  } catch {
-    // Generic error to avoid leaking sensitive data
-    throw new Error(`Failed to remove keys`);
   }
 }
