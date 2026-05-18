@@ -43,9 +43,10 @@ export async function prepareContractAccount(prefetchedState) {
   const fundingAmount =
     config.deployment.agent_contract.deploy_custom.funding_amount;
 
-  // Buffer to cover transaction fees plus the worst-case wipe gas burn
-  // (up to 10 clean() calls × 300 Tgas ≈ 0.3 NEAR at baseline gas price).
-  const FEE_BUFFER = 0.5;
+  // Buffer to cover transaction fees plus the wipe gas burn (one tx
+  // attaching the protocol's max_total_prepaid_gas ≈ 1000 Tgas ≈ 0.1 NEAR
+  // at baseline gas price; 2× headroom).
+  const FEE_BUFFER = 0.2;
   const requiredBalance = fundingAmount + FEE_BUFFER;
   const masterBalance = await masterAccount.getBalance(NEAR);
   const masterBalanceDecimal = parseFloat(NEAR.toDecimal(masterBalance));

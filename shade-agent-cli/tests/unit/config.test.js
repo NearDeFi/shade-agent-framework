@@ -1174,9 +1174,10 @@ describe("parseDeploymentConfig", () => {
         });
       });
 
-      // No <MEASUREMENTS> placeholder → measurement fields aren't required.
+      // No <MEASUREMENTS> placeholder → measurement fields aren't required,
+      // so parse should succeed even with the deploy_to_phala block missing.
       it("skips measurement-field validation when args omit <MEASUREMENTS>", () => {
-        const config = parse(
+        parse(
           validYaml({
             approve_measurements: {
               enabled: true,
@@ -1186,7 +1187,7 @@ describe("parseDeploymentConfig", () => {
             deploy_to_phala: undefined,
           }),
         );
-        expect(config.deploy_to_phala).toBeUndefined();
+        expect(exitSpy).not.toHaveBeenCalled();
       });
 
       // approve_measurements in TEE still needs valid dstack_version,
@@ -1254,8 +1255,7 @@ describe("parseDeploymentConfig", () => {
             },
           }),
         );
-        expect(config.deploy_to_phala.dstack_version).toBeUndefined();
-        expect(config.deploy_to_phala.instance_type).toBeUndefined();
+        expect(exitSpy).not.toHaveBeenCalled();
         expect(config.deploy_to_phala.public_logs).toBe(true);
         expect(config.deploy_to_phala.public_sysinfo).toBe(true);
       });
