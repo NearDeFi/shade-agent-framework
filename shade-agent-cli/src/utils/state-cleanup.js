@@ -126,12 +126,12 @@ export async function wipeContractState(contractAccount) {
   const provider = contractAccount.provider;
   const accountId = contractAccount.accountId;
 
-  const consts = await fetchProtocolConstantsOrExit(provider);
   const entries = await readStateOrExit(provider, accountId);
   if (entries.length === 0) {
     console.log("Contract account already exists with no state to wipe");
     return;
   }
+  const consts = await fetchProtocolConstantsOrExit(provider);
 
   const estGas = estimateTotalGas(entries, consts);
   if (estGas > consts.maxTotalPrepaidGas) {

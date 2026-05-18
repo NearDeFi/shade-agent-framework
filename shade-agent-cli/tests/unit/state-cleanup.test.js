@@ -193,13 +193,17 @@ describe("wipeContractState preflight", () => {
   });
 
   it("red-exits when estimated gas exceeds max_total_prepaid_gas", async () => {
-    // Bigger key+value → more gas. Generate enough entries that the sum
-    // exceeds the 1 Pgas budget.
-    const entries = Array.from({ length: 50_000 }, () => ({
-      key: b64OfLength(64),
-      value: b64OfLength(4096),
-    }));
-    const account = makeAccount({ entries });
+    // Shrink the budget instead of growing the entries — same branch
+    // exercised without allocating large base64 strings.
+    const account = makeAccount({
+      entries: [
+        { key: b64OfLength(10), value: b64OfLength(50) },
+        { key: b64OfLength(10), value: b64OfLength(50) },
+      ],
+    });
+    account.provider.experimental_protocolConfig = vi.fn().mockResolvedValue(
+      makeConfig({ lim: { max_total_prepaid_gas: "1000" } }),
+    );
     const exitSpy = vi.spyOn(process, "exit").mockImplementation(() => {
       throw new Error("__exit__");
     });
