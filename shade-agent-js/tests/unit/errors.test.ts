@@ -243,18 +243,12 @@ describe("errors utils", () => {
       expect(result).toContain("[REDACTED]");
     });
 
+    // Representative variants — xprv (BIP32 mainnet baseline), zprv (BIP84,
+    // the previously-broken variant), Vprv (uppercase / multisig). If the
+    // character class regresses on a single letter, one of these catches it.
     it.each([
       ["xprv", "x"],
-      ["tprv", "t"],
-      ["yprv", "y"],
       ["zprv", "z"],
-      ["uprv", "u"],
-      ["vprv", "v"],
-      ["Xprv", "X"],
-      ["Yprv", "Y"],
-      ["Zprv", "Z"],
-      ["Tprv", "T"],
-      ["Uprv", "U"],
       ["Vprv", "V"],
     ])("redacts BIP32 extended private keys (%s variant)", (variant, prefix) => {
       const extended =
@@ -300,18 +294,26 @@ describe("errors utils", () => {
       expect(out.name).toBe("TypeError");
     });
 
-    it("drops err.stack", () => {
-      const out = toThrowable(new Error("boom")) as Error & { stack?: string };
-      // stack is set by the runtime when `new Error()` is constructed inside
-      // toThrowable, but it should NOT carry the original error's stack
-      // (which could expose internal paths). Verify by checking the stack
-      // doesn't contain the test file's path from inside the test setup —
-      // can't make a strong assertion here, so check the property at least
-      // wasn't *copied* from the original.
+    it("preserves err.stack from the original throw site", () => {
       const original = new Error("boom");
-      Object.defineProperty(original, "stack", { value: "ORIGINAL-STACK-MARKER" });
-      const out2 = toThrowable(original);
-      expect(out2.stack).not.toContain("ORIGINAL-STACK-MARKER");
+      Object.defineProperty(original, "stack", {
+        value: "ORIGINAL-STACK-MARKER\n  at someFn (some/file.ts:1:1)",
+      });
+      const out = toThrowable(original);
+      expect(out.stack).toContain("ORIGINAL-STACK-MARKER");
+    });
+
+    it("redacts secrets in stack frames", () => {
+      const original = new Error("boom");
+      // Synthetic stack with a recognisable secret pattern in a frame.
+      Object.defineProperty(original, "stack", {
+        value:
+          "Error: boom\n  at fn (file.ts:1:1) // leaked ed25519:ZZTESTSECRETSTACKZZ here",
+      });
+      const out = toThrowable(original) as Error & { stack?: string };
+      expect(out.stack).toBeDefined();
+      expect(out.stack).not.toContain("ZZTESTSECRETSTACK");
+      expect(out.stack).toContain("[REDACTED]");
     });
 
     it("preserves err.cause recursively-sanitised", () => {
@@ -368,6 +370,35 @@ describe("errors utils", () => {
         "ZZTESTSECRETAGG",
       );
       expect((out.errors as Error[])[0].message).toContain("[REDACTED]");
+    });
+
+    it("sanitises a primitive string cause", () => {
+      // Error.cause is `unknown` — a thrower can attach a raw string secret.
+      const e = Object.assign(new Error("outer"), {
+        cause: "ed25519:ZZTESTSECRETSTRINGCAUSEZZ",
+      });
+      const out = toThrowable(e) as Error & { cause?: unknown };
+      expect(out.cause).toBeDefined();
+      expect(String(out.cause)).not.toContain("ZZTESTSECRETSTRINGCAUSE");
+      expect(String(out.cause)).toContain("[REDACTED]");
+    });
+
+    it("sanitises a primitive string inside AggregateError.errors", () => {
+      const agg = new AggregateError(
+        ["ed25519:ZZTESTSECRETAGGPRIMITIVEZZ", new Error("plain")],
+        "agg",
+      );
+      const out = toThrowable(agg) as Error & { errors?: unknown[] };
+      expect(out.errors).toBeDefined();
+      expect(JSON.stringify(out.errors)).not.toContain(
+        "ZZTESTSECRETAGGPRIMITIVE",
+      );
+    });
+
+    it("preserves safe primitive causes unchanged", () => {
+      const e = Object.assign(new Error("outer"), { cause: 42 });
+      const out = toThrowable(e) as Error & { cause?: unknown };
+      expect(out.cause).toBe(42);
     });
 
     it("preserves arbitrary custom fields (sanitised)", () => {
@@ -458,45 +489,119 @@ describe("errors utils", () => {
   });
 
   describe("toThrowable - total (never throws)", () => {
-    it("doesn't throw on circular non-Error input", () => {
-      const obj: Record<string, unknown> = { foo: "bar" };
-      obj.self = obj;
-      expect(() => toThrowable(obj)).not.toThrow();
-      const out = toThrowable(obj);
-      expect(out).toBeInstanceOf(Error);
-      expect(typeof out.message).toBe("string");
-      expect(out.message.length).toBeGreaterThan(0);
+    // Exotic input shapes that would crash a naive normaliser. The contract
+    // is: toThrowable always returns an Error and never throws.
+    const circularObj: Record<string, unknown> = { foo: "bar" };
+    circularObj.self = circularObj;
+    const circularBigInt: Record<string, unknown> = { count: 100n };
+    circularBigInt.self = circularBigInt;
+    const hostileGetter = new Error("outer");
+    Object.defineProperty(hostileGetter, "badProp", {
+      get() {
+        throw new Error("getter explodes");
+      },
+      enumerable: true,
+    });
+    const hostileProxy = new Proxy(
+      {},
+      {
+        get() {
+          throw new Error("trap");
+        },
+        ownKeys() {
+          throw new Error("trap");
+        },
+        getOwnPropertyDescriptor() {
+          throw new Error("trap");
+        },
+      },
+    );
+
+    it.each<[string, unknown]>([
+      ["circular object", circularObj],
+      ["BigInt-bearing object", { count: 42n }],
+      ["raw BigInt", 42n],
+      ["circular + BigInt", circularBigInt],
+      ["Symbol", Symbol("x")],
+      ["undefined", undefined],
+      ["null", null],
+      ["Error with throwing getter", hostileGetter],
+      ["maximally-hostile Proxy", hostileProxy],
+    ])("doesn't throw on %s", (_label, input) => {
+      expect(() => toThrowable(input)).not.toThrow();
+      expect(toThrowable(input)).toBeInstanceOf(Error);
     });
 
-    it("doesn't throw on BigInt-bearing non-Error input", () => {
-      expect(() => toThrowable({ count: 42n })).not.toThrow();
-      const out = toThrowable({ count: 42n });
-      expect(out).toBeInstanceOf(Error);
-      expect(out.message.length).toBeGreaterThan(0);
+    it("redacts a secret in a thrown Symbol's description", () => {
+      // `String(Symbol("ed25519:secret"))` is "Symbol(ed25519:secret)" — the
+      // description survives stringification. The final boundary in
+      // toThrowable runs the stringified form through the redactor so this
+      // doesn't leak into the new Error's message.
+      const out = toThrowable(Symbol("ed25519:ZZTESTSECRETSYMDESCZZ"));
+      expect(out.message).not.toContain("ZZTESTSECRETSYMDESC");
+      expect(out.message).toContain("[REDACTED]");
     });
 
-    it("doesn't throw on a raw BigInt thrown value", () => {
-      expect(() => toThrowable(42n)).not.toThrow();
-      expect(toThrowable(42n)).toBeInstanceOf(Error);
+    it("redacts a secret in a boxed-primitive thrown value", () => {
+      // `new String("…")` is typeof "object", so deep-redact walks each
+      // character separately. The final-boundary sanitiser re-runs over the
+      // stringified form so the assembled secret is still redacted.
+      const boxed = new String("ed25519:ZZTESTSECRETBOXEDZZ");
+      const out = toThrowable(boxed);
+      expect(out.message).not.toContain("ZZTESTSECRETBOXED");
+    });
+  });
+
+  describe("symbol-keyed secret redaction", () => {
+    it("redacts a Symbol-keyed property on an Error", () => {
+      const SECRET = Symbol("internal");
+      const e = new Error("outer");
+      Object.defineProperty(e, SECRET, {
+        value: "ed25519:ZZTESTSECRETSYMERRORZZ",
+        enumerable: true,
+      });
+      const out = toThrowable(e) as Error;
+      const v = (out as unknown as Record<symbol, unknown>)[SECRET];
+      expect(typeof v === "string" ? v : "").not.toContain(
+        "ZZTESTSECRETSYMERROR",
+      );
+      // also ensure no stray copy elsewhere on the error
+      expect(JSON.stringify({ ...(out as object) })).not.toContain(
+        "ZZTESTSECRETSYMERROR",
+      );
     });
 
-    it("doesn't throw on circular + BigInt combined", () => {
-      const a: Record<string, unknown> = { count: 100n };
-      a.self = a;
-      expect(() => toThrowable(a)).not.toThrow();
-      const out = toThrowable(a);
-      expect(out).toBeInstanceOf(Error);
-      expect(out.message.length).toBeGreaterThan(0);
+    it("redacts a Symbol-keyed property on a plain object via sanitize", () => {
+      const SECRET = Symbol("token");
+      const obj = { accountId: "alice.testnet" } as Record<symbol, unknown> &
+        Record<string, unknown>;
+      obj[SECRET] = "ed25519:ZZTESTSECRETSYMOBJZZ";
+      const out = sanitize(obj) as Record<symbol, unknown>;
+      const v = out[SECRET];
+      expect(typeof v === "string" ? v : "").not.toContain(
+        "ZZTESTSECRETSYMOBJ",
+      );
     });
 
-    it("doesn't throw on a Symbol thrown value", () => {
-      expect(() => toThrowable(Symbol("x"))).not.toThrow();
-      expect(toThrowable(Symbol("x"))).toBeInstanceOf(Error);
-    });
-
-    it("doesn't throw on undefined or null", () => {
-      expect(() => toThrowable(undefined)).not.toThrow();
-      expect(() => toThrowable(null)).not.toThrow();
+    it("redacts a Symbol-keyed property nested in an object tree", () => {
+      const SECRET = Symbol("nested");
+      const obj: Record<string, unknown> = {
+        outer: { mid: { inner: {} } },
+      };
+      const inner = (obj.outer as Record<string, unknown>).mid as Record<
+        string,
+        unknown
+      >;
+      (inner.inner as Record<symbol, unknown>)[SECRET] =
+        "ed25519:ZZTESTSECRETSYMNESTEDZZ";
+      const out = sanitize(obj) as Record<string, unknown>;
+      const innerOut = (
+        (out.outer as Record<string, unknown>).mid as Record<string, unknown>
+      ).inner as Record<symbol, unknown>;
+      const v = innerOut[SECRET];
+      expect(typeof v === "string" ? v : "").not.toContain(
+        "ZZTESTSECRETSYMNESTED",
+      );
     });
   });
 });

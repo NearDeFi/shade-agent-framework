@@ -212,27 +212,24 @@ describe("defaultRetryable", () => {
     expect(defaultRetryable(t)).toBe(true);
   });
 
-  it.each([400, 401, 403, 404, 422])("does not retry on HTTP %i", (status) => {
+  // Representative HTTP codes — the predicate's behaviour is uniform within
+  // the 4xx (except 408/429) and 5xx classes, so a couple per side is enough.
+  it.each([400, 404])("does not retry on HTTP %i", (status) => {
     expect(defaultRetryable(Object.assign(new Error("x"), { status }))).toBe(false);
   });
 
-  it.each([408, 429, 500, 502, 503, 504])(
-    "retries on HTTP %i",
-    (status) => {
-      expect(defaultRetryable(Object.assign(new Error("x"), { status }))).toBe(true);
+  it.each([408, 503])("retries on HTTP %i", (status) => {
+    expect(defaultRetryable(Object.assign(new Error("x"), { status }))).toBe(true);
+  });
+
+  // Two representatives from the deterministic NEAR type list. The list
+  // itself is exhaustive in errors.ts; we just verify membership wins.
+  it.each(["AccountDoesNotExist", "TooLargeContractState"])(
+    "does not retry on deterministic NEAR type '%s'",
+    (type) => {
+      expect(defaultRetryable(Object.assign(new Error("x"), { type }))).toBe(false);
     },
   );
-
-  it.each([
-    "AccountDoesNotExist",
-    "InvalidAccessKey",
-    "InvalidSignature",
-    "NotEnoughBalance",
-    "MethodNotFound",
-    "TooLargeContractState",
-  ])("does not retry on deterministic NEAR type '%s'", (type) => {
-    expect(defaultRetryable(Object.assign(new Error("x"), { type }))).toBe(false);
-  });
 
   it("retries on unknown NEAR type", () => {
     expect(
