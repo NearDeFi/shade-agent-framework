@@ -19,6 +19,7 @@ export const createMockAccount = (): Account => {
     transfer: vi.fn(),
     getAccessKeyList: vi.fn(),
     createSignedTransaction: vi.fn(),
+    signAndSendTransaction: vi.fn(),
     provider: createMockProvider(),
   } as unknown as Account;
 };

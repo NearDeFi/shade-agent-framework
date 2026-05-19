@@ -5,26 +5,32 @@ import { Account } from "@near-js/accounts";
 import { KeyPair, KeyPairString } from "@near-js/crypto";
 import { NEAR } from "@near-js/tokens";
 import { actionCreators } from "@near-js/transactions";
-import { sanitize } from "./sanitize";
+import { toThrowable } from "./errors";
 
-// Creates a default JSON RPC provider for the specified network
+// Creates a default JSON RPC provider for the specified network.
+// The provider itself retries 3× with 2 s backoff at the transport layer —
+// no per-call retry loops needed in this module.
 export function createDefaultProvider(networkId: string): JsonRpcProvider {
-  return new JsonRpcProvider(
-    {
-      url:
-        networkId === "testnet"
-          ? "https://test.rpc.fastnear.com"
-          : "https://free.rpc.fastnear.com",
-    },
-    {
-      retries: 3,
-      backoff: 2,
-      wait: 1000,
-    },
-  );
+  try {
+    return new JsonRpcProvider(
+      {
+        url:
+          networkId === "testnet"
+            ? "https://test.rpc.fastnear.com"
+            : "https://free.rpc.fastnear.com",
+      },
+      {
+        retries: 3,
+        backoff: 2,
+        wait: 1000,
+      },
+    );
+  } catch (error) {
+    throw toThrowable(error);
+  }
 }
 
-// Creates an Account instance
+// Creates an Account instance.
 export function createAccountObject(
   accountId: string,
   provider: Provider,
@@ -33,12 +39,14 @@ export function createAccountObject(
   try {
     return new Account(accountId, provider, signer);
   } catch (error) {
-    // return generic error to avoid leaking sensitive data
-    throw new Error(`Failed to create account object`);
+    throw toThrowable(error);
   }
 }
 
-// Transfers NEAR tokens from sponsor account to agent account
+// Transfers NEAR tokens from sponsor account to agent account.
+// `account.transfer(...)` already throws on `status.Failure` (it uses
+// `signAndSendTransaction({ throwOnFailure: true })` internally), so no
+// manual outcome inspection or retry loop is needed.
 export async function internalFundAgent(
   agentAccountId: string,
   sponsorAccountId: string,
@@ -46,138 +54,59 @@ export async function internalFundAgent(
   amount: number,
   provider: Provider,
 ): Promise<void> {
-  const signer = KeyPairSigner.fromSecretKey(
-    sponsorPrivateKey as KeyPairString,
-  );
-
-  const account = new Account(sponsorAccountId, provider, signer);
-
-  const maxRetries = 3;
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      const fundResult = await account.transfer({
-        token: NEAR,
-        amount: NEAR.toUnits(amount),
-        receiverId: agentAccountId,
-      });
-
-      // Check transaction status
-      if (typeof fundResult.status === "object" && fundResult.status.Failure) {
-        const rawMsg =
-          fundResult.status.Failure.error_message ||
-          fundResult.status.Failure.error_type;
-        const sanitized = sanitize(String(rawMsg));
-        const errorMsg =
-          typeof sanitized === "string" ? sanitized : String(sanitized);
-        const error = new Error(`Transfer transaction failed: ${errorMsg}`);
-        // Throw on final attempt, otherwise retry
-        if (attempt === maxRetries) {
-          throw error;
-        }
-        continue;
-      } else {
-        // Success - transaction completed without failure
-        return;
-      }
-    } catch {
-      // Throw on final attempt, otherwise retry - do not propagate error message to avoid leaking sensitive data
-      if (attempt === maxRetries) {
-        throw new Error(
-          `Failed to fund agent account ${agentAccountId} after ${maxRetries} attempts`,
-        );
-      }
-    }
+  try {
+    const signer = KeyPairSigner.fromSecretKey(
+      sponsorPrivateKey as KeyPairString,
+    );
+    const account = new Account(sponsorAccountId, provider, signer);
+    await account.transfer({
+      token: NEAR,
+      amount: NEAR.toUnits(amount),
+      receiverId: agentAccountId,
+    });
+  } catch (error) {
+    throw toThrowable(error);
   }
 }
 
-// Adds multiple keys to the agent account from secret keys
+// Adds multiple keys to the agent account in one transaction.
+// Uses `account.signAndSendTransaction` which throws on `status.Failure`.
 export async function addKeysToAccount(
   account: Account,
   secrets: string[],
 ): Promise<void> {
-  const maxRetries = 3;
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      // Build actions for adding keys
-      const actions = secrets.map((secretKey) => {
-        const keyPair = KeyPair.fromString(secretKey as KeyPairString);
-        return actionCreators.addKey(
-          keyPair.getPublicKey(),
-          actionCreators.fullAccessKey(),
-        );
-      });
-
-      // Create signed transaction
-      const tx = await account.createSignedTransaction(
-        account.accountId,
-        actions,
+  try {
+    const actions = secrets.map((secretKey) => {
+      const keyPair = KeyPair.fromString(secretKey as KeyPairString);
+      return actionCreators.addKey(
+        keyPair.getPublicKey(),
+        actionCreators.fullAccessKey(),
       );
-
-      // Send transaction
-      const txResult = await account.provider.sendTransaction(tx);
-
-      // Check transaction status
-      if (typeof txResult.status === "object" && txResult.status.Failure) {
-        // Throw on final attempt, otherwise retry - generic message only
-        if (attempt === maxRetries) {
-          throw new Error(`Failed to add keys after ${maxRetries} attempts`);
-        }
-        continue;
-      } else {
-        // Success - transaction completed without failure
-        return;
-      }
-    } catch {
-      // Throw on final attempt, otherwise retry - do not propagate error message to avoid leaking sensitive data
-      if (attempt === maxRetries) {
-        throw new Error(`Failed to add keys after ${maxRetries} attempts`);
-      }
-    }
+    });
+    await account.signAndSendTransaction({
+      receiverId: account.accountId,
+      actions,
+    });
+  } catch (error) {
+    throw toThrowable(error);
   }
 }
 
-// Removes multiple keys from the agent account
+// Removes multiple keys from the agent account in one transaction.
 export async function removeKeysFromAccount(
   account: Account,
   secrets: string[],
 ): Promise<void> {
-  const maxRetries = 3;
-
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      // Build actions for removing keys
-      const actions = secrets.map((secretKey) => {
-        const keyPair = KeyPair.fromString(secretKey as KeyPairString);
-        return actionCreators.deleteKey(keyPair.getPublicKey());
-      });
-
-      // Create signed transaction
-      const tx = await account.createSignedTransaction(
-        account.accountId,
-        actions,
-      );
-
-      // Send transaction
-      const txResult = await account.provider.sendTransaction(tx);
-
-      // Check transaction status
-      if (typeof txResult.status === "object" && txResult.status.Failure) {
-        // Throw on final attempt, otherwise retry - generic message only
-        if (attempt === maxRetries) {
-          throw new Error(`Failed to remove keys after ${maxRetries} attempts`);
-        }
-        continue;
-      } else {
-        // Success - transaction completed without failure
-        return;
-      }
-    } catch {
-      // Throw on final attempt, otherwise retry - do not propagate error message to avoid leaking sensitive data
-      if (attempt === maxRetries) {
-        throw new Error(`Failed to remove keys after ${maxRetries} attempts`);
-      }
-    }
+  try {
+    const actions = secrets.map((secretKey) => {
+      const keyPair = KeyPair.fromString(secretKey as KeyPairString);
+      return actionCreators.deleteKey(keyPair.getPublicKey());
+    });
+    await account.signAndSendTransaction({
+      receiverId: account.accountId,
+      actions,
+    });
+  } catch (error) {
+    throw toThrowable(error);
   }
 }
