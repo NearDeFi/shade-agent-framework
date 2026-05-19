@@ -1,7 +1,7 @@
 import { Provider } from "@near-js/providers";
 import { internalFundAgent, createAccountObject } from "./utils/near";
 import { getDstackClient, internalGetAttestation } from "./utils/tee";
-import { toThrowable } from "./utils/sanitize";
+import { toThrowable } from "./utils/errors";
 import { type DstackAttestationForContract } from "./utils/attestation-transform";
 import { DstackClient } from "@phala/dstack-sdk";
 import { ensureKeysSetup, generateAgent, getAgentSigner } from "./utils/agent";
