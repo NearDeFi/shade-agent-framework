@@ -48,16 +48,28 @@ the status on the error so the predicate can match cleanly:
 `seed_phrase`, `seed`, `signingKey`, `signing_key`, `_signingKey`,
 `_privateKey`, `xprv`, `xpriv`, `masterKey`, `master_key`, `keystore`.
 
-**By value regex** (matched substring replaced, except where noted):
+**By value pattern** (see `SHADE_REDACT_PATTERNS` in `src/utils/errors.ts`
+for the authoritative source):
 
-- `/privateKey|private_key|secretKey|secret_key|extendedSecretKey|agentPrivateKeys?/i` — whole string redacted on any hit (aggressive; intentional)
-- `/ed25519:[^\s]+/g` and `/secp256k1:[^\s]+/g` — surgical
-- `/-----BEGIN ... PRIVATE KEY-----.*-----END ... PRIVATE KEY-----/g` — whole block redacted
-- `/\b[xytYTuU]prv[1-9A-HJ-NP-Za-km-z]{50,108}\b/g` — BIP32 extended keys
-- `/\b[5KL][1-9A-HJ-NP-Za-km-z]{50,51}\b/g` — Bitcoin WIF
+- Any string containing `privateKey` / `private_key` / `secretKey` /
+  `secret_key` / `extendedSecretKey` / `agentPrivateKey(s)` (case-insensitive)
+  — whole string redacted (aggressive; intentional)
+- `ed25519:…` / `secp256k1:…` — surgical substring redaction
+- PEM private key blocks (`-----BEGIN … PRIVATE KEY----- … -----END … -----`)
+  — whole block redacted
+- BIP32 extended private keys (xprv / yprv / zprv / tprv / uprv / vprv and
+  uppercase variants) — whole match redacted
+- Bitcoin WIF (`5` / `K` / `L` prefix + 50–51 base58 chars) — whole match redacted
 
-Extend at runtime via `addSensitive({ keys?, patterns? })`. Mutation is
-process-global; call it once at boot.
+Note: patterns are stored without `/g` flag — deep-redact uses
+`RegExp.test()` which is stateful on global regexes (causes alternating
+match/miss). Surgical replacers construct a fresh global regex inline.
+
+Extend at runtime via `addSensitive({ keys?, patterns? })`. Caller-provided
+patterns have `/g` / `/y` flags stripped from the internal `.test()`
+clone but the original pattern is passed through to the replacer, so
+`v.replace(p, X)`-style replace-all in your own replacer still works.
+Mutation is process-global; call it once at boot.
 
 Never include a raw `KeyPair`/`KeyPairSigner`/`Account`/mnemonic in a
 thrown error via template literal — pass the error through

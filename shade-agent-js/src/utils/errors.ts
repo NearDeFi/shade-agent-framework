@@ -105,18 +105,45 @@ function build(keys: string[], patterns: StringTest[]) {
   });
 }
 
+// Strip stateful flags (`g`, `y`) from a regex. Deep-redact uses
+// `pattern.test(value)` which is stateful on `/g`/`/y` regexes via
+// `lastIndex`, causing alternating match/miss across calls. We keep
+// the original pattern accessible to the replacer (so consumers'
+// `v.replace(p, X)` replace-all semantics still work).
+function stripStatefulFlags(re: RegExp): RegExp {
+  if (!/[gy]/.test(re.flags)) return re;
+  return new RegExp(re.source, re.flags.replace(/[gy]/g, ""));
+}
+
 /**
  * Extend the redact configuration at runtime. Subsequent calls to `sanitize`
  * / `toThrowable` will also redact the new field names and apply the new
  * value-regex patterns. Lets consumers cover additional secret forms without
  * forking the library.
+ *
+ * Caller-provided regexes with `g`/`y` flags are sanitised: a non-stateful
+ * clone is used for the internal `.test()` call, but the original pattern
+ * is passed through to the replacer so any consumer relying on `/g` for
+ * replace-all in their own replacer keeps working.
  */
 export function addSensitive(opts: {
   keys?: string[];
   patterns?: StringTest[];
 }): void {
   if (opts.keys?.length) activeKeys = [...activeKeys, ...opts.keys];
-  if (opts.patterns?.length) activePatterns = [...activePatterns, ...opts.patterns];
+  if (opts.patterns?.length) {
+    const safe: StringTest[] = opts.patterns.map((p) => {
+      const original = p.pattern;
+      const stripped = stripStatefulFlags(original);
+      // If no flags were stripped, original === stripped — reuse directly.
+      if (stripped === original) return p;
+      return {
+        pattern: stripped,
+        replacer: (v) => p.replacer(v, original),
+      };
+    });
+    activePatterns = [...activePatterns, ...safe];
+  }
   deepRedact = build(activeKeys, activePatterns);
 }
 
@@ -241,18 +268,47 @@ function sanitizeError(error: Error): Error {
   return out;
 }
 
+// Serialise any value to a string without throwing — handles circular
+// references and BigInt values that would crash `JSON.stringify`. The
+// whole point of toThrowable is to be safe inside any catch block, so it
+// must not itself throw on exotic input shapes.
+function safeStringify(value: unknown): string {
+  try {
+    const seen = new WeakSet<object>();
+    const json = JSON.stringify(value, (_k, v) => {
+      if (typeof v === "bigint") return `${v}n`;
+      if (typeof v === "object" && v !== null) {
+        if (seen.has(v)) return "[CIRCULAR]";
+        seen.add(v);
+      }
+      return v;
+    });
+    // JSON.stringify returns undefined for `undefined`, functions, and symbols.
+    return json ?? "";
+  } catch {
+    try {
+      return String(value);
+    } catch {
+      return "";
+    }
+  }
+}
+
 /**
  * Returns an Error suitable for throwing: passes the input through `sanitize`,
  * then ensures the result is a real `Error` instance. The single error
  * convention in shade-agent-js is:
  *
  *     try { ... } catch (e) { throw toThrowable(e); }
+ *
+ * Guaranteed total — never throws, even on circular structures, BigInt
+ * values, or other non-JSON-serialisable inputs.
  */
 export function toThrowable(error: unknown): Error {
   const result = sanitize(error);
   if (result instanceof Error) return result;
   if (typeof result === "object" && result !== null) {
-    return new Error(JSON.stringify(result));
+    return new Error(safeStringify(result) || "An error occurred");
   }
   return new Error(String(result) || "An error occurred");
 }

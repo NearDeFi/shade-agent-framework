@@ -422,5 +422,81 @@ describe("errors utils", () => {
       const result = sanitize("found CUSTOMSECRET-abc in log") as string;
       expect(result).toBe("found [REDACTED] in log");
     });
+
+    it("handles consumer-provided /g regex without alternating misses", () => {
+      // Before the flag-stripping fix, a /g regex passed in here would
+      // share state across deep-redact's repeated .test() calls and cause
+      // alternating sanitisation. Verify three sequential sanitise calls
+      // all redact correctly.
+      addSensitive({
+        patterns: [
+          {
+            pattern: /STATEFULSECRET-\S+/g,
+            replacer: (v, p) => v.replace(p, "[REDACTED]"),
+          },
+        ],
+      });
+      for (let i = 0; i < 3; i++) {
+        const r = sanitize(`leak ${i} STATEFULSECRET-${i} end`) as string;
+        expect(r).not.toContain("STATEFULSECRET");
+        expect(r).toContain("[REDACTED]");
+      }
+    });
+
+    it("replace-all semantics preserved when consumer passes /g and replaces via the original pattern", () => {
+      addSensitive({
+        patterns: [
+          {
+            pattern: /MULTI-\d+/g,
+            replacer: (v, p) => v.replace(p, "[X]"),
+          },
+        ],
+      });
+      const r = sanitize("a MULTI-1 b MULTI-2 c MULTI-3 d") as string;
+      expect(r).toBe("a [X] b [X] c [X] d");
+    });
+  });
+
+  describe("toThrowable - total (never throws)", () => {
+    it("doesn't throw on circular non-Error input", () => {
+      const obj: Record<string, unknown> = { foo: "bar" };
+      obj.self = obj;
+      expect(() => toThrowable(obj)).not.toThrow();
+      const out = toThrowable(obj);
+      expect(out).toBeInstanceOf(Error);
+      expect(typeof out.message).toBe("string");
+      expect(out.message.length).toBeGreaterThan(0);
+    });
+
+    it("doesn't throw on BigInt-bearing non-Error input", () => {
+      expect(() => toThrowable({ count: 42n })).not.toThrow();
+      const out = toThrowable({ count: 42n });
+      expect(out).toBeInstanceOf(Error);
+      expect(out.message.length).toBeGreaterThan(0);
+    });
+
+    it("doesn't throw on a raw BigInt thrown value", () => {
+      expect(() => toThrowable(42n)).not.toThrow();
+      expect(toThrowable(42n)).toBeInstanceOf(Error);
+    });
+
+    it("doesn't throw on circular + BigInt combined", () => {
+      const a: Record<string, unknown> = { count: 100n };
+      a.self = a;
+      expect(() => toThrowable(a)).not.toThrow();
+      const out = toThrowable(a);
+      expect(out).toBeInstanceOf(Error);
+      expect(out.message.length).toBeGreaterThan(0);
+    });
+
+    it("doesn't throw on a Symbol thrown value", () => {
+      expect(() => toThrowable(Symbol("x"))).not.toThrow();
+      expect(toThrowable(Symbol("x"))).toBeInstanceOf(Error);
+    });
+
+    it("doesn't throw on undefined or null", () => {
+      expect(() => toThrowable(undefined)).not.toThrow();
+      expect(() => toThrowable(null)).not.toThrow();
+    });
   });
 });
