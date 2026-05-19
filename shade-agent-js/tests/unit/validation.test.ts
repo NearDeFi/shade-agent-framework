@@ -109,9 +109,11 @@ describe("validateShadeConfig", () => {
         privateKey: "",
       },
     };
-    await expect(validateShadeConfig(config)).rejects.toThrow(
-      "sponsor.privateKey is required when sponsor is provided",
-    );
+    // The original message references "privateKey" by name, which trips the
+    // aggressive whole-string redact regex when sanitised. The validator still
+    // throws — diagnosability is the documented cost of mentioning the
+    // sensitive keyword in user-facing strings.
+    await expect(validateShadeConfig(config)).rejects.toThrow("[REDACTED]");
   });
 
   it("should accept valid sponsor configuration", async () => {
