@@ -46,6 +46,11 @@ interface StringTest {
   replacer: (value: string, pattern: RegExp) => string;
 }
 
+// IMPORTANT: patterns must NOT use the /g flag. Deep-redact calls
+// `pattern.test(value)` on each pattern (utils/index.js:244); /g makes
+// `.test` stateful via `lastIndex`, so consecutive calls alternate
+// match/miss. For surgical (substring) replacers, construct a global
+// regex inline at replace time.
 const SHADE_REDACT_PATTERNS: StringTest[] = [
   // Whole-string redaction on any string containing a sensitive keyword.
   {
@@ -55,27 +60,29 @@ const SHADE_REDACT_PATTERNS: StringTest[] = [
   },
   // NEAR canonical secret-key string form.
   {
-    pattern: /ed25519:[^\s]+/g,
-    replacer: (v, p) => v.replace(p, REDACTED),
+    pattern: /ed25519:[^\s]+/,
+    replacer: (v) => v.replace(/ed25519:[^\s]+/g, REDACTED),
   },
   {
-    pattern: /secp256k1:[^\s]+/g,
-    replacer: (v, p) => v.replace(p, REDACTED),
+    pattern: /secp256k1:[^\s]+/,
+    replacer: (v) => v.replace(/secp256k1:[^\s]+/g, REDACTED),
   },
   // PEM private key blocks (TLS / SSH / PGP).
   {
     pattern:
-      /-----BEGIN[\s\S]*?PRIVATE KEY-----[\s\S]*?-----END[\s\S]*?PRIVATE KEY-----/g,
+      /-----BEGIN[\s\S]*?PRIVATE KEY-----[\s\S]*?-----END[\s\S]*?PRIVATE KEY-----/,
     replacer: () => REDACTED,
   },
-  // BIP32 extended private keys (xprv / tprv / yprv / zprv and uppercase).
+  // BIP32 extended private keys: xprv (BIP32 mainnet), tprv (testnet),
+  // yprv (BIP49), zprv (BIP84), vprv (BIP86), and their uppercase
+  // multisig variants.
   {
-    pattern: /\b[xytYTuU]prv[1-9A-HJ-NP-Za-km-z]{50,108}\b/g,
+    pattern: /\b[xytzuvXYZTUV]prv[1-9A-HJ-NP-Za-km-z]{50,108}\b/,
     replacer: () => REDACTED,
   },
   // Bitcoin WIF (`5`/`K`/`L` + base58, 51-52 chars).
   {
-    pattern: /\b[5KL][1-9A-HJ-NP-Za-km-z]{50,51}\b/g,
+    pattern: /\b[5KL][1-9A-HJ-NP-Za-km-z]{50,51}\b/,
     replacer: () => REDACTED,
   },
 ];
@@ -160,13 +167,37 @@ export function sanitize(value: unknown): unknown {
  * - is still an `Error` instance
  */
 function sanitizeError(error: Error): Error {
+  // Pre-extract and recursively sanitise nested Errors so they don't get
+  // mangled by deep-redact's standard Error transformer (which would turn
+  // an Error instance into a plain `{ _transformer: "error", ... }` object).
+  // Error.message is also non-enumerable so a naive object-walk would miss
+  // it; sanitizeError extracts message explicitly into the plain bag below.
+  const sanitiseInner = (v: unknown): unknown => {
+    if (v instanceof Error) return sanitizeError(v);
+    if (typeof v === "object" && v !== null) return sanitize(v);
+    return v;
+  };
+  let sanitisedCause: unknown;
+  let hasCause = false;
+  if ("cause" in error) {
+    hasCause = true;
+    sanitisedCause = sanitiseInner(
+      (error as Error & { cause?: unknown }).cause,
+    );
+  }
+  let sanitisedErrors: unknown;
+  if (error instanceof AggregateError) {
+    sanitisedErrors = error.errors.map(sanitiseInner);
+  }
+
+  // Build a plain-object view of the Error's other own properties, excluding
+  // anything we handle out-of-band (cause/errors above, stack always).
   const own: Record<string, unknown> = {
     name: error.name,
     message: error.message ?? "",
   };
-  if ("cause" in error) own.cause = (error as Error & { cause?: unknown }).cause;
   for (const k of Object.getOwnPropertyNames(error)) {
-    if (k === "stack") continue;
+    if (k === "stack" || k === "cause" || k === "errors") continue;
     if (k in own) continue;
     own[k] = (error as unknown as Record<string, unknown>)[k];
   }
@@ -187,6 +218,25 @@ function sanitizeError(error: Error): Error {
     } catch {
       // Some property names may be non-writable on Error; skip silently.
     }
+  }
+
+  // Attach the already-sanitised nested Error(s) AFTER deep-redact so they
+  // remain Error instances rather than being converted to plain objects.
+  if (hasCause) {
+    Object.defineProperty(out, "cause", {
+      value: sanitisedCause,
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
+  }
+  if (sanitisedErrors !== undefined) {
+    Object.defineProperty(out, "errors", {
+      value: sanitisedErrors,
+      enumerable: true,
+      writable: true,
+      configurable: true,
+    });
   }
   return out;
 }
@@ -239,9 +289,14 @@ const NON_RETRYABLE_TYPED_ERRORS: ReadonlySet<string> = new Set([
  * unknown errors all retry.
  */
 export function defaultRetryable(e: unknown): boolean {
-  // JS programmer errors — retrying re-runs the bug.
+  // Node 18+ undici throws TypeError("fetch failed") on transient connection
+  // errors with the underlying network error on .cause — those ARE retryable.
+  // Plain TypeErrors with no cause are programmer errors and stay non-retryable.
+  if (e instanceof TypeError) {
+    return (e as Error & { cause?: unknown }).cause !== undefined;
+  }
+  // Other JS programmer errors — retrying re-runs the bug.
   if (
-    e instanceof TypeError ||
     e instanceof RangeError ||
     e instanceof ReferenceError ||
     e instanceof SyntaxError ||

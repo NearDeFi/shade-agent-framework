@@ -243,11 +243,27 @@ describe("errors utils", () => {
       expect(result).toContain("[REDACTED]");
     });
 
-    it("redacts BIP32 extended private keys (xprv-family)", () => {
-      const xprv =
-        "xprv9s21ZrQH143K3ZZTESTSECRETxprvxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
-      const result = sanitize(`got ${xprv} from store`) as string;
-      expect(result).not.toContain("ZZTESTSECRETxprv");
+    it.each([
+      ["xprv", "x"],
+      ["tprv", "t"],
+      ["yprv", "y"],
+      ["zprv", "z"],
+      ["uprv", "u"],
+      ["vprv", "v"],
+      ["Xprv", "X"],
+      ["Yprv", "Y"],
+      ["Zprv", "Z"],
+      ["Tprv", "T"],
+      ["Uprv", "U"],
+      ["Vprv", "V"],
+    ])("redacts BIP32 extended private keys (%s variant)", (variant, prefix) => {
+      const extended =
+        prefix +
+        "prv9s21ZrQH143K3ZZTESTSECRET" +
+        variant +
+        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
+      const result = sanitize(`got ${extended} from store`) as string;
+      expect(result).not.toContain("ZZTESTSECRET");
       expect(result).toContain("[REDACTED]");
     });
 
@@ -312,6 +328,46 @@ describe("errors utils", () => {
       expect((out.cause as Record<string, unknown>).signer).toBe("[REDACTED]");
       // No way for the secret marker to slip through
       expect(JSON.stringify(out.cause)).not.toContain("ZZTESTSECRETCAUSE");
+    });
+
+    it("recursively sanitises nested Error.cause.message (non-enumerable)", () => {
+      // Error.message is non-enumerable on the prototype, so a naive
+      // object-walk over a cause-Error misses it. Verify we explicitly
+      // extract + sanitise via sanitizeError before attaching.
+      const inner = new Error("ed25519:ZZTESTSECRETINNERMSGZZ");
+      const outer = Object.assign(new Error("outer"), { cause: inner });
+      const out = toThrowable(outer) as Error & { cause?: Error };
+      expect(out.cause).toBeInstanceOf(Error);
+      expect((out.cause as Error).message).not.toContain(
+        "ZZTESTSECRETINNERMSG",
+      );
+      expect((out.cause as Error).message).toContain("[REDACTED]");
+    });
+
+    it("recursively sanitises 3-level Error cause chain", () => {
+      const innermost = new Error("ed25519:ZZTESTSECRETLEVEL3ZZ");
+      const middle = Object.assign(new Error("mid"), { cause: innermost });
+      const outer = Object.assign(new Error("outer"), { cause: middle });
+      const out = toThrowable(outer) as Error & { cause?: Error };
+      expect(JSON.stringify(out)).not.toContain("ZZTESTSECRETLEVEL3");
+      // Walking the cause chain ourselves and inspecting each .message also
+      // must not surface the secret.
+      let cursor: unknown = out;
+      while (cursor && cursor instanceof Error) {
+        expect(cursor.message).not.toContain("ZZTESTSECRETLEVEL3");
+        cursor = (cursor as Error & { cause?: unknown }).cause;
+      }
+    });
+
+    it("sanitises AggregateError.errors", () => {
+      const leaky = new Error("ed25519:ZZTESTSECRETAGGZZ");
+      const agg = new AggregateError([leaky], "aggregate failure");
+      const out = toThrowable(agg) as Error & { errors?: Error[] };
+      expect(out.errors).toBeDefined();
+      expect((out.errors as Error[])[0].message).not.toContain(
+        "ZZTESTSECRETAGG",
+      );
+      expect((out.errors as Error[])[0].message).toContain("[REDACTED]");
     });
 
     it("preserves arbitrary custom fields (sanitised)", () => {

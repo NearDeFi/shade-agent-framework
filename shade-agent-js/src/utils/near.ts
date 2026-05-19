@@ -86,6 +86,7 @@ export async function addKeysToAccount(
     await account.signAndSendTransaction({
       receiverId: account.accountId,
       actions,
+      throwOnFailure: true,
     });
   } catch (error) {
     throw toThrowable(error);
@@ -105,6 +106,7 @@ export async function removeKeysFromAccount(
     await account.signAndSendTransaction({
       receiverId: account.accountId,
       actions,
+      throwOnFailure: true,
     });
   } catch (error) {
     throw toThrowable(error);

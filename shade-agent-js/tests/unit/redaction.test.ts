@@ -63,9 +63,11 @@ const MARKERS = {
   raw: "ZZTESTSECRETZZraw",
   pem: "ZZTESTSECRETZZpem",
   xprv: "ZZTESTSECRETZZxprv",
+  zprv: "ZZTESTSECRETZZzprv",
   wif: "ZZTESTSECRETZZwif",
   mnemonic: "ZZTESTSECRETZZmnemonic",
   cause: "ZZTESTSECRETZZcause",
+  causeErr: "ZZTESTSECRETZZcauseErr",
   custom: "ZZTESTSECRETZZcustom",
 } as const;
 
@@ -87,6 +89,12 @@ function makeLeakError(kind: keyof typeof MARKERS): Error {
       return new Error(
         `derived from xprv9s21ZrQH143K3${MARKERS.xprv}xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`,
       );
+    case "zprv":
+      // BIP84 native segwit extended private key; previously missed by the
+      // regex (which only covered xytYTuU). Verify the new charset catches it.
+      return new Error(
+        `loaded zprv9s21ZrQH143K3${MARKERS.zprv}xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx`,
+      );
     case "wif": {
       // WIF regex requires 50–51 base58 chars after the leading 5/K/L.
       const padded = (MARKERS.wif + "x".repeat(50)).slice(0, 50);
@@ -103,6 +111,12 @@ function makeLeakError(kind: keyof typeof MARKERS): Error {
             key: { extendedSecretKey: `ed25519:${MARKERS.cause}` },
           },
         },
+      });
+    case "causeErr":
+      // Nested Error where the leak is on the inner Error's non-enumerable
+      // .message — exercise the recursive sanitizeError path.
+      return Object.assign(new Error("outer"), {
+        cause: new Error(`ed25519:${MARKERS.causeErr}`),
       });
     case "custom":
       return Object.assign(new Error("upstream failure"), {

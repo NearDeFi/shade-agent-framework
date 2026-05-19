@@ -31,10 +31,29 @@ describe("withRetry", () => {
     expect(fn).toHaveBeenCalledTimes(3);
   });
 
-  it("does not retry TypeError (programmer error)", async () => {
+  it("does not retry plain TypeError (programmer error)", async () => {
     const fn = vi.fn().mockRejectedValue(new TypeError("bad input"));
     await expect(withRetry(fn, { attempts: 3, delayMs: 0 })).rejects.toThrow();
     expect(fn).toHaveBeenCalledTimes(1);
+  });
+
+  it("retries TypeError with .cause (undici fetch failure)", async () => {
+    // Node fetch rejects with TypeError("fetch failed") whose .cause carries
+    // the real network error. This must be retryable.
+    const networkErr = Object.assign(new Error("connect ECONNREFUSED"), {
+      code: "ECONNREFUSED",
+    });
+    const fetchTypeError = Object.assign(new TypeError("fetch failed"), {
+      cause: networkErr,
+    });
+    const fn = vi
+      .fn()
+      .mockRejectedValueOnce(fetchTypeError)
+      .mockResolvedValueOnce("ok");
+    const promise = withRetry(fn, { attempts: 3, delayMs: 0 });
+    await vi.runAllTimersAsync();
+    await expect(promise).resolves.toBe("ok");
+    expect(fn).toHaveBeenCalledTimes(2);
   });
 
   it("does not retry HTTP 401", async () => {
@@ -182,8 +201,15 @@ describe("defaultRetryable", () => {
     expect(defaultRetryable(new Error("network blip"))).toBe(true);
   });
 
-  it("does not retry on TypeError", () => {
+  it("does not retry plain TypeError (no cause)", () => {
     expect(defaultRetryable(new TypeError("bad arg"))).toBe(false);
+  });
+
+  it("retries TypeError with cause (fetch-failed wrapper)", () => {
+    const t = Object.assign(new TypeError("fetch failed"), {
+      cause: { code: "ECONNRESET" },
+    });
+    expect(defaultRetryable(t)).toBe(true);
   });
 
   it.each([400, 401, 403, 404, 422])("does not retry on HTTP %i", (status) => {

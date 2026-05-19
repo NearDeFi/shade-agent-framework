@@ -187,6 +187,7 @@ describe("near utils", () => {
           expect.any(Object),
           expect.any(Object),
         ]),
+        throwOnFailure: true,
       });
     });
 
@@ -239,6 +240,7 @@ describe("near utils", () => {
           expect.any(Object),
           expect.any(Object),
         ]),
+        throwOnFailure: true,
       });
     });
 

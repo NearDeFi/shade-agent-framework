@@ -4,4 +4,4 @@ export { ShadeClient } from "./api";
 
 export type { DstackAttestationForContract } from "./utils/attestation-transform";
 
-export { sanitize, toThrowable } from "./utils/errors";
+export { sanitize, toThrowable, addSensitive } from "./utils/errors";
