@@ -77,6 +77,37 @@ thrown error via template literal — pass the error through
 through, name the carrying field with a redact-list name (`signer`,
 `extendedSecretKey`, …) so the deep walk catches it.
 
+## Sanitiser coverage
+
+`sanitize` and `toThrowable` walk:
+
+- Own **string-keyed** properties (enumerable + non-enumerable), recursively.
+- Own **symbol-keyed** properties on Errors and on plain objects, including
+  nested. Symbol-keyed leaks matter because `console.log` / `util.inspect`
+  show them by default even though `JSON.stringify` doesn't.
+- `Error.message` (non-enumerable, extracted explicitly).
+- `Error.cause` and `AggregateError.errors` — recursively, including
+  primitive (string) values that might carry a secret.
+- `Error.stack` — preserved and sanitised so debugging stays feasible.
+
+Hostile inputs are isolated: throwing getters, throwing Proxy traps, and
+otherwise-uncatchable failures fall through to a generic
+`new Error("An error occurred")` so `toThrowable` itself never throws.
+
+### Known gaps (documented; not plugged)
+
+- **`Buffer` / `Uint8Array` holding raw binary secrets.** Bytes aren't
+  strings — no regex applies. Only caught when the buffer sits under a
+  blacklisted field name (`secretKey`, `extendedSecretKey`, …). The
+  canonical NEAR / dstack paths don't attach raw bytes to errors.
+- **Function values with attached own properties.** `sanitize(fn)`
+  returns the function unchanged; attached `fn.secret = "…"` survives.
+  No code path in the package does this.
+- **Private (`#`) class fields.** Inaccessible to JS reflection by
+  design — safe by virtue of unreflectability.
+- **BigInt holding hex-encoded secret bits.** No string-shape match
+  applies; only field-name match catches it.
+
 ## Test invariants
 
 Two test files gate the contract:

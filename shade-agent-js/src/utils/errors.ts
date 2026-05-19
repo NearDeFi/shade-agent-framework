@@ -154,36 +154,95 @@ export function addSensitive(opts: {
  * `secp256k1:…`, PEM, BIP32 extended, Bitcoin WIF) by value.
  *
  * - string         → sanitized string
- * - Error          → new Error preserving all (sanitized) fields; `stack` dropped
- * - object/array   → redacted copy (deep)
+ * - Error          → new Error preserving all (sanitized) fields, including stack
+ * - object/array   → redacted copy (deep); symbol-keyed properties also walked
  * - other          → returned as-is
+ *
+ * Total: never throws — falls back to a safe `[unsanitisable]` placeholder
+ * if anything inside crashes (hostile Proxy, throwing getter, etc.).
  */
 export function sanitize(value: unknown): unknown {
-  if (
-    value === null ||
-    value === undefined ||
-    typeof value === "number" ||
-    typeof value === "boolean" ||
-    typeof value === "symbol" ||
-    typeof value === "bigint"
-  ) {
+  try {
+    if (
+      value === null ||
+      value === undefined ||
+      typeof value === "number" ||
+      typeof value === "boolean" ||
+      typeof value === "symbol" ||
+      typeof value === "bigint"
+    ) {
+      return value;
+    }
+
+    if (typeof value === "string") {
+      return String(deepRedact.redact(value));
+    }
+
+    if (value instanceof Error) {
+      return sanitizeError(value);
+    }
+
+    if (typeof value === "object") {
+      const result = deepRedact.redact(value) as object;
+      const out =
+        typeof result === "object" && result !== null ? result : {};
+      // Deep-redact walks string keys only. Patch sanitised symbol-keyed
+      // properties onto the clone so leaks via `{[Symbol("t")]: secret}`
+      // don't escape via `console.log` / `util.inspect`.
+      try {
+        attachSymbolKeys(out, value, new WeakSet<object>());
+      } catch {
+        // Best effort — never let symbol-walk failures crash sanitise.
+      }
+      return out;
+    }
+
     return value;
+  } catch {
+    return "[unsanitisable]";
   }
+}
 
-  if (typeof value === "string") {
-    return String(deepRedact.redact(value));
+/**
+ * Walk symbol-keyed properties of `original` (recursively) and copy
+ * sanitised versions onto the parallel structure in `clone`. Both
+ * objects are expected to mirror each other in string-key shape (which
+ * holds when `clone` is deep-redact's return value).
+ */
+function attachSymbolKeys(
+  clone: object,
+  original: object,
+  seen: WeakSet<object>,
+): void {
+  if (seen.has(original)) return;
+  seen.add(original);
+  for (const sym of Object.getOwnPropertySymbols(original)) {
+    try {
+      const v = (original as Record<symbol, unknown>)[sym];
+      (clone as Record<symbol, unknown>)[sym] = sanitize(v);
+    } catch {
+      // Hostile getter — skip this key.
+    }
   }
-
-  if (value instanceof Error) {
-    return sanitizeError(value);
+  // Recurse where both sides have a nested object at the same string key.
+  for (const k of Object.keys(clone)) {
+    let cloneVal: unknown;
+    let origVal: unknown;
+    try {
+      cloneVal = (clone as Record<string, unknown>)[k];
+      origVal = (original as Record<string, unknown>)[k];
+    } catch {
+      continue;
+    }
+    if (
+      typeof cloneVal === "object" &&
+      cloneVal !== null &&
+      typeof origVal === "object" &&
+      origVal !== null
+    ) {
+      attachSymbolKeys(cloneVal, origVal, seen);
+    }
   }
-
-  if (typeof value === "object") {
-    const result = deepRedact.redact(value) as object;
-    return typeof result === "object" && result !== null ? result : {};
-  }
-
-  return value;
 }
 
 /**
@@ -193,79 +252,122 @@ export function sanitize(value: unknown): unknown {
  *   except `stack`, in their recursively-sanitised form
  * - is still an `Error` instance
  */
+// Safely read a property — getter side-effects or throwing Proxy traps
+// can't crash the sanitiser.
+function safeRead(obj: object, k: PropertyKey): unknown {
+  try {
+    return (obj as Record<PropertyKey, unknown>)[k];
+  } catch {
+    return undefined;
+  }
+}
+
 function sanitizeError(error: Error): Error {
-  // Pre-extract and recursively sanitise nested Errors so they don't get
-  // mangled by deep-redact's standard Error transformer (which would turn
-  // an Error instance into a plain `{ _transformer: "error", ... }` object).
-  // Error.message is also non-enumerable so a naive object-walk would miss
-  // it; sanitizeError extracts message explicitly into the plain bag below.
-  const sanitiseInner = (v: unknown): unknown => {
-    if (v instanceof Error) return sanitizeError(v);
-    if (typeof v === "object" && v !== null) return sanitize(v);
-    return v;
-  };
-  let sanitisedCause: unknown;
-  let hasCause = false;
-  if ("cause" in error) {
-    hasCause = true;
-    sanitisedCause = sanitiseInner(
-      (error as Error & { cause?: unknown }).cause,
-    );
-  }
-  let sanitisedErrors: unknown;
-  if (error instanceof AggregateError) {
-    sanitisedErrors = error.errors.map(sanitiseInner);
-  }
+  try {
+    // Pre-extract and recursively sanitise nested Errors so they don't get
+    // mangled by deep-redact's standard Error transformer (which would turn
+    // an Error instance into a plain `{ _transformer: "error", ... }` object).
+    // Error.message is also non-enumerable so a naive object-walk would miss
+    // it; sanitizeError extracts message explicitly into the plain bag below.
+    // Error.cause and AggregateError.errors are typed as `unknown` — they can
+    // hold any value, including primitive strings carrying secrets. Routing
+    // everything through `sanitize` redacts strings (regex), objects
+    // (deep-redact), and Errors (sanitizeError), while leaving safe primitives
+    // (numbers, booleans, BigInt, symbols, null/undefined) untouched.
+    let sanitisedCause: unknown;
+    let hasCause = false;
+    if ("cause" in error) {
+      hasCause = true;
+      sanitisedCause = sanitize(safeRead(error, "cause"));
+    }
+    let sanitisedErrors: unknown;
+    if (error instanceof AggregateError) {
+      const arr = safeRead(error, "errors");
+      if (Array.isArray(arr)) {
+        sanitisedErrors = arr.map((e) => sanitize(e));
+      }
+    }
 
-  // Build a plain-object view of the Error's other own properties, excluding
-  // anything we handle out-of-band (cause/errors above, stack always).
-  const own: Record<string, unknown> = {
-    name: error.name,
-    message: error.message ?? "",
-  };
-  for (const k of Object.getOwnPropertyNames(error)) {
-    if (k === "stack" || k === "cause" || k === "errors") continue;
-    if (k in own) continue;
-    own[k] = (error as unknown as Record<string, unknown>)[k];
-  }
+    // Build a plain-object view of the Error's other own properties.
+    // `Reflect.ownKeys` returns BOTH string and symbol keys; symbol keys
+    // are walked so a `{[Symbol("token")]: "ed25519:secret"}` attached
+    // to an error can't leak via console.log / util.inspect.
+    // `stack` is passed through sanitise like any other field — useful for
+    // debugging deployed agents, and the regex still catches secret patterns
+    // that might happen to appear in a stack frame.
+    const own: Record<string, unknown> = {
+      name: error.name,
+      message: error.message ?? "",
+    };
+    const symbolEntries: { key: symbol; value: unknown }[] = [];
+    for (const k of Reflect.ownKeys(error)) {
+      if (k === "cause" || k === "errors") continue;
+      if (typeof k === "string" && k in own) continue;
+      const v = safeRead(error, k);
+      if (typeof k === "symbol") {
+        symbolEntries.push({ key: k, value: sanitize(v) });
+      } else {
+        own[k] = v;
+      }
+    }
 
-  const sanitised = deepRedact.redact(own) as Record<string, unknown>;
-  const msg = String(sanitised.message ?? "");
-  const out = new Error(msg || "An error occurred");
+    const sanitised = deepRedact.redact(own) as Record<string, unknown>;
+    const msg = String(sanitised.message ?? "");
+    const out = new Error(msg || "An error occurred");
 
-  for (const [k, v] of Object.entries(sanitised)) {
-    if (k === "message") continue;
-    try {
-      Object.defineProperty(out, k, {
-        value: v,
+    for (const [k, v] of Object.entries(sanitised)) {
+      if (k === "message") continue;
+      try {
+        Object.defineProperty(out, k, {
+          value: v,
+          enumerable: true,
+          writable: true,
+          configurable: true,
+        });
+      } catch {
+        // Some property names may be non-writable on Error; skip silently.
+      }
+    }
+
+    // Re-attach the sanitised symbol-keyed properties.
+    for (const { key, value } of symbolEntries) {
+      try {
+        Object.defineProperty(out, key, {
+          value,
+          enumerable: true,
+          writable: true,
+          configurable: true,
+        });
+      } catch {
+        // Skip silently — best effort.
+      }
+    }
+
+    // Attach the already-sanitised nested Error(s) AFTER deep-redact so they
+    // remain Error instances rather than being converted to plain objects.
+    if (hasCause) {
+      Object.defineProperty(out, "cause", {
+        value: sanitisedCause,
         enumerable: true,
         writable: true,
         configurable: true,
       });
-    } catch {
-      // Some property names may be non-writable on Error; skip silently.
     }
+    if (sanitisedErrors !== undefined) {
+      Object.defineProperty(out, "errors", {
+        value: sanitisedErrors,
+        enumerable: true,
+        writable: true,
+        configurable: true,
+      });
+    }
+    return out;
+  } catch {
+    // Ultimate safety net: if any step crashes (hostile Proxy, deep-redact
+    // bug, frozen Error, etc.), return a generic Error rather than letting
+    // the exception escape from toThrowable.
+    return new Error("An error occurred");
   }
-
-  // Attach the already-sanitised nested Error(s) AFTER deep-redact so they
-  // remain Error instances rather than being converted to plain objects.
-  if (hasCause) {
-    Object.defineProperty(out, "cause", {
-      value: sanitisedCause,
-      enumerable: true,
-      writable: true,
-      configurable: true,
-    });
-  }
-  if (sanitisedErrors !== undefined) {
-    Object.defineProperty(out, "errors", {
-      value: sanitisedErrors,
-      enumerable: true,
-      writable: true,
-      configurable: true,
-    });
-  }
-  return out;
 }
 
 // Serialise any value to a string without throwing — handles circular
@@ -308,9 +410,18 @@ export function toThrowable(error: unknown): Error {
   const result = sanitize(error);
   if (result instanceof Error) return result;
   if (typeof result === "object" && result !== null) {
+    // Object already went through deep-redact recursively in sanitize —
+    // the stringified form is safe to use directly. Running it through
+    // the regex sweep again would false-positive on JSON key names like
+    // `"privateKey":` that legitimately appear in a sanitised payload.
     return new Error(safeStringify(result) || "An error occurred");
   }
-  return new Error(String(result) || "An error occurred");
+  // For primitive inputs (Symbol, BigInt, raw string, boxed wrappers that
+  // sanitize couldn't introspect) re-sanitise the String() form so secret
+  // patterns inside a Symbol description, etc., are still redacted at the
+  // final boundary.
+  const cleaned = String(deepRedact.redact(String(result)));
+  return new Error(cleaned || "An error occurred");
 }
 
 /**
