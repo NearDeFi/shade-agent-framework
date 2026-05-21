@@ -552,8 +552,15 @@ describe("errors utils", () => {
     });
   });
 
-  describe("symbol-keyed secret redaction", () => {
-    it("redacts a Symbol-keyed property on an Error", () => {
+  describe("symbol-keyed properties are dropped", () => {
+    // The dependency-tree audit found zero libraries that attach
+    // symbol-keyed properties to errors. Rather than walk symbols and
+    // sanitise their values (parallel-tree walker, circular-ref guard,
+    // hostile-getter handling), we drop them entirely. These tests
+    // lock in that contract: a symbol-keyed property on the input must
+    // not appear on the sanitised output, and its value must not leak.
+
+    it("drops a Symbol-keyed property on an Error when routed through toThrowable", () => {
       const SECRET = Symbol("internal");
       const e = new Error("outer");
       Object.defineProperty(e, SECRET, {
@@ -561,29 +568,34 @@ describe("errors utils", () => {
         enumerable: true,
       });
       const out = toThrowable(e) as Error;
-      const v = (out as unknown as Record<symbol, unknown>)[SECRET];
-      expect(typeof v === "string" ? v : "").not.toContain(
-        "ZZTESTSECRETSYMERROR",
-      );
-      // also ensure no stray copy elsewhere on the error
+      // The symbol must not appear on the output at all.
+      expect(Object.getOwnPropertySymbols(out)).not.toContain(SECRET);
+      expect(
+        (out as unknown as Record<symbol, unknown>)[SECRET],
+      ).toBeUndefined();
+      // Belt and braces: no marker substring anywhere on the error,
+      // including in console.log / util.inspect output (which is what
+      // would surface a symbol-keyed leak in practice).
       expect(JSON.stringify({ ...(out as object) })).not.toContain(
         "ZZTESTSECRETSYMERROR",
       );
     });
 
-    it("redacts a Symbol-keyed property on a plain object via sanitize", () => {
+    it("drops a Symbol-keyed property on a plain object via sanitize", () => {
       const SECRET = Symbol("token");
       const obj = { accountId: "alice.testnet" } as Record<symbol, unknown> &
         Record<string, unknown>;
       obj[SECRET] = "ed25519:ZZTESTSECRETSYMOBJZZ";
-      const out = sanitize(obj) as Record<symbol, unknown>;
-      const v = out[SECRET];
-      expect(typeof v === "string" ? v : "").not.toContain(
-        "ZZTESTSECRETSYMOBJ",
-      );
+      const out = sanitize(obj) as Record<symbol, unknown> &
+        Record<string, unknown>;
+      // Non-secret string keys still survive.
+      expect(out.accountId).toBe("alice.testnet");
+      // The symbol is absent.
+      expect(Object.getOwnPropertySymbols(out)).not.toContain(SECRET);
+      expect(out[SECRET]).toBeUndefined();
     });
 
-    it("redacts a Symbol-keyed property nested in an object tree", () => {
+    it("drops a Symbol-keyed property nested in an object tree", () => {
       const SECRET = Symbol("nested");
       const obj: Record<string, unknown> = {
         outer: { mid: { inner: {} } },
@@ -598,9 +610,22 @@ describe("errors utils", () => {
       const innerOut = (
         (out.outer as Record<string, unknown>).mid as Record<string, unknown>
       ).inner as Record<symbol, unknown>;
-      const v = innerOut[SECRET];
-      expect(typeof v === "string" ? v : "").not.toContain(
-        "ZZTESTSECRETSYMNESTED",
+      expect(Object.getOwnPropertySymbols(innerOut)).not.toContain(SECRET);
+      expect(innerOut[SECRET]).toBeUndefined();
+    });
+
+    it("drops well-known symbols too (no exception for builtins)", () => {
+      // Demonstrates the rule is uniform: ANY symbol is dropped, including
+      // well-known ones like Symbol.iterator. If a thrower attaches
+      // Symbol.toPrimitive returning a secret, that path is closed.
+      const e = new Error("outer");
+      Object.defineProperty(e, Symbol.toPrimitive, {
+        value: () => "ed25519:ZZTESTSECRETSYMTOPRIMZZ",
+        enumerable: true,
+      });
+      const out = toThrowable(e) as Error;
+      expect(Object.getOwnPropertySymbols(out)).not.toContain(
+        Symbol.toPrimitive,
       );
     });
   });

@@ -1,11 +1,10 @@
 import { JsonRpcProvider } from "@near-js/providers";
 import { Provider } from "@near-js/providers";
-import { KeyPairSigner } from "@near-js/signers";
+import type { KeyPairSigner } from "@near-js/signers";
 import { Account } from "@near-js/accounts";
-import { KeyPair, KeyPairString } from "@near-js/crypto";
 import { NEAR } from "@near-js/tokens";
 import { actionCreators } from "@near-js/transactions";
-import { toThrowable } from "./errors";
+import { safeParseKeyPair, safeParseSigner, toThrowable } from "./errors";
 
 // Creates a default JSON RPC provider for the specified network.
 // The provider itself retries 3× with 2 s backoff at the transport layer —
@@ -55,9 +54,7 @@ export async function internalFundAgent(
   provider: Provider,
 ): Promise<void> {
   try {
-    const signer = KeyPairSigner.fromSecretKey(
-      sponsorPrivateKey as KeyPairString,
-    );
+    const signer = safeParseSigner(sponsorPrivateKey);
     const account = new Account(sponsorAccountId, provider, signer);
     await account.transfer({
       token: NEAR,
@@ -77,7 +74,7 @@ export async function addKeysToAccount(
 ): Promise<void> {
   try {
     const actions = secrets.map((secretKey) => {
-      const keyPair = KeyPair.fromString(secretKey as KeyPairString);
+      const keyPair = safeParseKeyPair(secretKey);
       return actionCreators.addKey(
         keyPair.getPublicKey(),
         actionCreators.fullAccessKey(),
@@ -100,7 +97,7 @@ export async function removeKeysFromAccount(
 ): Promise<void> {
   try {
     const actions = secrets.map((secretKey) => {
-      const keyPair = KeyPair.fromString(secretKey as KeyPairString);
+      const keyPair = safeParseKeyPair(secretKey);
       return actionCreators.deleteKey(keyPair.getPublicKey());
     });
     await account.signAndSendTransaction({

@@ -1,12 +1,12 @@
 import { createHash } from "node:crypto";
 import { DstackClient } from "@phala/dstack-sdk";
 import { generateSeedPhrase } from "near-seed-phrase";
-import { PublicKey, KeyPairString } from "@near-js/crypto";
-import { KeyPairSigner } from "@near-js/signers";
+import { PublicKey } from "@near-js/crypto";
+import type { KeyPairSigner } from "@near-js/signers";
 import { addKeysToAccount, removeKeysFromAccount } from "./near";
 import { Account } from "@near-js/accounts";
 import { Provider } from "@near-js/providers";
-import { toThrowable, withRetry } from "./errors";
+import { genericError, safeParseSigner, toThrowable, withRetry } from "./errors";
 
 // Generates an agent account ID and private key
 export async function generateAgent(
@@ -198,13 +198,11 @@ export function getAgentSigner(
 ): { signer: KeyPairSigner; keyIndex: number } {
   try {
     if (agentPrivateKeys.length === 0) {
-      throw new Error("No agent keys available");
+      throw genericError("No agent keys available");
     }
     if (agentPrivateKeys.length === 1) {
       return {
-        signer: KeyPairSigner.fromSecretKey(
-          agentPrivateKeys[0] as KeyPairString,
-        ),
+        signer: safeParseSigner(agentPrivateKeys[0]),
         keyIndex: 0,
       };
     }
@@ -213,9 +211,7 @@ export function getAgentSigner(
       currentKeyIndex = 0;
     }
     return {
-      signer: KeyPairSigner.fromSecretKey(
-        agentPrivateKeys[currentKeyIndex] as KeyPairString,
-      ),
+      signer: safeParseSigner(agentPrivateKeys[currentKeyIndex]),
       keyIndex: currentKeyIndex,
     };
   } catch (error) {
@@ -239,9 +235,7 @@ export async function ensureKeysSetup(
       return { keysToAdd: [], wasChecked: true };
     }
 
-    const signer = KeyPairSigner.fromSecretKey(
-      agentPrivateKeys[0] as KeyPairString,
-    );
+    const signer = safeParseSigner(agentPrivateKeys[0]);
     const agentAccount = new Account(agentAccountId, rpc, signer);
     const { keysToSave, allDerivedWithTEE } = await manageKeySetup(
       agentAccount,
@@ -252,7 +246,7 @@ export async function ensureKeysSetup(
 
     if (!allDerivedWithTEE) {
       if (keysDerivedWithTEE) {
-        throw new Error(
+        throw genericError(
           "First key was derived with TEE but additional keys were not. Something went wrong with the key derivation.",
         );
       }

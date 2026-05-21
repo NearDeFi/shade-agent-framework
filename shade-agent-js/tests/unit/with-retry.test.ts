@@ -90,29 +90,6 @@ describe("withRetry", () => {
     expect(fn).toHaveBeenCalledTimes(2);
   });
 
-  it("does not retry deterministic NEAR TypedError (AccountDoesNotExist)", async () => {
-    const fn = vi
-      .fn()
-      .mockRejectedValue(
-        Object.assign(new Error("missing"), { type: "AccountDoesNotExist" }),
-      );
-    await expect(withRetry(fn, { attempts: 3, delayMs: 0 })).rejects.toThrow();
-    expect(fn).toHaveBeenCalledTimes(1);
-  });
-
-  it("retries non-deterministic NEAR TypedError (Timeout)", async () => {
-    const fn = vi
-      .fn()
-      .mockRejectedValueOnce(
-        Object.assign(new Error("timeout"), { type: "Timeout" }),
-      )
-      .mockResolvedValueOnce("ok");
-    const promise = withRetry(fn, { attempts: 3, delayMs: 0 });
-    await vi.runAllTimersAsync();
-    await expect(promise).resolves.toBe("ok");
-    expect(fn).toHaveBeenCalledTimes(2);
-  });
-
   it("honours custom `retryable` predicate", async () => {
     const fn = vi.fn().mockRejectedValue(new TypeError("normally not retried"));
     const settled = withRetry(fn, {
@@ -155,27 +132,6 @@ describe("withRetry", () => {
     await vi.advanceTimersByTimeAsync(200);
     await expect(promise).resolves.toBe("ok");
     expect(fn).toHaveBeenCalledTimes(3);
-  });
-
-  it("aborts on signal.aborted before retry", async () => {
-    const controller = new AbortController();
-    const fn = vi.fn().mockRejectedValue(new Error("network fail"));
-    const settled = withRetry(fn, {
-      attempts: 3,
-      delayMs: 100,
-      signal: controller.signal,
-    }).then(
-      () => "ok",
-      (e) => e as Error,
-    );
-    // Let first attempt run, then abort during the sleep.
-    await vi.advanceTimersByTimeAsync(0);
-    controller.abort();
-    await vi.advanceTimersByTimeAsync(100);
-    const result = await settled;
-    expect(result).toBeInstanceOf(Error);
-    expect((result as Error).message).toBe("aborted");
-    expect(fn).toHaveBeenCalledTimes(1);
   });
 
   it("rethrows sanitised error on final attempt failure", async () => {
@@ -222,16 +178,14 @@ describe("defaultRetryable", () => {
     expect(defaultRetryable(Object.assign(new Error("x"), { status }))).toBe(true);
   });
 
-  // Two representatives from the deterministic NEAR type list. The list
-  // itself is exhaustive in errors.ts; we just verify membership wins.
-  it.each(["AccountDoesNotExist", "TooLargeContractState"])(
-    "does not retry on deterministic NEAR type '%s'",
-    (type) => {
-      expect(defaultRetryable(Object.assign(new Error("x"), { type }))).toBe(false);
-    },
-  );
-
-  it("retries on unknown NEAR type", () => {
+  it("retries on any error with a `.type` field (no NEAR type denylist)", () => {
+    // `withRetry` is only used for non-NEAR external calls (dstack,
+    // Phala HTTP); NEAR RPC has its own retry inside JsonRpcProvider.
+    // So we don't try to recognise NEAR-specific deterministic types
+    // here — any error with an unknown shape just retries by default.
+    expect(
+      defaultRetryable(Object.assign(new Error("x"), { type: "AccountDoesNotExist" })),
+    ).toBe(true);
     expect(
       defaultRetryable(Object.assign(new Error("x"), { type: "SomethingNew" })),
     ).toBe(true);

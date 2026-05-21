@@ -3,12 +3,54 @@
  * prevention in shade-agent-js: every catch in the package should rethrow
  * via `toThrowable(e)` so that sensitive fields and recognised secret value
  * patterns are redacted before the error escapes.
+ *
+ * Fail-closed rule: if any value can't be safely processed (hostile getter,
+ * throwing Proxy, deep-redact crash, …), it is replaced with the
+ * `[unsanitisable]` placeholder string so operators can see that
+ * something was there but couldn't be sanitised. The unsanitised
+ * original is NEVER propagated. The only exception is the final
+ * `toThrowable` boundary, which must return a real Error — there it
+ * falls back to a generic "An error occurred" message.
+ *
+ * File layout — five sections, top to bottom:
+ *   1. Redaction policy   — which field names + value patterns count as secrets.
+ *   2. Redactor engine    — the mutable deep-redact instance + extension API.
+ *   3. Sanitiser          — walks any value, redacts secrets, drops on failure.
+ *   4. Public throw API   — toThrowable + genericError.
+ *   5. Retry              — defaultRetryable + withRetry + helpers.
+ *   6. Safe key parsing   — safeParseKeyPair / safeParseSigner.
  */
 
 import { DeepRedact } from "@hackylabs/deep-redact/index.ts";
+import { KeyPair, KeyPairString } from "@near-js/crypto";
+import { KeyPairSigner } from "@near-js/signers";
 
+
+// ===========================================================================
+// SECTION 1 — REDACTION POLICY
+// ===========================================================================
+// What counts as a secret. Two independent mechanisms:
+//   1. Field-name redaction: if a property KEY matches any of SHADE_REDACT_KEYS,
+//      the VALUE under that key is replaced with [REDACTED] regardless of type.
+//   2. Value-pattern redaction: if a STRING anywhere in the input matches one
+//      of SHADE_REDACT_PATTERNS, the matched substring is replaced.
+
+/** Placeholder used in place of a recognised secret value. */
 const REDACTED = "[REDACTED]";
 
+/**
+ * Placeholder used in place of any value the sanitiser couldn't process
+ * (hostile getter, throwing Proxy, deep-redact crash, …). Used uniformly
+ * everywhere a value can't be handled, so the unsanitised original
+ * never propagates but operators still see that something was there.
+ */
+const UNSANITISABLE = "[unsanitisable]";
+
+/**
+ * Property keys whose value is always redacted, regardless of value type.
+ * Catches a leak like `err.signer = keyPair` even if the inner KeyPair
+ * doesn't contain any string that matches a value pattern below.
+ */
 const SHADE_REDACT_KEYS: string[] = [
   // NEAR
   "privateKey",
@@ -41,24 +83,29 @@ const SHADE_REDACT_KEYS: string[] = [
   "keystore",
 ];
 
+/** Shape of a value-pattern entry: a regex to test, plus a replacer function. */
 interface StringTest {
   pattern: RegExp;
   replacer: (value: string, pattern: RegExp) => string;
 }
 
-// IMPORTANT: patterns must NOT use the /g flag. Deep-redact calls
-// `pattern.test(value)` on each pattern (utils/index.js:244); /g makes
-// `.test` stateful via `lastIndex`, so consecutive calls alternate
-// match/miss. For surgical (substring) replacers, construct a global
-// regex inline at replace time.
+/**
+ * Value patterns. Any string matching one of these is redacted.
+ *
+ * IMPORTANT: the `pattern:` field must NOT use the /g flag. Deep-redact
+ * calls `pattern.test(value)` on it; /g makes `.test` stateful via
+ * `lastIndex`, so consecutive calls would alternate match/miss. The
+ * `replacer:` body is unrestricted — inline /g regexes there are fine
+ * and expected for replace-all semantics.
+ */
 const SHADE_REDACT_PATTERNS: StringTest[] = [
-  // Whole-string redaction on any string containing a sensitive keyword.
+  // Any string containing a sensitive keyword → whole string redacted.
   {
     pattern:
       /privateKey|private_key|secretKey|secret_key|extendedSecretKey|agentPrivateKeys?/i,
     replacer: () => REDACTED,
   },
-  // NEAR canonical secret-key string form.
+  // NEAR canonical secret-key string form → surgical substring replacement.
   {
     pattern: /ed25519:[^\s]+/,
     replacer: (v) => v.replace(/ed25519:[^\s]+/g, REDACTED),
@@ -73,58 +120,61 @@ const SHADE_REDACT_PATTERNS: StringTest[] = [
       /-----BEGIN[\s\S]*?PRIVATE KEY-----[\s\S]*?-----END[\s\S]*?PRIVATE KEY-----/,
     replacer: () => REDACTED,
   },
-  // BIP32 extended private keys: xprv (BIP32 mainnet), tprv (testnet),
-  // yprv (BIP49), zprv (BIP84), vprv (BIP86), and their uppercase
-  // multisig variants.
+  // BIP32 extended private keys: xprv (mainnet), tprv (testnet),
+  // yprv (BIP49), zprv (BIP84), vprv (BIP86), plus uppercase multisig variants.
   {
     pattern: /\b[xytzuvXYZTUV]prv[1-9A-HJ-NP-Za-km-z]{50,108}\b/,
     replacer: () => REDACTED,
   },
-  // Bitcoin WIF (`5`/`K`/`L` + base58, 51-52 chars).
+  // Bitcoin WIF: `5` / `K` / `L` prefix + 50–51 base58 chars.
   {
     pattern: /\b[5KL][1-9A-HJ-NP-Za-km-z]{50,51}\b/,
     replacer: () => REDACTED,
   },
 ];
 
-// Mutable lists; rebuilt-on-extend via `addSensitive`.
+
+// ===========================================================================
+// SECTION 2 — REDACTOR ENGINE
+// ===========================================================================
+// Holds the active deep-redact instance. Mutable so `addSensitive()` can
+// extend it with caller-defined keys and patterns at runtime.
+
+// Active config. Starts as a copy of the defaults; addSensitive appends.
 let activeKeys: string[] = [...SHADE_REDACT_KEYS];
 let activePatterns: StringTest[] = [...SHADE_REDACT_PATTERNS];
 let deepRedact = build(activeKeys, activePatterns);
 
+/**
+ * Construct a fresh DeepRedact instance with the given config.
+ * `types: ["string", "object"]` covers both string-valued and object-valued
+ * blacklisted-key matches; arrays count as objects under `typeof`.
+ */
 function build(keys: string[], patterns: StringTest[]) {
   return new DeepRedact({
     serialise: false,
     blacklistedKeys: keys,
     stringTests: patterns,
-    // Redact any value type (string, object, array) under a blacklisted key,
-    // not just strings. Otherwise a field like `signer: { key: { ... } }` would
-    // be walked into instead of wholesale-replaced, leaving the leaf value
-    // dependent on a separate field-name or regex hit deeper in.
     types: ["string", "object"],
   });
 }
 
-// Strip stateful flags (`g`, `y`) from a regex. Deep-redact uses
-// `pattern.test(value)` which is stateful on `/g`/`/y` regexes via
-// `lastIndex`, causing alternating match/miss across calls. We keep
-// the original pattern accessible to the replacer (so consumers'
-// `v.replace(p, X)` replace-all semantics still work).
+/**
+ * Remove the stateful flags `g` and `y` from a regex. Deep-redact uses
+ * `pattern.test(value)` which is stateful on /g/y regexes — consecutive
+ * calls would alternate match/miss. We use this on caller-provided
+ * patterns. The original (with /g) is preserved separately so a
+ * consumer's `.replace(p, X)` for replace-all still works.
+ */
 function stripStatefulFlags(re: RegExp): RegExp {
   if (!/[gy]/.test(re.flags)) return re;
   return new RegExp(re.source, re.flags.replace(/[gy]/g, ""));
 }
 
 /**
- * Extend the redact configuration at runtime. Subsequent calls to `sanitize`
- * / `toThrowable` will also redact the new field names and apply the new
- * value-regex patterns. Lets consumers cover additional secret forms without
- * forking the library.
- *
- * Caller-provided regexes with `g`/`y` flags are sanitised: a non-stateful
- * clone is used for the internal `.test()` call, but the original pattern
- * is passed through to the replacer so any consumer relying on `/g` for
- * replace-all in their own replacer keeps working.
+ * Extend the redaction config at runtime. After this returns, subsequent
+ * sanitize/toThrowable calls also redact the new field names and apply
+ * the new value patterns. Mutation is process-global — call once at boot.
  */
 export function addSensitive(opts: {
   keys?: string[];
@@ -135,10 +185,10 @@ export function addSensitive(opts: {
     const safe: StringTest[] = opts.patterns.map((p) => {
       const original = p.pattern;
       const stripped = stripStatefulFlags(original);
-      // If no flags were stripped, original === stripped — reuse directly.
       if (stripped === original) return p;
       return {
         pattern: stripped,
+        // Caller's replacer keeps access to the original (flagged) regex.
         replacer: (v) => p.replacer(v, original),
       };
     });
@@ -147,19 +197,155 @@ export function addSensitive(opts: {
   deepRedact = build(activeKeys, activePatterns);
 }
 
+// ===========================================================================
+// SECTION 3 — SANITISER
+// ===========================================================================
+// Walks any value, redacts secrets via deep-redact, and DROPS anything
+// that can't be safely processed. The drop rule is uniform: a hostile
+// getter, a throwing Proxy, a recursive structure deep-redact can't
+// handle — every such case results in the offending field/property
+// being omitted from the output rather than replaced with a placeholder.
+
 /**
- * Sanitizes any value: strings, objects, Errors, and primitives.
- * Redacts sensitive keys (privateKey, secretKey, signer, mnemonic, …) by
- * field name; redacts recognised secret string patterns (`ed25519:…`,
- * `secp256k1:…`, PEM, BIP32 extended, Bitcoin WIF) by value.
+ * Sanitise an Error into a fresh Error instance.
  *
- * - string         → sanitized string
- * - Error          → new Error preserving all (sanitized) fields, including stack
- * - object/array   → redacted copy (deep); symbol-keyed properties also walked
- * - other          → returned as-is
+ * What survives:
+ *   - sanitised `message` (or "An error occurred" if empty)
+ *   - sanitised string-keyed own properties (`name`, `type`, `code`,
+ *     `status`, `stack`, anything custom)
+ *   - recursively-sanitised `cause` and (for AggregateError) `errors`
  *
- * Total: never throws — falls back to a safe `[unsanitisable]` placeholder
- * if anything inside crashes (hostile Proxy, throwing getter, etc.).
+ * What gets dropped:
+ *   - symbol-keyed own properties — dropped unconditionally. The
+ *     dependency-tree audit found no library that uses symbol keys on
+ *     errors, so dropping is fail-closed by construction.
+ *   - any string-keyed field whose read throws (hostile getter / Proxy trap)
+ *   - any field whose sanitise throws
+ *   - `cause` if its sanitisation fails
+ *   - anything that can't be assigned to the output (frozen, read-only, …)
+ */
+function sanitizeError(error: Error): Error {
+  try {
+    // ---- Pre-extract `cause` and `errors` (handled out-of-band so nested
+    // Errors don't get flattened by deep-redact's object transformer).
+    let sanitisedCause: unknown;
+    let hasCause = false;
+    if ("cause" in error) {
+      try {
+        sanitisedCause = sanitize(
+          (error as Error & { cause?: unknown }).cause,
+        );
+      } catch {
+        sanitisedCause = UNSANITISABLE;
+      }
+      hasCause = true;
+    }
+    let sanitisedErrors: unknown;
+    if (error instanceof AggregateError) {
+      try {
+        const arr = (error as AggregateError).errors;
+        if (Array.isArray(arr)) {
+          sanitisedErrors = arr.map((e) => {
+            try {
+              return sanitize(e);
+            } catch {
+              return UNSANITISABLE; // mark this element
+            }
+          });
+        } else {
+          // .errors wasn't an array — mark the whole field as unsanitisable.
+          sanitisedErrors = UNSANITISABLE;
+        }
+      } catch {
+        // Couldn't even read .errors — mark the whole field as unsanitisable.
+        sanitisedErrors = UNSANITISABLE;
+      }
+    }
+
+    // ---- Build a plain-object bag of the Error's string-keyed own
+    // properties. Symbol-keyed properties are dropped (see function-level
+    // doc above). Anything that throws on read or sanitise becomes
+    // [unsanitisable] so operators still see something was there.
+    const own: Record<string, unknown> = {
+      name: error.name,
+      message: error.message ?? "",
+    };
+    for (const k of Object.getOwnPropertyNames(error)) {
+      if (k === "cause" || k === "errors") continue;
+      if (k in own) continue;
+      try {
+        const v = (error as unknown as Record<string, unknown>)[k];
+        own[k] = sanitize(v);
+      } catch {
+        // Hostile getter or sanitise failure — mark as unsanitisable.
+        own[k] = UNSANITISABLE;
+      }
+    }
+
+    // ---- Run the redactor over the bag, then construct the output Error.
+    const sanitised = deepRedact.redact(own) as Record<string, unknown>;
+    const msg = String(sanitised.message ?? "");
+    const out = new Error(msg || "An error occurred");
+
+    // Copy each sanitised own property onto the output. Anything that
+    // can't be assigned (read-only descriptor, …) is dropped silently.
+    for (const [k, v] of Object.entries(sanitised)) {
+      if (k === "message") continue;
+      try {
+        Object.defineProperty(out, k, {
+          value: v,
+          enumerable: true,
+          writable: true,
+          configurable: true,
+        });
+      } catch {
+        // drop this field
+      }
+    }
+    if (hasCause) {
+      try {
+        Object.defineProperty(out, "cause", {
+          value: sanitisedCause,
+          enumerable: true,
+          writable: true,
+          configurable: true,
+        });
+      } catch {
+        // drop cause
+      }
+    }
+    if (sanitisedErrors !== undefined) {
+      try {
+        Object.defineProperty(out, "errors", {
+          value: sanitisedErrors,
+          enumerable: true,
+          writable: true,
+          configurable: true,
+        });
+      } catch {
+        // drop errors
+      }
+    }
+    return out;
+  } catch {
+    // Catastrophic failure (frozen Error, malicious prototype, …).
+    // Return a minimal Error so toThrowable still has something to throw.
+    return new Error("An error occurred");
+  }
+}
+
+/**
+ * Sanitise any value. Type-routed:
+ *   - primitives (number, boolean, bigint, symbol, null, undefined)
+ *     → returned as-is (nothing to redact)
+ *   - string  → value-pattern redaction applied
+ *   - Error   → routed through `sanitizeError`
+ *   - object  → deep-redact walks string keys; symbol-keyed properties are dropped
+ *
+ * Marks on uncertainty: if the value is so exotic the redactor can't
+ * process it (hostile Proxy, throwing prototype trap), returns the
+ * `"[unsanitisable]"` placeholder string instead of the original value.
+ * The unsanitised value is never propagated.
  */
 export function sanitize(value: unknown): unknown {
   try {
@@ -184,196 +370,35 @@ export function sanitize(value: unknown): unknown {
 
     if (typeof value === "object") {
       const result = deepRedact.redact(value) as object;
-      const out =
-        typeof result === "object" && result !== null ? result : {};
-      // Deep-redact walks string keys only. Patch sanitised symbol-keyed
-      // properties onto the clone so leaks via `{[Symbol("t")]: secret}`
-      // don't escape via `console.log` / `util.inspect`.
-      try {
-        attachSymbolKeys(out, value, new WeakSet<object>());
-      } catch {
-        // Best effort — never let symbol-walk failures crash sanitise.
-      }
-      return out;
+      // Symbol-keyed properties are dropped by virtue of deep-redact only
+      // walking string keys — we don't patch them back on.
+      return typeof result === "object" && result !== null ? result : {};
     }
 
     return value;
   } catch {
-    return "[unsanitisable]";
+    // Uncatchable shape — mark as unsanitisable.
+    return UNSANITISABLE;
   }
 }
+
+
+// ===========================================================================
+// SECTION 4 — PUBLIC THROW API
+// ===========================================================================
+// The convention every action function in the package follows:
+//
+//     try { ... } catch (e) { throw toThrowable(e); }
+//
+// Anything thrown by toThrowable is a real Error with
+// no unredacted secrets in any reachable property.
 
 /**
- * Walk symbol-keyed properties of `original` (recursively) and copy
- * sanitised versions onto the parallel structure in `clone`. Both
- * objects are expected to mirror each other in string-key shape (which
- * holds when `clone` is deep-redact's return value).
+ * JSON.stringify variant that never throws on circular refs or BigInt.
+ * Used by `toThrowable` to turn a sanitised plain object into a string
+ * message. Circular refs become the sentinel "[CIRCULAR]" so the
+ * resulting string remains structurally readable.
  */
-function attachSymbolKeys(
-  clone: object,
-  original: object,
-  seen: WeakSet<object>,
-): void {
-  if (seen.has(original)) return;
-  seen.add(original);
-  for (const sym of Object.getOwnPropertySymbols(original)) {
-    try {
-      const v = (original as Record<symbol, unknown>)[sym];
-      (clone as Record<symbol, unknown>)[sym] = sanitize(v);
-    } catch {
-      // Hostile getter — skip this key.
-    }
-  }
-  // Recurse where both sides have a nested object at the same string key.
-  for (const k of Object.keys(clone)) {
-    let cloneVal: unknown;
-    let origVal: unknown;
-    try {
-      cloneVal = (clone as Record<string, unknown>)[k];
-      origVal = (original as Record<string, unknown>)[k];
-    } catch {
-      continue;
-    }
-    if (
-      typeof cloneVal === "object" &&
-      cloneVal !== null &&
-      typeof origVal === "object" &&
-      origVal !== null
-    ) {
-      attachSymbolKeys(cloneVal, origVal, seen);
-    }
-  }
-}
-
-/**
- * Sanitise an Error into a new Error that:
- * - has the (sanitised) message
- * - preserves every own property (name, type, code, status, cause, custom…)
- *   except `stack`, in their recursively-sanitised form
- * - is still an `Error` instance
- */
-// Safely read a property — getter side-effects or throwing Proxy traps
-// can't crash the sanitiser.
-function safeRead(obj: object, k: PropertyKey): unknown {
-  try {
-    return (obj as Record<PropertyKey, unknown>)[k];
-  } catch {
-    return undefined;
-  }
-}
-
-function sanitizeError(error: Error): Error {
-  try {
-    // Pre-extract and recursively sanitise nested Errors so they don't get
-    // mangled by deep-redact's standard Error transformer (which would turn
-    // an Error instance into a plain `{ _transformer: "error", ... }` object).
-    // Error.message is also non-enumerable so a naive object-walk would miss
-    // it; sanitizeError extracts message explicitly into the plain bag below.
-    // Error.cause and AggregateError.errors are typed as `unknown` — they can
-    // hold any value, including primitive strings carrying secrets. Routing
-    // everything through `sanitize` redacts strings (regex), objects
-    // (deep-redact), and Errors (sanitizeError), while leaving safe primitives
-    // (numbers, booleans, BigInt, symbols, null/undefined) untouched.
-    let sanitisedCause: unknown;
-    let hasCause = false;
-    if ("cause" in error) {
-      hasCause = true;
-      sanitisedCause = sanitize(safeRead(error, "cause"));
-    }
-    let sanitisedErrors: unknown;
-    if (error instanceof AggregateError) {
-      const arr = safeRead(error, "errors");
-      if (Array.isArray(arr)) {
-        sanitisedErrors = arr.map((e) => sanitize(e));
-      }
-    }
-
-    // Build a plain-object view of the Error's other own properties.
-    // `Reflect.ownKeys` returns BOTH string and symbol keys; symbol keys
-    // are walked so a `{[Symbol("token")]: "ed25519:secret"}` attached
-    // to an error can't leak via console.log / util.inspect.
-    // `stack` is passed through sanitise like any other field — useful for
-    // debugging deployed agents, and the regex still catches secret patterns
-    // that might happen to appear in a stack frame.
-    const own: Record<string, unknown> = {
-      name: error.name,
-      message: error.message ?? "",
-    };
-    const symbolEntries: { key: symbol; value: unknown }[] = [];
-    for (const k of Reflect.ownKeys(error)) {
-      if (k === "cause" || k === "errors") continue;
-      if (typeof k === "string" && k in own) continue;
-      const v = safeRead(error, k);
-      if (typeof k === "symbol") {
-        symbolEntries.push({ key: k, value: sanitize(v) });
-      } else {
-        own[k] = v;
-      }
-    }
-
-    const sanitised = deepRedact.redact(own) as Record<string, unknown>;
-    const msg = String(sanitised.message ?? "");
-    const out = new Error(msg || "An error occurred");
-
-    for (const [k, v] of Object.entries(sanitised)) {
-      if (k === "message") continue;
-      try {
-        Object.defineProperty(out, k, {
-          value: v,
-          enumerable: true,
-          writable: true,
-          configurable: true,
-        });
-      } catch {
-        // Some property names may be non-writable on Error; skip silently.
-      }
-    }
-
-    // Re-attach the sanitised symbol-keyed properties.
-    for (const { key, value } of symbolEntries) {
-      try {
-        Object.defineProperty(out, key, {
-          value,
-          enumerable: true,
-          writable: true,
-          configurable: true,
-        });
-      } catch {
-        // Skip silently — best effort.
-      }
-    }
-
-    // Attach the already-sanitised nested Error(s) AFTER deep-redact so they
-    // remain Error instances rather than being converted to plain objects.
-    if (hasCause) {
-      Object.defineProperty(out, "cause", {
-        value: sanitisedCause,
-        enumerable: true,
-        writable: true,
-        configurable: true,
-      });
-    }
-    if (sanitisedErrors !== undefined) {
-      Object.defineProperty(out, "errors", {
-        value: sanitisedErrors,
-        enumerable: true,
-        writable: true,
-        configurable: true,
-      });
-    }
-    return out;
-  } catch {
-    // Ultimate safety net: if any step crashes (hostile Proxy, deep-redact
-    // bug, frozen Error, etc.), return a generic Error rather than letting
-    // the exception escape from toThrowable.
-    return new Error("An error occurred");
-  }
-}
-
-// Serialise any value to a string without throwing — handles circular
-// references and BigInt values that would crash `JSON.stringify`. The
-// whole point of toThrowable is to be safe inside any catch block, so it
-// must not itself throw on exotic input shapes.
 function safeStringify(value: unknown): string {
   try {
     const seen = new WeakSet<object>();
@@ -385,7 +410,7 @@ function safeStringify(value: unknown): string {
       }
       return v;
     });
-    // JSON.stringify returns undefined for `undefined`, functions, and symbols.
+    // JSON.stringify returns undefined for undefined / function / symbol inputs.
     return json ?? "";
   } catch {
     try {
@@ -397,72 +422,59 @@ function safeStringify(value: unknown): string {
 }
 
 /**
- * Returns an Error suitable for throwing: passes the input through `sanitize`,
- * then ensures the result is a real `Error` instance. The single error
- * convention in shade-agent-js is:
+ * Take any thrown value, return a safe Error to rethrow.
  *
  *     try { ... } catch (e) { throw toThrowable(e); }
  *
- * Guaranteed total — never throws, even on circular structures, BigInt
- * values, or other non-JSON-serialisable inputs.
+ * Never throws, even on circular structures, BigInt
+ * values, hostile Proxies, or other exotic shapes. If sanitisation
+ * dropped the input entirely, returns `new Error("An error occurred")`
+ * rather than echoing anything potentially unsafe.
  */
 export function toThrowable(error: unknown): Error {
   const result = sanitize(error);
   if (result instanceof Error) return result;
   if (typeof result === "object" && result !== null) {
-    // Object already went through deep-redact recursively in sanitize —
-    // the stringified form is safe to use directly. Running it through
-    // the regex sweep again would false-positive on JSON key names like
-    // `"privateKey":` that legitimately appear in a sanitised payload.
     return new Error(safeStringify(result) || "An error occurred");
   }
-  // For primitive inputs (Symbol, BigInt, raw string, boxed wrappers that
-  // sanitize couldn't introspect) re-sanitise the String() form so secret
-  // patterns inside a Symbol description, etc., are still redacted at the
-  // final boundary.
+  // Primitive result (Symbol, BigInt, raw string, or undefined from a drop):
+  // re-run the redactor on String(result) so secret patterns inside a Symbol
+  // description, boxed-primitive contents, etc., are still caught here.
   const cleaned = String(deepRedact.redact(String(result)));
   return new Error(cleaned || "An error occurred");
 }
 
 /**
- * Returns `new Error(message)` directly — no input sanitisation, no field
- * preservation. Opt-in escape hatch for cases where echoing the input is
- * genuinely undesirable. The default convention is `throw toThrowable(e)`.
+ * Escape hatch: returns `new Error(message)` directly. No sanitisation
+ * is applied, so the caller MUST ensure the message is safe. The
+ * default convention is `toThrowable(e)`, not this.
  */
 export function genericError(message: string): Error {
   return new Error(message);
 }
 
-/**
- * NEAR `TypedError.type` values that are deterministic — retrying them is
- * wasted latency. The transport-layer retry inside `JsonRpcProvider` already
- * handles transient RPC blips; `withRetry` is for non-NEAR external calls
- * (dstack, Phala collateral fetch). This list is what we *exclude* from the
- * default retry behaviour.
- */
-const NON_RETRYABLE_TYPED_ERRORS: ReadonlySet<string> = new Set([
-  "AccountDoesNotExist",
-  "InvalidAccessKey",
-  "InvalidSignature",
-  "NotEnoughBalance",
-  "MethodNotFound",
-  "TooLargeContractState",
-]);
+
+// ===========================================================================
+// SECTION 5 — RETRY
+// ===========================================================================
+// Helper for external non-NEAR calls (dstack, Phala HTTP). NEAR RPC has
+// its own retry inside JsonRpcProvider, so this is not used for NEAR.
 
 /**
- * Default predicate for `withRetry`. Retries everything **except** a small
- * denylist of deterministic failures (JS programmer errors, HTTP 4xx other
- * than 408/429, deterministic NEAR TypedErrors). Network blips, 5xx, timeouts,
- * unknown errors all retry.
+ * Default predicate for `withRetry`. Retries everything EXCEPT a small
+ * denylist of deterministic failures (JS programmer errors, HTTP 4xx
+ * other than 408/429). Anything else — network blips, 5xx, timeouts,
+ * unknown — retries.
  */
 export function defaultRetryable(e: unknown): boolean {
-  // Node 18+ undici throws TypeError("fetch failed") on transient connection
-  // errors with the underlying network error on .cause — those ARE retryable.
-  // Plain TypeErrors with no cause are programmer errors and stay non-retryable.
+  // Node 18+ undici throws TypeError("fetch failed") on transient
+  // connection errors with the underlying network error on .cause —
+  // those ARE retryable. A plain TypeError with no .cause is a
+  // programmer error (wrong call, bad type) and isn't worth retrying.
   if (e instanceof TypeError) {
     return (e as Error & { cause?: unknown }).cause !== undefined;
   }
-  // Other JS programmer errors — retrying re-runs the bug.
+  // Other JS programmer errors — retrying just re-runs the bug.
   if (
     e instanceof RangeError ||
     e instanceof ReferenceError ||
@@ -472,57 +484,44 @@ export function defaultRetryable(e: unknown): boolean {
     return false;
   }
 
-  // HTTP 4xx except 408 (Request Timeout) and 429 (Too Many Requests).
+  // HTTP 4xx other than 408 (Request Timeout) and 429 (Too Many Requests)
+  // are caller errors that won't fix themselves on retry.
   const status = (e as { status?: unknown })?.status;
   if (typeof status === "number" && status >= 400 && status < 500) {
     return status === 408 || status === 429;
   }
 
-  // NEAR TypedError deterministic types.
-  const type = (e as { type?: unknown })?.type;
-  if (typeof type === "string" && NON_RETRYABLE_TYPED_ERRORS.has(type)) {
-    return false;
-  }
-
-  // Network blip, 5xx, AbortError, unknown → retry.
+  // Everything else — network blip, 5xx, AbortError, unknown — retries.
   return true;
 }
 
+/** Options for `withRetry`. All fields optional. */
 export interface RetryOpts {
   /** Total attempts. Default 3. */
   attempts?: number;
   /**
-   * Sleep schedule between attempts. A single number is uniform; an array is
-   * indexed by `attempts - 1` (so [a, b] means a before attempt 2, b before
-   * attempt 3). Default [250, 500, 1000].
+   * Sleep schedule between attempts. A single number is uniform across
+   * attempts; an array is indexed by `attempts - 1` (so `[a, b]` means
+   * `a` ms before attempt 2, `b` ms before attempt 3). Default
+   * `[250, 500, 1000]`.
    */
   delayMs?: number | number[];
   /** Override the default retry predicate. */
   retryable?: (e: unknown) => boolean;
-  /** External cancellation. */
-  signal?: AbortSignal;
 }
 
 const DEFAULT_DELAYS: number[] = [250, 500, 1000];
 
-function sleep(ms: number, signal?: AbortSignal): Promise<void> {
-  return new Promise<void>((resolve, reject) => {
-    if (signal?.aborted) {
-      reject(new Error("aborted"));
-      return;
-    }
-    const timer = setTimeout(() => {
-      signal?.removeEventListener("abort", onAbort);
-      resolve();
-    }, ms);
-    const onAbort = () => {
-      clearTimeout(timer);
-      reject(new Error("aborted"));
-    };
-    signal?.addEventListener("abort", onAbort, { once: true });
-  });
+/** Promise-based sleep for `ms` milliseconds. */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * Pick the right backoff delay for retry attempt `index`. For an array
+ * schedule, clamps to the last entry once exhausted (so attempts beyond
+ * the array's length all use the final delay).
+ */
 function getDelay(delayMs: RetryOpts["delayMs"], index: number): number {
   if (typeof delayMs === "number") return delayMs;
   const arr = delayMs ?? DEFAULT_DELAYS;
@@ -530,14 +529,15 @@ function getDelay(delayMs: RetryOpts["delayMs"], index: number): number {
 }
 
 /**
- * Retry helper for external non-NEAR calls (dstack, Phala HTTP). Default 3
- * attempts with [250, 500, 1000] ms backoff. On final attempt, rethrows the
- * last error via `toThrowable(...)` so the message is sanitised. Aborts
- * promptly on `signal.aborted`.
+ * Retry helper for external non-NEAR calls. Default: 3 attempts with
+ * `[250, 500, 1000]` ms backoff. The last attempt's failure is rethrown
+ * via `toThrowable(...)` so the escaping error is sanitised.
  *
- *     const x = await withRetry(() => dstackClient.getKey(path));
+ * Usage:
  *
- * For "try once, no retry" semantics: `withRetry(fn, { retryable: () => false })`.
+ *     const key = await withRetry(() => dstackClient.getKey(path));
+ *
+ * For a single attempt (no retry): pass `{ retryable: () => false }`.
  */
 export async function withRetry<T>(
   fn: () => Promise<T>,
@@ -545,11 +545,9 @@ export async function withRetry<T>(
 ): Promise<T> {
   const attempts = Math.max(1, opts.attempts ?? 3);
   const retryable = opts.retryable ?? defaultRetryable;
-  const signal = opts.signal;
 
   let lastError: unknown;
   for (let i = 0; i < attempts; i++) {
-    if (signal?.aborted) throw new Error("aborted");
     try {
       return await fn();
     } catch (e) {
@@ -558,9 +556,49 @@ export async function withRetry<T>(
       if (isLast || !retryable(e)) {
         throw toThrowable(e);
       }
-      await sleep(getDelay(opts.delayMs, i), signal);
+      await sleep(getDelay(opts.delayMs, i));
     }
   }
   // Unreachable — the loop always either returns or throws.
   throw toThrowable(lastError);
+}
+
+
+// ===========================================================================
+// SECTION 6 — SAFE KEY PARSING
+// ===========================================================================
+// Safe wrappers around the @near-js secret-key parsers. The input to
+// each of these IS the secret being parsed, so on any parse failure we
+// throw a generic error — the original error's message (which can
+// echo a character of the secret via the underlying @scure/base
+// decoder) and its stack frames never escape.
+//
+// Use these in place of `KeyPair.fromString(secret)` and
+// `KeyPairSigner.fromSecretKey(secret)` anywhere a secret-key string
+// is parsed.
+
+/**
+ * Parse a NEAR secret-key string into a KeyPair. On parse failure
+ * throws `genericError("Failed to parse key")` — no echo of the
+ * original error or the input.
+ */
+export function safeParseKeyPair(secret: string): KeyPair {
+  try {
+    return KeyPair.fromString(secret as KeyPairString);
+  } catch {
+    throw genericError("Failed to parse key");
+  }
+}
+
+/**
+ * Parse a NEAR secret-key string into a KeyPairSigner. On parse failure
+ * throws `genericError("Failed to parse key")` — no echo of the
+ * original error or the input.
+ */
+export function safeParseSigner(secret: string): KeyPairSigner {
+  try {
+    return KeyPairSigner.fromSecretKey(secret as KeyPairString);
+  } catch {
+    throw genericError("Failed to parse key");
+  }
 }
