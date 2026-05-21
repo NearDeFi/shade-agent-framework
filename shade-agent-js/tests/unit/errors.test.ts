@@ -183,6 +183,7 @@ describe("errors utils", () => {
 
   describe("sanitize - new field-name redactions", () => {
     it.each([
+      // Crypto / wallet
       "extendedSecretKey",
       "mnemonic",
       "mnemonicPhrase",
@@ -203,6 +204,31 @@ describe("errors utils", () => {
       "keyPair",
       "agentPrivateKey",
       "agentPrivateKeys",
+      // API / OAuth / generic auth credentials
+      "apiKey",
+      "api_key",
+      "apiSecret",
+      "api_secret",
+      "accessToken",
+      "access_token",
+      "refreshToken",
+      "refresh_token",
+      "bearerToken",
+      "bearer_token",
+      "authToken",
+      "auth_token",
+      "token",
+      "clientSecret",
+      "client_secret",
+      "sessionToken",
+      "session_token",
+      "webhookSecret",
+      "webhook_secret",
+      "authorization",
+      "cookie",
+      "password",
+      "passwd",
+      "passphrase",
     ])("redacts %s by field name regardless of value shape", (fieldName) => {
       const result = sanitize({
         accountId: "alice.testnet",
@@ -266,6 +292,31 @@ describe("errors utils", () => {
       const result = sanitize(`key ${wif} loaded`) as string;
       expect(result).not.toContain("ZZTESTSECRETwif");
       expect(result).toContain("[REDACTED]");
+    });
+
+    it("redacts JWTs (three-segment base64url with eyJ prefix)", () => {
+      // Synthetic but structurally-valid JWT — header.payload.signature.
+      const jwt =
+        "eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJaWlRFU1RTRUNSRVRKV1QifQ.AAAA-ZZTESTSECRETJWTSIG";
+      const result = sanitize(`Auth failed for token ${jwt}`) as string;
+      expect(result).not.toContain("ZZTESTSECRETJWT");
+      expect(result).toContain("[REDACTED]");
+    });
+
+    it("redacts HTTP Authorization Bearer credentials, keeping the scheme", () => {
+      const result = sanitize(
+        "headers: { Authorization: Bearer ZZTESTSECRETBEARERZZ }",
+      ) as string;
+      expect(result).not.toContain("ZZTESTSECRETBEARER");
+      expect(result).toContain("Bearer [REDACTED]");
+    });
+
+    it("redacts HTTP Authorization Basic credentials", () => {
+      const result = sanitize(
+        "request failed: Basic ZZTESTSECRETBASICZZ==",
+      ) as string;
+      expect(result).not.toContain("ZZTESTSECRETBASIC");
+      expect(result).toContain("Basic [REDACTED]");
     });
   });
 

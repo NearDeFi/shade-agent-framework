@@ -64,12 +64,11 @@ beforeEach(() => {
 });
 
 async function expectThrows(fn: () => Promise<unknown> | unknown): Promise<void> {
-  try {
-    await fn();
-    throw new Error("expected throw");
-  } catch {
-    /* swallow — we just want to ensure the function rejected */
-  }
+  // Wrap in `Promise.resolve().then(fn)` so that synchronous throws,
+  // synchronous returns of rejected promises, and async rejections
+  // all surface uniformly as a rejection on the wrapping promise.
+  // `rejects.toBeDefined()` then fails if `fn` resolved successfully.
+  await expect(Promise.resolve().then(fn)).rejects.toBeDefined();
 }
 
 describe("redaction: each wrapped function routes errors through toThrowable", () => {

@@ -248,3 +248,5 @@ addSensitive({
   ],
 });
 ```
+
+You can see a list of default keys and patterns that are redacted [here](../../shade-agent-js/src/utils/errors.ts#L54-L182).

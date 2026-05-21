@@ -12,10 +12,10 @@
  * `toThrowable` boundary, which must return a real Error — there it
  * falls back to a generic "An error occurred" message.
  *
- * File layout — five sections, top to bottom:
+ * File layout — six sections, top to bottom:
  *   1. Redaction policy   — which field names + value patterns count as secrets.
  *   2. Redactor engine    — the mutable deep-redact instance + extension API.
- *   3. Sanitiser          — walks any value, redacts secrets, drops on failure.
+ *   3. Sanitiser          — walks any value, redacts secrets, marks unsanitisables.
  *   4. Public throw API   — toThrowable + genericError.
  *   5. Retry              — defaultRetryable + withRetry + helpers.
  *   6. Safe key parsing   — safeParseKeyPair / safeParseSigner.
@@ -81,6 +81,32 @@ const SHADE_REDACT_KEYS: string[] = [
   "master_key",
   // Encrypted keystores
   "keystore",
+  // API / OAuth / generic auth credentials
+  "apiKey",
+  "api_key",
+  "apiSecret",
+  "api_secret",
+  "accessToken",
+  "access_token",
+  "refreshToken",
+  "refresh_token",
+  "bearerToken",
+  "bearer_token",
+  "authToken",
+  "auth_token",
+  "token",
+  "clientSecret",
+  "client_secret",
+  "sessionToken",
+  "session_token",
+  "webhookSecret",
+  "webhook_secret",
+  "authorization", // HTTP Authorization header field
+  "cookie", // session cookies / auth cookies
+  // Passwords
+  "password",
+  "passwd",
+  "passphrase",
 ];
 
 /** Shape of a value-pattern entry: a regex to test, plus a replacer function. */
@@ -130,6 +156,28 @@ const SHADE_REDACT_PATTERNS: StringTest[] = [
   {
     pattern: /\b[5KL][1-9A-HJ-NP-Za-km-z]{50,51}\b/,
     replacer: () => REDACTED,
+  },
+  // JSON Web Tokens (RFC 7519). Three base64url segments separated by
+  // dots; first two start with "eyJ" (base64 of `{"`). Very specific
+  // shape, near-zero false-positive risk.
+  {
+    pattern: /\beyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/,
+    replacer: (v) =>
+      v.replace(
+        /\beyJ[A-Za-z0-9_-]+\.eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\b/g,
+        REDACTED,
+      ),
+  },
+  // HTTP Authorization header (RFC 6750/7235): "Bearer ...", "Basic ...",
+  // "Token ...". Common when a library attaches request headers to an
+  // error. Replaces just the credential, preserves the scheme.
+  {
+    pattern: /\b(?:Bearer|Basic|Token)\s+[A-Za-z0-9_.\-+/=]+/i,
+    replacer: (v) =>
+      v.replace(
+        /\b(Bearer|Basic|Token)\s+[A-Za-z0-9_.\-+/=]+/gi,
+        `$1 ${REDACTED}`,
+      ),
   },
 ];
 
@@ -200,11 +248,14 @@ export function addSensitive(opts: {
 // ===========================================================================
 // SECTION 3 — SANITISER
 // ===========================================================================
-// Walks any value, redacts secrets via deep-redact, and DROPS anything
-// that can't be safely processed. The drop rule is uniform: a hostile
-// getter, a throwing Proxy, a recursive structure deep-redact can't
-// handle — every such case results in the offending field/property
-// being omitted from the output rather than replaced with a placeholder.
+// Walks any value, redacts secrets via deep-redact, and marks anything
+// it can't safely process with the [unsanitisable] placeholder. The
+// rule is uniform: a hostile getter, a throwing Proxy, a recursive
+// structure deep-redact can't handle — every such case results in the
+// offending field being replaced with [unsanitisable] so operators
+// see that something was there but the unsanitised original never
+// propagates. Symbol-keyed properties are an exception: dropped
+// entirely (the dependency-tree audit found no library uses them).
 
 /**
  * Sanitise an Error into a fresh Error instance.
