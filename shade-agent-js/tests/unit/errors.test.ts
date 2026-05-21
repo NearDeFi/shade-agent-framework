@@ -439,6 +439,30 @@ describe("errors utils", () => {
       expect(out.requestId).toBe("req-123");
       expect(out.meta).toEqual({ context: "deploy-flow" });
     });
+
+    it("redacts custom fields by field name on an Error", () => {
+      const e = Object.assign(new Error("auth failed"), {
+        apiKey: "ZZTESTSECRETAPIKEYZZ",
+        accountId: "alice.testnet",
+      });
+      const out = toThrowable(e) as Error & {
+        apiKey?: unknown;
+        accountId?: string;
+      };
+      // Field-name match fires regardless of value shape.
+      expect(out.apiKey).toBe("[REDACTED]");
+      expect(out.accountId).toBe("alice.testnet");
+    });
+
+    it("redacts custom field values by pattern on an Error", () => {
+      const e = Object.assign(new Error("auth failed"), {
+        details: "tried ed25519:ZZTESTSECRETCUSTOMFIELDZZ for signing",
+      });
+      const out = toThrowable(e) as Error & { details?: string };
+      // Value-pattern match fires on a benignly-named field.
+      expect(out.details).not.toContain("ZZTESTSECRETCUSTOMFIELD");
+      expect(out.details).toContain("[REDACTED]");
+    });
   });
 
   describe("genericError", () => {
@@ -459,12 +483,17 @@ describe("errors utils", () => {
     });
 
     it("extends key blacklist at runtime", () => {
-      addSensitive({ keys: ["bearerToken"] });
-      const result = sanitize({ bearerToken: "Bearer xyz" }) as Record<
-        string,
-        unknown
-      >;
-      expect(result.bearerToken).toBe("[REDACTED]");
+      // Use a deliberately app-specific key name that will never end up
+      // in the default redact list — otherwise this test would pass for
+      // the wrong reason (via the default list rather than via the
+      // runtime extension we're trying to verify).
+      addSensitive({ keys: ["ZZTESTAPPSPECIFICKEYZZ"] });
+      const result = sanitize({
+        ZZTESTAPPSPECIFICKEYZZ: "any-value-shape",
+        accountId: "alice.testnet",
+      }) as Record<string, unknown>;
+      expect(result.ZZTESTAPPSPECIFICKEYZZ).toBe("[REDACTED]");
+      expect(result.accountId).toBe("alice.testnet");
     });
 
     it("extends pattern list at runtime", () => {
