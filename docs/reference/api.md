@@ -233,8 +233,7 @@ try {
 
 ### addSensitive
 
-Extends `sanitize` / `toThrowable` at runtime with additional field
-names and/or value patterns.
+Extends `sanitize` / `toThrowable` at runtime with additional field names and/or value patterns. For example, if you are using OpenAI API keys you may want to add a pattern that redacts any "sk-" strings.
 
 ```ts
 import { addSensitive } from "@neardefi/shade-agent-js";

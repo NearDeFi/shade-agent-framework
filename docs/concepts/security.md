@@ -60,6 +60,8 @@ The attestation verification process iterates over all approved measurements and
 
 By default, the Shade Agent CLI allows you to deploy the agent with **public logs** enabled. You should not emit any sensitive information in the logs when this is enabled. You can turn off public logs in the deployment.yaml.
 
+If using public logs or even private logs you should ensure functions do not emit any secrets by accident. To avoid this you should audit libraries and APIs you interact with to check they can't leak secrets and use the [utilities](../reference/api.md#utilities) provided by shade-agent-js to try to capture any secrets.
+
 ---
 
 ## Storing Agent Keys
