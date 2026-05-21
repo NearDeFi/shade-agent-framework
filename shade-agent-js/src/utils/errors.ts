@@ -57,9 +57,9 @@ const SHADE_REDACT_KEYS: string[] = [
   "private_key",
   "secretKey",
   "secret_key",
-  "extendedSecretKey", // @near-js KeyPair public field
-  "signer", // @near-js Account.signer
-  "key", // @near-js KeyPairSigner.key
+  "extendedSecretKey",
+  "signer", 
+  "key", 
   "keyPair",
   "agentPrivateKey",
   "agentPrivateKeys",
@@ -101,8 +101,8 @@ const SHADE_REDACT_KEYS: string[] = [
   "session_token",
   "webhookSecret",
   "webhook_secret",
-  "authorization", // HTTP Authorization header field
-  "cookie", // session cookies / auth cookies
+  "authorization",
+  "cookie", 
   // Passwords
   "password",
   "passwd",
@@ -144,17 +144,6 @@ const SHADE_REDACT_PATTERNS: StringTest[] = [
   {
     pattern:
       /-----BEGIN[\s\S]*?PRIVATE KEY-----[\s\S]*?-----END[\s\S]*?PRIVATE KEY-----/,
-    replacer: () => REDACTED,
-  },
-  // BIP32 extended private keys: xprv (mainnet), tprv (testnet),
-  // yprv (BIP49), zprv (BIP84), vprv (BIP86), plus uppercase multisig variants.
-  {
-    pattern: /\b[xytzuvXYZTUV]prv[1-9A-HJ-NP-Za-km-z]{50,108}\b/,
-    replacer: () => REDACTED,
-  },
-  // Bitcoin WIF: `5` / `K` / `L` prefix + 50–51 base58 chars.
-  {
-    pattern: /\b[5KL][1-9A-HJ-NP-Za-km-z]{50,51}\b/,
     replacer: () => REDACTED,
   },
   // JSON Web Tokens (RFC 7519). Three base64url segments separated by

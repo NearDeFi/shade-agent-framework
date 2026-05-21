@@ -269,31 +269,6 @@ describe("errors utils", () => {
       expect(result).toContain("[REDACTED]");
     });
 
-    // Representative variants — xprv (BIP32 mainnet baseline), zprv (BIP84,
-    // the previously-broken variant), Vprv (uppercase / multisig). If the
-    // character class regresses on a single letter, one of these catches it.
-    it.each([
-      ["xprv", "x"],
-      ["zprv", "z"],
-      ["Vprv", "V"],
-    ])("redacts BIP32 extended private keys (%s variant)", (variant, prefix) => {
-      const extended =
-        prefix +
-        "prv9s21ZrQH143K3ZZTESTSECRET" +
-        variant +
-        "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
-      const result = sanitize(`got ${extended} from store`) as string;
-      expect(result).not.toContain("ZZTESTSECRET");
-      expect(result).toContain("[REDACTED]");
-    });
-
-    it("redacts Bitcoin WIF", () => {
-      const wif = "5HwLs2ZZTESTSECRETwifxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx";
-      const result = sanitize(`key ${wif} loaded`) as string;
-      expect(result).not.toContain("ZZTESTSECRETwif");
-      expect(result).toContain("[REDACTED]");
-    });
-
     it("redacts JWTs (three-segment base64url with eyJ prefix)", () => {
       // Synthetic but structurally-valid JWT — header.payload.signature.
       const jwt =
