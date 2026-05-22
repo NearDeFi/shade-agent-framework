@@ -63,12 +63,13 @@ const SHADE_REDACT_KEYS: string[] = [
   "keyPair",
   "agentPrivateKey",
   "agentPrivateKeys",
-  // BIP39 / mnemonics
+  // BIP39 / mnemonics / entropy
   "mnemonic",
   "mnemonicPhrase",
   "seedPhrase",
   "seed_phrase",
   "seed",
+  "entropy",
   // ethers / EVM internals
   "signingKey",
   "signing_key",

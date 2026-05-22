@@ -190,6 +190,7 @@ describe("errors utils", () => {
       "seedPhrase",
       "seed_phrase",
       "seed",
+      "entropy",
       "signingKey",
       "signing_key",
       "_signingKey",
