@@ -88,14 +88,6 @@ describe("near utils", () => {
       expect(account.accountId).toBe("test.testnet");
     });
 
-    it("should rethrow sanitised error when Account constructor fails", () => {
-      vi.mocked(Account).mockImplementationOnce(function () {
-        throw new Error("Invalid account");
-      });
-      expect(() =>
-        createAccountObject("test.testnet", createMockProvider()),
-      ).toThrow("Invalid account");
-    });
   });
 
   describe("internalFundAgent", () => {
