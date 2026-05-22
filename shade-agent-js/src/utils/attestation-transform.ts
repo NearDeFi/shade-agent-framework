@@ -3,7 +3,7 @@ import type {
   TcbInfoV05x as DstackTcbInfo,
   EventLog as DstackEventLog,
 } from "@phala/dstack-sdk";
-import { genericError, toThrowable } from "./errors";
+import { toThrowable } from "./errors";
 
 // Raw collateral response from the endpoint
 interface RawCollateral {
@@ -25,8 +25,8 @@ function hexToBytes(hexStr: string | undefined): number[] {
   }
   try {
     return Array.from(Buffer.from(hexStr, "hex"));
-  } catch {
-    throw genericError("Failed to decode hex string");
+  } catch (error) {
+    throw toThrowable(error);
   }
 }
 

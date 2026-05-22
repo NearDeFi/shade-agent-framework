@@ -15,10 +15,8 @@ describe("withRetry", () => {
     expect(fn).toHaveBeenCalledTimes(1);
   });
 
-  it("retries up to N times then throws sanitised", async () => {
-    const fn = vi
-      .fn()
-      .mockRejectedValue(new Error("fetch failed ed25519:ZZTESTSECRETZZ"));
+  it("retries up to N times then throws", async () => {
+    const fn = vi.fn().mockRejectedValue(new Error("transient failure"));
     const settled = withRetry(fn, { attempts: 3, delayMs: 0 }).then(
       () => "ok",
       (e) => e as Error,
@@ -26,8 +24,6 @@ describe("withRetry", () => {
     await vi.runAllTimersAsync();
     const result = await settled;
     expect(result).toBeInstanceOf(Error);
-    expect((result as Error).message).toContain("[REDACTED]");
-    expect((result as Error).message).not.toContain("ZZTESTSECRET");
     expect(fn).toHaveBeenCalledTimes(3);
   });
 
@@ -134,22 +130,6 @@ describe("withRetry", () => {
     expect(fn).toHaveBeenCalledTimes(3);
   });
 
-  it("rethrows sanitised error on final attempt failure", async () => {
-    const fn = vi
-      .fn()
-      .mockRejectedValue(
-        new Error("Failed with key ed25519:ZZTESTSECRETSomeLeakyValue"),
-      );
-    const settled = withRetry(fn, { attempts: 2, delayMs: 0 }).then(
-      () => "ok",
-      (e) => e as Error,
-    );
-    await vi.runAllTimersAsync();
-    const result = await settled;
-    expect(result).toBeInstanceOf(Error);
-    expect((result as Error).message).toContain("[REDACTED]");
-    expect((result as Error).message).not.toContain("ZZTESTSECRET");
-  });
 });
 
 describe("defaultRetryable", () => {

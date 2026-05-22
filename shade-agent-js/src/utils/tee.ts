@@ -121,9 +121,7 @@ export async function internalGetAttestation(
     // Transform quote from hex string to bytes array.
     const quote = transformQuote(quote_hex);
 
-    // Get quote collateral from Phala endpoint. Wrapped in withRetry so a
-    // transient 5xx / 429 / network blip retries; the retryable predicate
-    // discriminates on err.status (set on non-OK throws below).
+    // Get quote collateral from Phala endpoint.
     const formData = new FormData();
     formData.append("hex", quote_hex.replace(/^0x/, ""));
     const collateralUrl =
@@ -141,8 +139,6 @@ export async function internalGetAttestation(
         });
 
         if (!response.ok) {
-          // Carry the HTTP status on the thrown error so withRetry's default
-          // retryable predicate matches 5xx and 429 but lets 4xx fail fast.
           throw Object.assign(new Error("Failed to get quote collateral"), {
             status: response.status,
           });

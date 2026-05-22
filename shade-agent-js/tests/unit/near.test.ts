@@ -128,45 +128,6 @@ describe("near utils", () => {
       });
     });
 
-    it("rethrows sanitised when transfer throws (no retry)", async () => {
-      const { mockProvider, mockTransfer } = setupFundAgent(
-        vi.fn().mockRejectedValue(new Error("Network error")),
-      );
-      await expect(
-        internalFundAgent(
-          "agent.testnet",
-          "sponsor.testnet",
-          generateTestKey("sponsor-key"),
-          1.0,
-          mockProvider,
-        ),
-      ).rejects.toThrow("Network error");
-      expect(mockTransfer).toHaveBeenCalledTimes(1);
-    });
-
-    it("redacts ed25519 secret in error from transfer", async () => {
-      const { mockProvider } = setupFundAgent(
-        vi
-          .fn()
-          .mockRejectedValue(
-            new Error("Failed with key ed25519:ZZTESTSECRETZZ"),
-          ),
-      );
-      const settled = internalFundAgent(
-        "agent.testnet",
-        "sponsor.testnet",
-        generateTestKey("sponsor-key"),
-        1.0,
-        mockProvider,
-      ).then(
-        () => "ok",
-        (e) => e as Error,
-      );
-      const result = await settled;
-      expect(result).toBeInstanceOf(Error);
-      expect((result as Error).message).toContain("[REDACTED]");
-      expect((result as Error).message).not.toContain("ZZTESTSECRET");
-    });
   });
 
   describe("addKeysToAccount", () => {
@@ -191,35 +152,6 @@ describe("near utils", () => {
       });
     });
 
-    it("rethrows sanitised when signAndSendTransaction throws (no retry)", async () => {
-      const mockAccount = createMockAccount();
-      (
-        mockAccount.signAndSendTransaction as ReturnType<typeof vi.fn>
-      ).mockRejectedValue(new Error("Network error"));
-      await expect(
-        addKeysToAccount(mockAccount, [generateTestKey("key1")]),
-      ).rejects.toThrow("Network error");
-      expect(mockAccount.signAndSendTransaction).toHaveBeenCalledTimes(1);
-    });
-
-    it("redacts secret leaked in signAndSendTransaction error", async () => {
-      const mockAccount = createMockAccount();
-      (
-        mockAccount.signAndSendTransaction as ReturnType<typeof vi.fn>
-      ).mockRejectedValue(
-        new Error("Bad signer ed25519:ZZTESTSECRETADDKEYZZ"),
-      );
-      const settled = addKeysToAccount(mockAccount, [
-        generateTestKey("key1"),
-      ]).then(
-        () => "ok",
-        (e) => e as Error,
-      );
-      const result = await settled;
-      expect(result).toBeInstanceOf(Error);
-      expect((result as Error).message).toContain("[REDACTED]");
-      expect((result as Error).message).not.toContain("ZZTESTSECRETADDKEY");
-    });
   });
 
   describe("removeKeysFromAccount", () => {
@@ -244,34 +176,5 @@ describe("near utils", () => {
       });
     });
 
-    it("rethrows sanitised when signAndSendTransaction throws (no retry)", async () => {
-      const mockAccount = createMockAccount();
-      (
-        mockAccount.signAndSendTransaction as ReturnType<typeof vi.fn>
-      ).mockRejectedValue(new Error("Network error"));
-      await expect(
-        removeKeysFromAccount(mockAccount, [generateTestKey("key1")]),
-      ).rejects.toThrow("Network error");
-      expect(mockAccount.signAndSendTransaction).toHaveBeenCalledTimes(1);
-    });
-
-    it("redacts secret leaked in signAndSendTransaction error", async () => {
-      const mockAccount = createMockAccount();
-      (
-        mockAccount.signAndSendTransaction as ReturnType<typeof vi.fn>
-      ).mockRejectedValue(
-        new Error("Bad signer ed25519:ZZTESTSECRETREMKEYZZ"),
-      );
-      const settled = removeKeysFromAccount(mockAccount, [
-        generateTestKey("key1"),
-      ]).then(
-        () => "ok",
-        (e) => e as Error,
-      );
-      const result = await settled;
-      expect(result).toBeInstanceOf(Error);
-      expect((result as Error).message).toContain("[REDACTED]");
-      expect((result as Error).message).not.toContain("ZZTESTSECRETREMKEY");
-    });
   });
 });

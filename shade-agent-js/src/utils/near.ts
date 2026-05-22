@@ -43,9 +43,6 @@ export function createAccountObject(
 }
 
 // Transfers NEAR tokens from sponsor account to agent account.
-// `account.transfer(...)` already throws on `status.Failure` (it uses
-// `signAndSendTransaction({ throwOnFailure: true })` internally), so no
-// manual outcome inspection or retry loop is needed.
 export async function internalFundAgent(
   agentAccountId: string,
   sponsorAccountId: string,
@@ -67,7 +64,6 @@ export async function internalFundAgent(
 }
 
 // Adds multiple keys to the agent account in one transaction.
-// Uses `account.signAndSendTransaction` which throws on `status.Failure`.
 export async function addKeysToAccount(
   account: Account,
   secrets: string[],
