@@ -139,9 +139,13 @@ export async function internalGetAttestation(
         });
 
         if (!response.ok) {
-          throw Object.assign(new Error("Failed to get quote collateral"), {
-            status: response.status,
-          });
+          const body = (await response.text().catch(() => "")).slice(0, 500);
+          throw Object.assign(
+            new Error(
+              `Failed to fetch quote collateral from Phala (HTTP ${response.status} ${response.statusText})${body ? `: ${body}` : ""}`,
+            ),
+            { status: response.status },
+          );
         }
 
         const resHelper = (await response.json()) as QuoteCollateralResponse;

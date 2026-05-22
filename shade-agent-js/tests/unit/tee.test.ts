@@ -196,8 +196,17 @@ describe("tee utils", () => {
 
     it("should rethrow with err.status set when fetch returns non-ok", async () => {
       const mockClient = createMockDstackClient();
-      for (const status of [404, 500, 503]) {
-        mockFetch.mockResolvedValue({ ok: false, status });
+      for (const [status, statusText, body] of [
+        [404, "Not Found", "not found"],
+        [500, "Internal Server Error", "server error"],
+        [503, "Service Unavailable", ""],
+      ] as const) {
+        mockFetch.mockResolvedValue({
+          ok: false,
+          status,
+          statusText,
+          text: vi.fn().mockResolvedValue(body),
+        });
         const settled = internalGetAttestation(
           mockClient,
           "agent.testnet",
@@ -208,7 +217,12 @@ describe("tee utils", () => {
         );
         const result = await settled;
         expect(result).toBeInstanceOf(Error);
-        expect((result as Error).message).toBe("Failed to get quote collateral");
+        expect((result as Error).message).toContain(
+          `Failed to fetch quote collateral from Phala (HTTP ${status} ${statusText})`,
+        );
+        if (body) {
+          expect((result as Error).message).toContain(body);
+        }
         // The reshaped throw carries `.status` so withRetry's predicate can dispatch.
         expect((result as Error & { status?: number }).status).toBe(status);
         mockFetch.mockClear();
