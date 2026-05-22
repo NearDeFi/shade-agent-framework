@@ -80,14 +80,14 @@ describe("agent utils", () => {
       expect(dstackClient.getKey).toHaveBeenCalled();
     });
 
-    it("should throw generic error when TEE getKey fails", async () => {
+    it("should rethrow sanitised when TEE getKey fails", async () => {
       const dstackClient = createMockDstackClient();
       vi.mocked(dstackClient.getKey).mockRejectedValue(
         new Error("TEE unavailable"),
       );
 
       await expect(generateAgent(dstackClient, undefined)).rejects.toThrow(
-        "Failed to create agent",
+        "TEE unavailable",
       );
     });
   });

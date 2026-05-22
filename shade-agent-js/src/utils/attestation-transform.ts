@@ -3,6 +3,7 @@ import type {
   TcbInfoV05x as DstackTcbInfo,
   EventLog as DstackEventLog,
 } from "@phala/dstack-sdk";
+import { toThrowable } from "./errors";
 
 // Raw collateral response from the endpoint
 interface RawCollateral {
@@ -24,8 +25,8 @@ function hexToBytes(hexStr: string | undefined): number[] {
   }
   try {
     return Array.from(Buffer.from(hexStr, "hex"));
-  } catch {
-    throw new Error("Failed to decode hex string");
+  } catch (error) {
+    throw toThrowable(error);
   }
 }
 
@@ -39,47 +40,59 @@ function bytesToHex(bytes: number[]): string {
 
 // Transforms a quote from hex string to bytes array
 export function transformQuote(quoteHex: string): number[] {
-  const cleanedHex = quoteHex.replace(/^0x/, "");
-  return Array.from(Buffer.from(cleanedHex, "hex"));
+  try {
+    const cleanedHex = quoteHex.replace(/^0x/, "");
+    return Array.from(Buffer.from(cleanedHex, "hex"));
+  } catch (error) {
+    throw toThrowable(error);
+  }
 }
 
 // Transforms raw collateral response from the endpoint to Collateral structure
 export function transformCollateral(rawCollateral: RawCollateral): Collateral {
-  return {
-    pck_crl_issuer_chain: rawCollateral.pck_crl_issuer_chain || "",
-    root_ca_crl: hexToBytes(rawCollateral.root_ca_crl),
-    pck_crl: hexToBytes(rawCollateral.pck_crl),
-    tcb_info_issuer_chain: rawCollateral.tcb_info_issuer_chain || "",
-    tcb_info: rawCollateral.tcb_info || "",
-    tcb_info_signature: hexToBytes(rawCollateral.tcb_info_signature),
-    qe_identity_issuer_chain: rawCollateral.qe_identity_issuer_chain || "",
-    qe_identity: rawCollateral.qe_identity || "",
-    qe_identity_signature: hexToBytes(rawCollateral.qe_identity_signature),
-  };
+  try {
+    return {
+      pck_crl_issuer_chain: rawCollateral.pck_crl_issuer_chain || "",
+      root_ca_crl: hexToBytes(rawCollateral.root_ca_crl),
+      pck_crl: hexToBytes(rawCollateral.pck_crl),
+      tcb_info_issuer_chain: rawCollateral.tcb_info_issuer_chain || "",
+      tcb_info: rawCollateral.tcb_info || "",
+      tcb_info_signature: hexToBytes(rawCollateral.tcb_info_signature),
+      qe_identity_issuer_chain: rawCollateral.qe_identity_issuer_chain || "",
+      qe_identity: rawCollateral.qe_identity || "",
+      qe_identity_signature: hexToBytes(rawCollateral.qe_identity_signature),
+    };
+  } catch (error) {
+    throw toThrowable(error);
+  }
 }
 
 // Transforms dstack TcbInfo to contract interface TcbInfo structure
 export function transformTcbInfo(dstackTcbInfo: DstackTcbInfo): TcbInfo {
-  return {
-    mrtd: dstackTcbInfo.mrtd || "",
-    rtmr0: dstackTcbInfo.rtmr0 || "",
-    rtmr1: dstackTcbInfo.rtmr1 || "",
-    rtmr2: dstackTcbInfo.rtmr2 || "",
-    rtmr3: dstackTcbInfo.rtmr3 || "",
-    os_image_hash: dstackTcbInfo.os_image_hash || "",
-    compose_hash: dstackTcbInfo.compose_hash || "",
-    device_id: dstackTcbInfo.device_id || "",
-    app_compose: dstackTcbInfo.app_compose || "",
-    event_log: (dstackTcbInfo.event_log || []).map(
-      (event: DstackEventLog): EventLog => ({
-        imr: event.imr,
-        event_type: event.event_type,
-        digest: event.digest,
-        event: event.event,
-        event_payload: event.event_payload,
-      }),
-    ),
-  };
+  try {
+    return {
+      mrtd: dstackTcbInfo.mrtd || "",
+      rtmr0: dstackTcbInfo.rtmr0 || "",
+      rtmr1: dstackTcbInfo.rtmr1 || "",
+      rtmr2: dstackTcbInfo.rtmr2 || "",
+      rtmr3: dstackTcbInfo.rtmr3 || "",
+      os_image_hash: dstackTcbInfo.os_image_hash || "",
+      compose_hash: dstackTcbInfo.compose_hash || "",
+      device_id: dstackTcbInfo.device_id || "",
+      app_compose: dstackTcbInfo.app_compose || "",
+      event_log: (dstackTcbInfo.event_log || []).map(
+        (event: DstackEventLog): EventLog => ({
+          imr: event.imr,
+          event_type: event.event_type,
+          digest: event.digest,
+          event: event.event,
+          event_payload: event.event_payload,
+        }),
+      ),
+    };
+  } catch (error) {
+    throw toThrowable(error);
+  }
 }
 
 // Contract-formatted attestation structure (ready to be sent to the contract)
@@ -103,23 +116,30 @@ export interface DstackAttestationForContract {
 export function attestationForContract(
   attestation: DstackAttestation,
 ): DstackAttestationForContract {
-  return {
-    quote: attestation.quote,
-    collateral: {
-      pck_crl_issuer_chain: attestation.collateral.pck_crl_issuer_chain,
-      root_ca_crl: bytesToHex(attestation.collateral.root_ca_crl),
-      pck_crl: bytesToHex(attestation.collateral.pck_crl),
-      tcb_info_issuer_chain: attestation.collateral.tcb_info_issuer_chain,
-      tcb_info: attestation.collateral.tcb_info,
-      tcb_info_signature: bytesToHex(attestation.collateral.tcb_info_signature),
-      qe_identity_issuer_chain: attestation.collateral.qe_identity_issuer_chain,
-      qe_identity: attestation.collateral.qe_identity,
-      qe_identity_signature: bytesToHex(
-        attestation.collateral.qe_identity_signature,
-      ),
-    },
-    tcb_info: attestation.tcb_info,
-  };
+  try {
+    return {
+      quote: attestation.quote,
+      collateral: {
+        pck_crl_issuer_chain: attestation.collateral.pck_crl_issuer_chain,
+        root_ca_crl: bytesToHex(attestation.collateral.root_ca_crl),
+        pck_crl: bytesToHex(attestation.collateral.pck_crl),
+        tcb_info_issuer_chain: attestation.collateral.tcb_info_issuer_chain,
+        tcb_info: attestation.collateral.tcb_info,
+        tcb_info_signature: bytesToHex(
+          attestation.collateral.tcb_info_signature,
+        ),
+        qe_identity_issuer_chain:
+          attestation.collateral.qe_identity_issuer_chain,
+        qe_identity: attestation.collateral.qe_identity,
+        qe_identity_signature: bytesToHex(
+          attestation.collateral.qe_identity_signature,
+        ),
+      },
+      tcb_info: attestation.tcb_info,
+    };
+  } catch (error) {
+    throw toThrowable(error);
+  }
 }
 
 // Creates a fake/empty DstackAttestation structure for non-TEE (requires_tee = false)

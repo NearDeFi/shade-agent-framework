@@ -197,9 +197,16 @@ const keys = agent.getPrivateKeys({ acknowledgeRisk: true });
 
 ## Utilities
 
+`shade-agent-js` exports three error-handling helpers. The library itself
+funnels every internal error through `toThrowable` before it leaves the
+package — these utilities let consumer code do the same with arbitrary
+caught values.
+
 ### sanitize
 
-Aims to redact private keys from strings, objects, or Errors. Use before logging.
+Deep-redacts a value before logging. Accepts strings, plain objects,
+arrays, and `Error` instances; returns a clone redacting common sensitive fields and
+recognised secret-value patterns replaced by `[REDACTED]`.
 
 ```ts
 import { sanitize } from "@neardefi/shade-agent-js";
@@ -207,11 +214,13 @@ console.error(sanitize(someError));
 ```
 
 > [!WARNING]
-> Sanitize redacts common key patterns, but can't catch every case or other sensitive data. Add your own sanitization where needed so no sensitive data is emitted from the TEE.
+> The redact list covers common formats but cannot catch every pattern (e.g. a raw 32-byte hex secret with no recognised field name and no prefix). 
 
 ### toThrowable
 
-Returns an error with a sanitized message. Use when rethrowing.
+Converts any caught value to a sanitised `Error` suitable for re-throwing.
+The library's internal convention is `throw toThrowable(e)` in every
+catch block.
 
 ```ts
 import { toThrowable } from "@neardefi/shade-agent-js";
@@ -221,3 +230,22 @@ try {
   throw toThrowable(e);
 }
 ```
+
+### addSensitive
+
+Extends `sanitize` / `toThrowable` at runtime with additional field names and/or value patterns. For example, if you are using OpenAI API keys you may want to add a pattern that redacts any "sk-" strings.
+
+```ts
+import { addSensitive } from "@neardefi/shade-agent-js";
+addSensitive({
+  keys: ["bearerToken", "apiKey"],
+  patterns: [
+    {
+      pattern: /Bearer\s+\S+/g,
+      replacer: (v, p) => v.replace(p, "[REDACTED]"),
+    },
+  ],
+});
+```
+
+You can see a list of default keys and patterns that are redacted [here](../../shade-agent-js/src/utils/errors.ts#L54-L171).

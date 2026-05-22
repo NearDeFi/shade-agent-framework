@@ -1,7 +1,7 @@
 import { Provider } from "@near-js/providers";
 import { internalFundAgent, createAccountObject } from "./utils/near";
 import { getDstackClient, internalGetAttestation } from "./utils/tee";
-import { toThrowable } from "./utils/sanitize";
+import { genericError, toThrowable } from "./utils/errors";
 import { type DstackAttestationForContract } from "./utils/attestation-transform";
 import { DstackClient } from "@phala/dstack-sdk";
 import { ensureKeysSetup, generateAgent, getAgentSigner } from "./utils/agent";
@@ -173,7 +173,7 @@ export class ShadeClient {
     forceDeposit?: boolean;
   }): Promise<boolean> {
     if (!this.config.agentContractId) {
-      throw new Error("agentContractId is required for registering the agent");
+      throw genericError("agentContractId is required for registering the agent");
     }
 
     try {
@@ -231,7 +231,7 @@ export class ShadeClient {
     blockQuery?: BlockReference;
   }): Promise<T> {
     if (!this.config.agentContractId) {
-      throw new Error("agentContractId is required for view calls");
+      throw genericError("agentContractId is required for view calls");
     }
 
     try {
@@ -265,7 +265,7 @@ export class ShadeClient {
     waitUntil?: TxExecutionStatus;
   }): Promise<T> {
     if (!this.config.agentContractId) {
-      throw new Error("agentContractId is required for call functions");
+      throw genericError("agentContractId is required for call functions");
     }
 
     try {
@@ -335,7 +335,7 @@ export class ShadeClient {
    */
   async fund(fundAmount: number): Promise<void> {
     if (!this.config.sponsor) {
-      throw new Error("sponsor is required for funding the agent account");
+      throw genericError("sponsor is required for funding the agent account");
     }
 
     try {
@@ -358,7 +358,7 @@ export class ShadeClient {
    */
   getPrivateKeys(params: { acknowledgeRisk: true }): string[] {
     if (!params.acknowledgeRisk) {
-      throw new Error(
+      throw genericError(
         "WARNING: Exporting private keys from the library is a risky operation, you may accidentally leak them from the TEE. Do not use the keys to sign transactions other than to the agent contract. Please acknowledge the risk by setting acknowledgeRisk to true.",
       );
     }
@@ -376,7 +376,7 @@ export class ShadeClient {
    */
   async isWhitelisted(): Promise<boolean | null> {
     if (!this.config.agentContractId) {
-      throw new Error(
+      throw genericError(
         "agentContractId is required for checking if the agent is whitelisted",
       );
     }

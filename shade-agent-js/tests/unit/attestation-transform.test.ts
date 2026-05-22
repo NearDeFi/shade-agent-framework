@@ -146,7 +146,10 @@ describe("attestation-transform", () => {
     });
 
     it("should throw error when hex decoding fails", () => {
-      // Mock Buffer.from to throw to test error handling path (does not propagate upstream error to avoid leaking sensitive data)
+      // Mock Buffer.from to throw to test the error path; the
+      // underlying message is propagated through toThrowable (the
+      // input is non-secret Intel-signed attestation bytes, so the
+      // diagnostic value is preserved).
       const originalFrom = Buffer.from;
       vi.spyOn(Buffer, "from").mockImplementationOnce((...args: any[]) => {
         if (args.length > 1 && args[1] === "hex") {
@@ -160,7 +163,7 @@ describe("attestation-transform", () => {
       });
 
       expect(() => transformCollateral(rawCollateral)).toThrow(
-        "Failed to decode hex string",
+        "Invalid hex character",
       );
     });
   });

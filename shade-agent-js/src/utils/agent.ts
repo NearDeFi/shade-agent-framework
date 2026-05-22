@@ -1,12 +1,12 @@
 import { createHash } from "node:crypto";
 import { DstackClient } from "@phala/dstack-sdk";
 import { generateSeedPhrase } from "near-seed-phrase";
-import { PublicKey, KeyPairString } from "@near-js/crypto";
-import { KeyPairSigner } from "@near-js/signers";
+import { PublicKey } from "@near-js/crypto";
+import type { KeyPairSigner } from "@near-js/signers";
 import { addKeysToAccount, removeKeysFromAccount } from "./near";
 import { Account } from "@near-js/accounts";
 import { Provider } from "@near-js/providers";
-import { toThrowable } from "./sanitize";
+import { genericError, safeParseSigner, toThrowable, withRetry } from "./errors";
 
 // Generates an agent account ID and private key
 export async function generateAgent(
@@ -30,9 +30,8 @@ export async function generateAgent(
       agentPrivateKey: seedInfo.secretKey,
       derivedWithTEE: usedTEE,
     };
-  } catch {
-    // Throw generic error to avoid leaking hash
-    throw new Error("Failed to create agent");
+  } catch (error) {
+    throw toThrowable(error);
   }
 }
 
@@ -49,22 +48,28 @@ function deriveHashFromRandom(): Buffer {
   return createHash("sha256").update(Buffer.from(randomString)).digest();
 }
 
-// Derives a hash for TEE
+// Derives a hash for TEE. The dstack `getKey` call is retried on transient
+// socket / TEE hiccups.
 async function deriveHashForTEE(dstackClient: DstackClient): Promise<Buffer> {
-  // JS crypto random
-  const randomArray = new Uint8Array(32);
-  crypto.getRandomValues(randomArray);
-  const randomString = Buffer.from(randomArray).toString("hex");
+  try {
+    // JS crypto random
+    const randomArray = new Uint8Array(32);
+    crypto.getRandomValues(randomArray);
+    const randomString = Buffer.from(randomArray).toString("hex");
 
-  const keyFromTee = (await dstackClient.getKey(randomString)).key;
+    const keyFromTee = (await withRetry(() => dstackClient.getKey(randomString)))
+      .key;
 
-  // Hash of JS crypto random and Phala key provider 
-  return Buffer.from(
-    await crypto.subtle.digest(
-      "SHA-256",
-      Buffer.concat([randomArray, keyFromTee]),
-    ),
-  );
+    // Hash of JS crypto random and Phala key provider
+    return Buffer.from(
+      await crypto.subtle.digest(
+        "SHA-256",
+        Buffer.concat([randomArray, keyFromTee]),
+      ),
+    );
+  } catch (error) {
+    throw toThrowable(error);
+  }
 }
 
 // Derives a hash based on the environment (TEE, derivation path, or random)
@@ -72,26 +77,30 @@ async function deriveHash(
   dstackClient: DstackClient | undefined,
   derivationPath: string | undefined,
 ): Promise<{ hash: Buffer; usedTEE: boolean }> {
-  let hash: Buffer;
-  let usedTEE: boolean;
+  try {
+    let hash: Buffer;
+    let usedTEE: boolean;
 
-  if (!dstackClient && derivationPath) {
-    // If not in a TEE and a derivation path is provided, use it to generate the hash
-    // if different users use the same derivation path, they will get the same account ID
-    // so they should generate it to be unique
-    hash = deriveHashFromPath(derivationPath);
-    usedTEE = false;
-  } else if (!dstackClient && !derivationPath) {
-    // If it is not in a TEE and no derivation path is provided, generate a random hash
-    hash = deriveHashFromRandom();
-    usedTEE = false;
-  } else {
-    // If it is in a TEE generate a hash from the Phala key provider and JS crypto random
-    hash = await deriveHashForTEE(dstackClient);
-    usedTEE = true;
+    if (!dstackClient && derivationPath) {
+      // If not in a TEE and a derivation path is provided, use it to generate the hash
+      // if different users use the same derivation path, they will get the same account ID
+      // so they should generate it to be unique
+      hash = deriveHashFromPath(derivationPath);
+      usedTEE = false;
+    } else if (!dstackClient && !derivationPath) {
+      // If it is not in a TEE and no derivation path is provided, generate a random hash
+      hash = deriveHashFromRandom();
+      usedTEE = false;
+    } else {
+      // If it is in a TEE generate a hash from the Phala key provider and JS crypto random
+      hash = await deriveHashForTEE(dstackClient);
+      usedTEE = true;
+    }
+
+    return { hash, usedTEE };
+  } catch (error) {
+    throw toThrowable(error);
   }
-
-  return { hash, usedTEE };
 }
 
 // Manages the setup of additional keys for the agent account
@@ -150,29 +159,36 @@ async function deriveAdditionalKeys(
   dstackClient: DstackClient | undefined,
   derivationPath: string | undefined,
 ): Promise<{ keys: string[]; allDerivedWithTEE: boolean }> {
-  // Generate numKeys additional keys
-  // Run all derivations in parallel for better performance for TEE
-  const keyPromises = Array.from({ length: numKeys }, async (_, index) => {
-    const i = index + 1; // Start from 1
-    // For additional keys with derivation path, append key index
-    const keyDerivationPath = derivationPath
-      ? `${derivationPath}-${i}`
-      : undefined;
-    const { hash, usedTEE } = await deriveHash(dstackClient, keyDerivationPath);
-    const seedInfo = generateSeedPhrase(hash);
-    // Return both the key and whether it was derived with TEE
-    return {
-      key: seedInfo.secretKey,
-      derivedWithTEE: usedTEE,
-    };
-  });
+  try {
+    // Generate numKeys additional keys
+    // Run all derivations in parallel for better performance for TEE
+    const keyPromises = Array.from({ length: numKeys }, async (_, index) => {
+      const i = index + 1; // Start from 1
+      // For additional keys with derivation path, append key index
+      const keyDerivationPath = derivationPath
+        ? `${derivationPath}-${i}`
+        : undefined;
+      const { hash, usedTEE } = await deriveHash(
+        dstackClient,
+        keyDerivationPath,
+      );
+      const seedInfo = generateSeedPhrase(hash);
+      // Return both the key and whether it was derived with TEE
+      return {
+        key: seedInfo.secretKey,
+        derivedWithTEE: usedTEE,
+      };
+    });
 
-  const results = await Promise.all(keyPromises);
-  const keys = results.map((r) => r.key);
-  // Check if all keys were derived with TEE
-  const allDerivedWithTEE = results.every((r) => r.derivedWithTEE);
+    const results = await Promise.all(keyPromises);
+    const keys = results.map((r) => r.key);
+    // Check if all keys were derived with TEE
+    const allDerivedWithTEE = results.every((r) => r.derivedWithTEE);
 
-  return { keys, allDerivedWithTEE };
+    return { keys, allDerivedWithTEE };
+  } catch (error) {
+    throw toThrowable(error);
+  }
 }
 
 // Gets the next signer from the agent's private keys (rotates through keys)
@@ -182,13 +198,11 @@ export function getAgentSigner(
 ): { signer: KeyPairSigner; keyIndex: number } {
   try {
     if (agentPrivateKeys.length === 0) {
-      throw new Error("No agent keys available");
+      throw genericError("No agent keys available");
     }
     if (agentPrivateKeys.length === 1) {
       return {
-        signer: KeyPairSigner.fromSecretKey(
-          agentPrivateKeys[0] as KeyPairString,
-        ),
+        signer: safeParseSigner(agentPrivateKeys[0]),
         keyIndex: 0,
       };
     }
@@ -197,9 +211,7 @@ export function getAgentSigner(
       currentKeyIndex = 0;
     }
     return {
-      signer: KeyPairSigner.fromSecretKey(
-        agentPrivateKeys[currentKeyIndex] as KeyPairString,
-      ),
+      signer: safeParseSigner(agentPrivateKeys[currentKeyIndex]),
       keyIndex: currentKeyIndex,
     };
   } catch (error) {
@@ -223,9 +235,7 @@ export async function ensureKeysSetup(
       return { keysToAdd: [], wasChecked: true };
     }
 
-    const signer = KeyPairSigner.fromSecretKey(
-      agentPrivateKeys[0] as KeyPairString,
-    );
+    const signer = safeParseSigner(agentPrivateKeys[0]);
     const agentAccount = new Account(agentAccountId, rpc, signer);
     const { keysToSave, allDerivedWithTEE } = await manageKeySetup(
       agentAccount,
@@ -236,7 +246,7 @@ export async function ensureKeysSetup(
 
     if (!allDerivedWithTEE) {
       if (keysDerivedWithTEE) {
-        throw new Error(
+        throw genericError(
           "First key was derived with TEE but additional keys were not. Something went wrong with the key derivation.",
         );
       }

@@ -25,6 +25,18 @@ vi.mock("@phala/dstack-sdk", () => ({
 const mockFetch = vi.fn();
 globalThis.fetch = mockFetch;
 
+// Bypass the retry layer in tee.ts for these tests — we're verifying the
+// per-attempt behaviour. The retry semantics themselves are covered in
+// with-retry.test.ts.
+vi.mock("../../src/utils/errors", async (importOriginal) => {
+  const actual =
+    (await importOriginal()) as typeof import("../../src/utils/errors");
+  return {
+    ...actual,
+    withRetry: <T,>(fn: () => Promise<T>) => fn(),
+  };
+});
+
 describe("tee utils", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -164,39 +176,55 @@ describe("tee utils", () => {
       expect(result.tcb_info).toBeDefined();
     });
 
-    it("should handle fetch errors", async () => {
+    it("should rethrow sanitised when fetch throws an Error", async () => {
       const mockClient = createMockDstackClient();
       mockFetch.mockRejectedValue(new Error("Network error"));
 
       await expect(
         internalGetAttestation(mockClient, "agent.testnet", true),
-      ).rejects.toThrow("Failed to get quote collateral");
+      ).rejects.toThrow("Network error");
     });
 
-    it("should handle non-Error exceptions in fetch", async () => {
+    it("should rethrow when fetch throws a non-Error value", async () => {
       const mockClient = createMockDstackClient();
       mockFetch.mockRejectedValue("String error");
 
       await expect(
         internalGetAttestation(mockClient, "agent.testnet", true),
-      ).rejects.toThrow("Failed to get quote collateral");
+      ).rejects.toThrow(/String error|An error occurred/);
     });
 
-    it("should handle non-ok fetch responses", async () => {
+    it("should rethrow with err.status set when fetch returns non-ok", async () => {
       const mockClient = createMockDstackClient();
-      const statusCodes = [404, 500, 503];
-
-      for (const status of statusCodes) {
-        const mockResponse = {
+      for (const [status, statusText, body] of [
+        [404, "Not Found", "not found"],
+        [500, "Internal Server Error", "server error"],
+        [503, "Service Unavailable", ""],
+      ] as const) {
+        mockFetch.mockResolvedValue({
           ok: false,
           status,
-        };
-        mockFetch.mockResolvedValue(mockResponse);
-
-        await expect(
-          internalGetAttestation(mockClient, "agent.testnet", true),
-        ).rejects.toThrow("Failed to get quote collateral");
-
+          statusText,
+          text: vi.fn().mockResolvedValue(body),
+        });
+        const settled = internalGetAttestation(
+          mockClient,
+          "agent.testnet",
+          true,
+        ).then(
+          () => "ok",
+          (e) => e as Error,
+        );
+        const result = await settled;
+        expect(result).toBeInstanceOf(Error);
+        expect((result as Error).message).toContain(
+          `Failed to fetch quote collateral from Phala (HTTP ${status} ${statusText})`,
+        );
+        if (body) {
+          expect((result as Error).message).toContain(body);
+        }
+        // The reshaped throw carries `.status` so withRetry's predicate can dispatch.
+        expect((result as Error & { status?: number }).status).toBe(status);
         mockFetch.mockClear();
       }
     });
@@ -292,14 +320,17 @@ describe("tee utils", () => {
       await vi.advanceTimersByTimeAsync(10);
       await vi.runOnlyPendingTimersAsync();
 
-      // Verify the promise rejected
-      await expect(promise).rejects.toThrow("Failed to get quote collateral");
+      // Verify the promise rejected — the sanitised AbortError surfaces
+      // through toThrowable.
+      await expect(promise).rejects.toThrow(
+        /The operation was aborted|aborted/,
+      );
 
       // Also verify we caught the error in our handler
       expect(rejectionError).toBeInstanceOf(Error);
       expect(rejectionError).not.toBeNull();
       const error = rejectionError as unknown as Error;
-      expect(error.message).toContain("Failed to get quote collateral");
+      expect(error.message).toMatch(/aborted/);
 
       // Restore original AbortController
       global.AbortController = originalAbortController;
