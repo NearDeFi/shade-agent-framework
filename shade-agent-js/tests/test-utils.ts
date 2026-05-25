@@ -2,8 +2,10 @@ import { generateSeedPhrase } from "near-seed-phrase";
 import { createHash } from "crypto";
 import { vi } from "vitest";
 import { createMockAccount } from "./mocks";
-import type { DstackAttestation } from "../src/utils/tee";
-import type { DstackAttestationForContract } from "../src/utils/attestation-transform";
+import type {
+  AttestationInputs,
+  DstackAttestationForContract,
+} from "../src/utils/attestation-transform";
 
 // Generates a valid ed25519 test key from a seed string
 export function generateTestKey(seed: string): string {
@@ -46,11 +48,12 @@ export function createMockAccountWithKeys(keys: Array<{ public_key: string }>) {
   return mockAccount;
 }
 
-// Creates a mock DstackAttestation for testing (internal format with byte arrays)
-// Allows overriding specific fields while providing defaults for the rest
+// Creates a mock AttestationInputs for testing (the inputs to
+// attestationForContract — dcap-qvl-shaped collateral with number[] for
+// binary fields).
 export function createMockAttestation(
-  overrides?: Partial<DstackAttestation>,
-): DstackAttestation {
+  overrides?: Partial<AttestationInputs>,
+): AttestationInputs {
   return {
     quote: overrides?.quote ?? [],
     collateral: {

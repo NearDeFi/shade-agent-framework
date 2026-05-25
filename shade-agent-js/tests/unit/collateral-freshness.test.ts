@@ -5,7 +5,7 @@ import {
   MAX_COLLATERAL_AGE_MS,
   FUTURE_TIMESTAMP_GRACE_MS,
 } from "../../src/utils/collateral-freshness";
-import type { Collateral } from "../../src/utils/tee";
+import type { Collateral } from "@phala/dcap-qvl";
 import {
   synthFreshPckCrlBytes,
   freshTcbOrQeIdentityJson,

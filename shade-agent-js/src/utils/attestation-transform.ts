@@ -1,16 +1,20 @@
-import type { DstackAttestation, TcbInfo, EventLog } from "./tee";
+import type { TcbInfo, EventLog } from "./tee";
 import type {
   TcbInfoV05x as DstackTcbInfo,
   EventLog as DstackEventLog,
 } from "@phala/dstack-sdk";
+import type { Collateral as DcapCollateral } from "@phala/dcap-qvl";
 import { toThrowable } from "./errors";
 
-// Converts a byte array to a hex string
-function bytesToHex(bytes: number[]): string {
-  if (bytes.length === 0) {
-    return "";
-  }
-  return Buffer.from(bytes).toString("hex");
+// @phala/dcap-qvl types each binary collateral field as `number[] | string`.
+// At runtime v0.3.9 always returns `number[]` (Array.from(Buffer)), but the
+// type union is permissive. Encode both forms to a lowercase hex string —
+// a string input is assumed to already be hex.
+function bytesToHex(v: number[] | string | undefined): string {
+  if (v === undefined) return "";
+  if (typeof v === "string") return v;
+  if (v.length === 0) return "";
+  return Buffer.from(v).toString("hex");
 }
 
 // Transforms a quote from hex string to bytes array
@@ -68,39 +72,49 @@ export interface DstackAttestationForContract {
   tcb_info: TcbInfo;
 }
 
-// Converts DstackAttestation to a format suitable for JSON serialization to the contract
+// Inputs to attestationForContract: the raw pieces produced by the dstack
+// + PCCS pipeline (quote bytes, dcap-qvl collateral, transformed tcb_info).
+// The function is the single boundary where binary fields are encoded to
+// hex for the contract wire format.
+export interface AttestationInputs {
+  quote: number[];
+  collateral: DcapCollateral;
+  tcb_info: TcbInfo;
+}
+
+// Builds the contract-shaped attestation by hex-encoding dcap-qvl's binary
+// collateral fields and passing through the rest. This is the only place
+// the byte→hex conversion happens in the agent pipeline.
 export function attestationForContract(
-  attestation: DstackAttestation,
+  inputs: AttestationInputs,
 ): DstackAttestationForContract {
   try {
     return {
-      quote: attestation.quote,
+      quote: inputs.quote,
       collateral: {
-        pck_crl_issuer_chain: attestation.collateral.pck_crl_issuer_chain,
-        root_ca_crl: bytesToHex(attestation.collateral.root_ca_crl),
-        pck_crl: bytesToHex(attestation.collateral.pck_crl),
-        tcb_info_issuer_chain: attestation.collateral.tcb_info_issuer_chain,
-        tcb_info: attestation.collateral.tcb_info,
-        tcb_info_signature: bytesToHex(
-          attestation.collateral.tcb_info_signature,
-        ),
-        qe_identity_issuer_chain:
-          attestation.collateral.qe_identity_issuer_chain,
-        qe_identity: attestation.collateral.qe_identity,
+        pck_crl_issuer_chain: inputs.collateral.pck_crl_issuer_chain,
+        root_ca_crl: bytesToHex(inputs.collateral.root_ca_crl),
+        pck_crl: bytesToHex(inputs.collateral.pck_crl),
+        tcb_info_issuer_chain: inputs.collateral.tcb_info_issuer_chain,
+        tcb_info: inputs.collateral.tcb_info,
+        tcb_info_signature: bytesToHex(inputs.collateral.tcb_info_signature),
+        qe_identity_issuer_chain: inputs.collateral.qe_identity_issuer_chain,
+        qe_identity: inputs.collateral.qe_identity,
         qe_identity_signature: bytesToHex(
-          attestation.collateral.qe_identity_signature,
+          inputs.collateral.qe_identity_signature,
         ),
       },
-      tcb_info: attestation.tcb_info,
+      tcb_info: inputs.tcb_info,
     };
   } catch (error) {
     throw toThrowable(error);
   }
 }
 
-// Creates a fake/empty DstackAttestation structure for non-TEE (requires_tee = false)
-function getFakeAttestationInternal(): DstackAttestation {
-  // TcbInfo fixed-size fields must be valid hex of the right length for contract deserialization
+// Creates a fake/empty DstackAttestationForContract structure for non-TEE
+// (requires_tee = false). TcbInfo fixed-size fields are zero hex of the
+// correct length so the contract's borsh deserialization accepts them.
+export function getFakeAttestation(): DstackAttestationForContract {
   const ZERO_48_HEX = "0".repeat(96); // 48 bytes
   const ZERO_32_HEX = "0".repeat(64); // 32 bytes
 
@@ -108,14 +122,14 @@ function getFakeAttestationInternal(): DstackAttestation {
     quote: [],
     collateral: {
       pck_crl_issuer_chain: "",
-      root_ca_crl: [],
-      pck_crl: [],
+      root_ca_crl: "",
+      pck_crl: "",
       tcb_info_issuer_chain: "",
       tcb_info: "",
-      tcb_info_signature: [],
+      tcb_info_signature: "",
       qe_identity_issuer_chain: "",
       qe_identity: "",
-      qe_identity_signature: [],
+      qe_identity_signature: "",
     },
     tcb_info: {
       mrtd: ZERO_48_HEX,
@@ -130,9 +144,4 @@ function getFakeAttestationInternal(): DstackAttestation {
       event_log: [],
     },
   };
-}
-
-// Creates a fake/empty DstackAttestationForContract structure for non-TEE (requires_tee = false)
-export function getFakeAttestation(): DstackAttestationForContract {
-  return attestationForContract(getFakeAttestationInternal());
 }

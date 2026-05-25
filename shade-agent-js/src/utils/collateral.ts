@@ -2,10 +2,10 @@ import {
   getCollateral as dcapGetCollateral,
   PHALA_PCCS_URL,
   INTEL_PCS_URL,
+  type Collateral as DcapCollateral,
 } from "@phala/dcap-qvl";
 import { checkCollateralFreshness } from "./collateral-freshness";
 import { genericError, withRetry } from "./errors";
-import type { Collateral } from "./tee";
 
 // Mirrors mpc's shipped cvm-deployment/user-config.toml: Phala PCCS first,
 // Intel PCS as a fallback. Replaced wholesale when the user passes
@@ -23,36 +23,6 @@ const PER_ENDPOINT_TIMEOUT_MS = 10_000;
 // `get_with_backoff(..., Some(1))` invocation in tee_authority.rs:505.
 const PER_ENDPOINT_RETRY_DELAY_MS = 500;
 
-// Cast dcap-qvl's `Collateral` (which types binary fields as `number[] | string`)
-// down to the contract-facing `Collateral` (always `number[]`). The runtime
-// implementation always returns `number[]` via `Array.from(Buffer)` —
-// see @phala/dcap-qvl/src/collateral.js:309-316.
-function projectToContractShape(raw: {
-  pck_crl_issuer_chain: string;
-  root_ca_crl: number[] | string;
-  pck_crl: number[] | string;
-  tcb_info_issuer_chain: string;
-  tcb_info: string;
-  tcb_info_signature: number[] | string;
-  qe_identity_issuer_chain: string;
-  qe_identity: string;
-  qe_identity_signature: number[] | string;
-}): Collateral {
-  const asBytes = (v: number[] | string): number[] =>
-    Array.isArray(v) ? v : Array.from(Buffer.from(v, "hex"));
-  return {
-    pck_crl_issuer_chain: raw.pck_crl_issuer_chain,
-    root_ca_crl: asBytes(raw.root_ca_crl),
-    pck_crl: asBytes(raw.pck_crl),
-    tcb_info_issuer_chain: raw.tcb_info_issuer_chain,
-    tcb_info: raw.tcb_info,
-    tcb_info_signature: asBytes(raw.tcb_info_signature),
-    qe_identity_issuer_chain: raw.qe_identity_issuer_chain,
-    qe_identity: raw.qe_identity,
-    qe_identity_signature: asBytes(raw.qe_identity_signature),
-  };
-}
-
 // Fetch from a single PCCS endpoint with a per-request timeout and 1 retry.
 // Mirrors mpc's `fetch_collateral_from` (tee_authority.rs:482-516).
 //
@@ -63,7 +33,7 @@ function projectToContractShape(raw: {
 async function fetchFromOneEndpoint(
   url: string,
   quoteBytes: Buffer,
-): Promise<Collateral> {
+): Promise<DcapCollateral> {
   return withRetry(
     async () => {
       let timeoutId: ReturnType<typeof setTimeout> | undefined;
@@ -77,11 +47,10 @@ async function fetchFromOneEndpoint(
         }, PER_ENDPOINT_TIMEOUT_MS);
       });
       try {
-        const raw = (await Promise.race([
+        return (await Promise.race([
           dcapGetCollateral(url, quoteBytes),
           timeout,
-        ])) as Parameters<typeof projectToContractShape>[0];
-        return projectToContractShape(raw);
+        ])) as DcapCollateral;
       } finally {
         if (timeoutId !== undefined) clearTimeout(timeoutId);
       }
@@ -102,7 +71,7 @@ export async function fetchCollateralWithFallback(
   pccsEndpoints: readonly string[],
   quoteBytes: Buffer,
   now: Date,
-): Promise<Collateral> {
+): Promise<DcapCollateral> {
   if (pccsEndpoints.length === 0) {
     throw genericError("pccsEndpoints must be a non-empty array");
   }

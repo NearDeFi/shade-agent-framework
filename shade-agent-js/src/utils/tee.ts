@@ -10,26 +10,6 @@ import {
 import { toThrowable, withRetry } from "./errors";
 import { fetchCollateralWithFallback } from "./collateral";
 
-// DstackAttestation structure matching the contract interface
-export interface DstackAttestation {
-  quote: number[]; // Vec<u8> - quote as bytes array
-  collateral: Collateral;
-  tcb_info: TcbInfo;
-}
-
-// Collateral structure matching the contract interface
-export interface Collateral {
-  pck_crl_issuer_chain: string;
-  root_ca_crl: number[]; // Vec<u8>
-  pck_crl: number[]; // Vec<u8>
-  tcb_info_issuer_chain: string;
-  tcb_info: string;
-  tcb_info_signature: number[]; // Vec<u8>
-  qe_identity_issuer_chain: string;
-  qe_identity: string;
-  qe_identity_signature: number[]; // Vec<u8>
-}
-
 // TcbInfo structure matching the contract interface
 export interface TcbInfo {
   mrtd: string;
@@ -124,14 +104,7 @@ export async function internalGetAttestation(
     // Transform tcb_info from dstack response to contract interface structure.
     const tcb_info = transformTcbInfo(dstackTcbInfo);
 
-    // Convert to contract format.
-    const attestation: DstackAttestation = {
-      quote,
-      collateral,
-      tcb_info,
-    };
-
-    return attestationForContract(attestation);
+    return attestationForContract({ quote, collateral, tcb_info });
   } catch (error) {
     throw toThrowable(error);
   }
