@@ -1,17 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import {
   transformQuote,
-  transformCollateral,
   transformTcbInfo,
   attestationForContract,
   getFakeAttestation,
 } from "../../src/utils/attestation-transform";
 import type { TcbInfoV05x as DstackTcbInfo } from "@phala/dstack-sdk";
 import { createMockAttestation } from "../test-utils";
-import {
-  createMockDstackTcbInfo,
-  createMockQuoteCollateral,
-} from "../mocks/tee-mocks";
+import { createMockDstackTcbInfo } from "../mocks/tee-mocks";
 
 describe("attestation-transform", () => {
   beforeEach(() => {
@@ -57,125 +53,6 @@ describe("attestation-transform", () => {
       const hexStr = "DEADBEEF";
       const result = transformQuote(hexStr);
       expect(result).toEqual([222, 173, 190, 239]);
-    });
-  });
-
-  describe("transformCollateral", () => {
-    it("should transform complete raw collateral to Collateral structure", () => {
-      const rawCollateral = createMockQuoteCollateral({
-        pck_crl_issuer_chain: "chain1",
-        root_ca_crl: "deadbeef",
-        pck_crl: "cafebabe",
-        tcb_info_issuer_chain: "chain2",
-        tcb_info: "tcb_info_json",
-        tcb_info_signature: "7369676e617475726531",
-        qe_identity_issuer_chain: "chain3",
-        qe_identity: "qe_identity_json",
-        qe_identity_signature: "7369676e617475726532",
-      });
-
-      const result = transformCollateral(rawCollateral);
-
-      expect(result.pck_crl_issuer_chain).toBe("chain1");
-      expect(result.root_ca_crl).toEqual([222, 173, 190, 239]);
-      expect(result.pck_crl).toEqual([202, 254, 186, 190]);
-      expect(result.tcb_info_issuer_chain).toBe("chain2");
-      expect(result.tcb_info).toBe("tcb_info_json");
-      expect(result.tcb_info_signature).toEqual([
-        115, 105, 103, 110, 97, 116, 117, 114, 101, 49,
-      ]);
-      expect(result.qe_identity_issuer_chain).toBe("chain3");
-      expect(result.qe_identity).toBe("qe_identity_json");
-      expect(result.qe_identity_signature).toEqual([
-        115, 105, 103, 110, 97, 116, 117, 114, 101, 50,
-      ]);
-    });
-
-    it("should handle empty/undefined hex fields by converting to empty arrays", () => {
-      const rawCollateral = createMockQuoteCollateral({
-        pck_crl_issuer_chain: "chain1",
-        root_ca_crl: "",
-        pck_crl: undefined,
-        tcb_info_issuer_chain: "",
-        tcb_info: "tcb_info",
-        tcb_info_signature: "",
-        qe_identity_issuer_chain: undefined,
-        qe_identity: "",
-        qe_identity_signature: undefined,
-      });
-
-      const result = transformCollateral(rawCollateral);
-
-      expect(result.root_ca_crl).toEqual([]);
-      expect(result.pck_crl).toEqual([]);
-      expect(result.tcb_info_signature).toEqual([]);
-      expect(result.qe_identity_signature).toEqual([]);
-      expect(result.pck_crl_issuer_chain).toBe("chain1");
-      expect(result.tcb_info_issuer_chain).toBe("");
-      expect(result.qe_identity_issuer_chain).toBe("");
-    });
-
-    it("should handle completely empty raw collateral", () => {
-      // Mock factory now defaults to freshness-passing tcb_info / qe_identity
-      // / pck_crl values; override them back to empty for this edge case test
-      // of transformCollateral (which doesn't run freshness validation).
-      const rawCollateral = createMockQuoteCollateral({
-        tcb_info: "",
-        qe_identity: "",
-        pck_crl: "",
-      });
-
-      const result = transformCollateral(rawCollateral);
-
-      expect(result.pck_crl_issuer_chain).toBe("");
-      expect(result.root_ca_crl).toEqual([]);
-      expect(result.pck_crl).toEqual([]);
-      expect(result.tcb_info_issuer_chain).toBe("");
-      expect(result.tcb_info).toBe("");
-      expect(result.tcb_info_signature).toEqual([]);
-      expect(result.qe_identity_issuer_chain).toBe("");
-      expect(result.qe_identity).toBe("");
-      expect(result.qe_identity_signature).toEqual([]);
-    });
-
-    it("should handle hex strings with 0x prefix", () => {
-      const rawCollateral = createMockQuoteCollateral({
-        root_ca_crl: "0xdeadbeef",
-        tcb_info_signature: "0xcafebabe",
-      });
-
-      const result = transformCollateral(rawCollateral);
-
-      expect(result.root_ca_crl).toBeDefined();
-      expect(result.tcb_info_signature).toBeDefined();
-      expect(Array.isArray(result.root_ca_crl)).toBe(true);
-      expect(Array.isArray(result.tcb_info_signature)).toBe(true);
-    });
-
-    it("should throw error when hex decoding fails", () => {
-      // Set up the fixture BEFORE installing the spy so the freshness-
-      // passing default pck_crl synthesis doesn't consume the
-      // mockImplementationOnce intended for transformCollateral's
-      // hexToBytes call.
-      const rawCollateral = createMockQuoteCollateral({
-        root_ca_crl: "deadbeef",
-      });
-
-      // Mock Buffer.from to throw to test the error path; the
-      // underlying message is propagated through toThrowable (the
-      // input is non-secret Intel-signed attestation bytes, so the
-      // diagnostic value is preserved).
-      const originalFrom = Buffer.from;
-      vi.spyOn(Buffer, "from").mockImplementationOnce((...args: any[]) => {
-        if (args.length > 1 && args[1] === "hex") {
-          throw new Error("Invalid hex character");
-        }
-        return originalFrom.apply(Buffer, args as any);
-      });
-
-      expect(() => transformCollateral(rawCollateral)).toThrow(
-        "Invalid hex character",
-      );
     });
   });
 

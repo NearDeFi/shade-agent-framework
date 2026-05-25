@@ -718,6 +718,7 @@ describe("ShadeClient", () => {
         undefined,
         testAccountId,
         false,
+        undefined,
       );
       expect(result).toEqual(attestation);
     });
@@ -738,6 +739,7 @@ describe("ShadeClient", () => {
         mockDstackClient,
         testAccountId,
         true,
+        undefined,
       );
       expect(result).toEqual(attestation);
     });

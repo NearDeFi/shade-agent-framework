@@ -111,9 +111,7 @@ function parseIssueDateFromJson(
 }
 
 // Parse the PCK CRL DER bytes and pull out thisUpdate. PCK CRL is a
-// standard X.509 v2 CertificateList; we mirror the schema dcap-qvl uses
-// in @phala/dcap-qvl/src/utils.js (TBSCertList SEQUENCE { version?,
-// signature, issuer, thisUpdate, ... }), narrowed to just thisUpdate.
+// standard X.509 v2 CertificateList.
 function parsePckCrlThisUpdate(pckCrlBytes: number[]): Date {
   if (!pckCrlBytes || pckCrlBytes.length === 0) {
     throw new FreshnessError("PCK CRL is empty", {
@@ -181,10 +179,6 @@ function checkWithinWindow(
 // implausibly in the future. Checks tcb_info.issueDate,
 // qe_identity.issueDate, and PCK CRL thisUpdate in that order; the first
 // failure throws.
-// Every throw site below constructs a FreshnessError directly with a
-// constant-shape message, so there is no untrusted-input echo that would
-// require sanitisation here. Callers (internalGetAttestation in tee.ts)
-// already wrap their own outer catch in `toThrowable`.
 export function checkCollateralFreshness(
   collateral: Collateral,
   now: Date,

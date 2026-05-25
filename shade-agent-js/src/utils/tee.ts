@@ -2,14 +2,13 @@ import { existsSync } from "fs";
 import { DstackClient } from "@phala/dstack-sdk";
 import {
   transformQuote,
-  transformCollateral,
   transformTcbInfo,
   getFakeAttestation,
   attestationForContract,
   type DstackAttestationForContract,
 } from "./attestation-transform";
 import { toThrowable, withRetry } from "./errors";
-import { checkCollateralFreshness } from "./collateral-freshness";
+import { fetchCollateralWithFallback } from "./collateral";
 
 // DstackAttestation structure matching the contract interface
 export interface DstackAttestation {
@@ -53,21 +52,6 @@ export interface EventLog {
   event_payload: string;
 }
 
-interface QuoteCollateralResponse {
-  checksum?: string;
-  quote_collateral: {
-    pck_crl_issuer_chain?: string;
-    root_ca_crl?: string;
-    pck_crl?: string;
-    tcb_info_issuer_chain?: string;
-    tcb_info?: string;
-    tcb_info_signature?: string;
-    qe_identity_issuer_chain?: string;
-    qe_identity?: string;
-    qe_identity_signature?: string;
-  };
-}
-
 // Detects if the application is running in a TEE
 // If it is running in a TEE but this fails for whatever reason,
 // then it will generate a deterministic account ID for the agent.
@@ -96,6 +80,7 @@ export async function internalGetAttestation(
   dstackClient: DstackClient | undefined,
   agentAccountId: string,
   keysDerivedWithRandom: boolean,
+  pccsEndpoints: readonly string[],
 ): Promise<DstackAttestationForContract> {
   if (!dstackClient || !keysDerivedWithRandom) {
     // No TEE, or any key was path-derived (local-mode only).
@@ -124,45 +109,17 @@ export async function internalGetAttestation(
 
     // Transform quote from hex string to bytes array.
     const quote = transformQuote(quote_hex);
+    const quoteBytes = Buffer.from(quote_hex.replace(/^0x/, ""), "hex");
 
-    // Get quote collateral from Phala endpoint.
-    const formData = new FormData();
-    formData.append("hex", quote_hex.replace(/^0x/, ""));
-    const collateralUrl =
-      "https://cloud-api.phala.network/api/v1/attestations/verify";
-
-    const collateral = await withRetry(async () => {
-      // Per-attempt timeout to prevent hanging indefinitely.
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
-      try {
-        const response = await fetch(collateralUrl, {
-          method: "POST",
-          body: formData,
-          signal: controller.signal,
-        });
-
-        if (!response.ok) {
-          const body = (await response.text().catch(() => "")).slice(0, 500);
-          throw Object.assign(
-            new Error(
-              `Failed to fetch quote collateral from Phala (HTTP ${response.status} ${response.statusText})${body ? `: ${body}` : ""}`,
-            ),
-            { status: response.status },
-          );
-        }
-
-        const resHelper = (await response.json()) as QuoteCollateralResponse;
-        return transformCollateral(resHelper.quote_collateral);
-      } finally {
-        clearTimeout(timeoutId);
-      }
-    });
-
-    // Reject stale or implausibly-future collateral before the contract
-    // ever sees it (7-day max age, 5-min future grace on the three
-    // Intel-signed timestamps in the bundle).
-    checkCollateralFreshness(collateral, new Date());
+    // Fetch collateral from the configured PCCS fallback ladder. The helper
+    // tries each endpoint in order, treats per-endpoint failure or stale
+    // collateral (>7d old) as fall-through, and aggregates failures if every
+    // endpoint fails. Mirrors mpc's try_each_pccs_endpoint behaviour.
+    const collateral = await fetchCollateralWithFallback(
+      pccsEndpoints,
+      quoteBytes,
+      new Date(),
+    );
 
     // Transform tcb_info from dstack response to contract interface structure.
     const tcb_info = transformTcbInfo(dstackTcbInfo);

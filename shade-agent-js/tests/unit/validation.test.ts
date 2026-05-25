@@ -139,4 +139,80 @@ describe("validateShadeConfig", () => {
     expect(createDefaultProvider).not.toHaveBeenCalled();
     expect(config.rpc).toBeDefined();
   });
+
+  describe("pccsEndpoints", () => {
+    it("should default to the Phala → Intel fallback ladder when not provided", async () => {
+      const config: ShadeConfig = { networkId: "testnet" };
+      await validateShadeConfig(config);
+      expect(config.pccsEndpoints).toEqual([
+        "https://pccs.phala.network",
+        "https://api.trustedservices.intel.com",
+      ]);
+    });
+
+    it("should accept a custom list of http(s) URLs", async () => {
+      const config: ShadeConfig = {
+        networkId: "testnet",
+        pccsEndpoints: [
+          "https://pccs.local.example",
+          "http://10.0.0.1:8081",
+        ],
+      };
+      await validateShadeConfig(config);
+      expect(config.pccsEndpoints).toEqual([
+        "https://pccs.local.example",
+        "http://10.0.0.1:8081",
+      ]);
+    });
+
+    it("should reject an empty array (mirrors mpc's NonEmptyVec invariant)", async () => {
+      const config: ShadeConfig = {
+        networkId: "testnet",
+        pccsEndpoints: [],
+      };
+      await expect(validateShadeConfig(config)).rejects.toThrow(
+        "pccsEndpoints must be a non-empty array",
+      );
+    });
+
+    it("should reject a non-array value", async () => {
+      const config: ShadeConfig = {
+        networkId: "testnet",
+        pccsEndpoints: "https://pccs.phala.network" as any,
+      };
+      await expect(validateShadeConfig(config)).rejects.toThrow(
+        "pccsEndpoints must be an array of URL strings",
+      );
+    });
+
+    it("should reject non-string entries", async () => {
+      const config: ShadeConfig = {
+        networkId: "testnet",
+        pccsEndpoints: [123 as any],
+      };
+      await expect(validateShadeConfig(config)).rejects.toThrow(
+        "pccsEndpoints entries must be non-empty strings",
+      );
+    });
+
+    it("should reject malformed URL entries", async () => {
+      const config: ShadeConfig = {
+        networkId: "testnet",
+        pccsEndpoints: ["not-a-url"],
+      };
+      await expect(validateShadeConfig(config)).rejects.toThrow(
+        "pccsEndpoints entries must be valid URLs",
+      );
+    });
+
+    it("should reject non-http(s) protocols", async () => {
+      const config: ShadeConfig = {
+        networkId: "testnet",
+        pccsEndpoints: ["ftp://pccs.example.com"],
+      };
+      await expect(validateShadeConfig(config)).rejects.toThrow(
+        "pccsEndpoints entries must use http or https protocol",
+      );
+    });
+  });
 });

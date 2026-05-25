@@ -1,34 +1,9 @@
-import type { DstackAttestation, TcbInfo, Collateral, EventLog } from "./tee";
+import type { DstackAttestation, TcbInfo, EventLog } from "./tee";
 import type {
   TcbInfoV05x as DstackTcbInfo,
   EventLog as DstackEventLog,
 } from "@phala/dstack-sdk";
 import { toThrowable } from "./errors";
-
-// Raw collateral response from the endpoint
-interface RawCollateral {
-  pck_crl_issuer_chain?: string;
-  root_ca_crl?: string; // hex string
-  pck_crl?: string; // hex string
-  tcb_info_issuer_chain?: string;
-  tcb_info?: string;
-  tcb_info_signature?: string; // hex string
-  qe_identity_issuer_chain?: string;
-  qe_identity?: string;
-  qe_identity_signature?: string; // hex string
-}
-
-// Decodes a hex string to a byte array
-function hexToBytes(hexStr: string | undefined): number[] {
-  if (!hexStr || hexStr === "") {
-    return [];
-  }
-  try {
-    return Array.from(Buffer.from(hexStr, "hex"));
-  } catch (error) {
-    throw toThrowable(error);
-  }
-}
 
 // Converts a byte array to a hex string
 function bytesToHex(bytes: number[]): string {
@@ -43,25 +18,6 @@ export function transformQuote(quoteHex: string): number[] {
   try {
     const cleanedHex = quoteHex.replace(/^0x/, "");
     return Array.from(Buffer.from(cleanedHex, "hex"));
-  } catch (error) {
-    throw toThrowable(error);
-  }
-}
-
-// Transforms raw collateral response from the endpoint to Collateral structure
-export function transformCollateral(rawCollateral: RawCollateral): Collateral {
-  try {
-    return {
-      pck_crl_issuer_chain: rawCollateral.pck_crl_issuer_chain || "",
-      root_ca_crl: hexToBytes(rawCollateral.root_ca_crl),
-      pck_crl: hexToBytes(rawCollateral.pck_crl),
-      tcb_info_issuer_chain: rawCollateral.tcb_info_issuer_chain || "",
-      tcb_info: rawCollateral.tcb_info || "",
-      tcb_info_signature: hexToBytes(rawCollateral.tcb_info_signature),
-      qe_identity_issuer_chain: rawCollateral.qe_identity_issuer_chain || "",
-      qe_identity: rawCollateral.qe_identity || "",
-      qe_identity_signature: hexToBytes(rawCollateral.qe_identity_signature),
-    };
   } catch (error) {
     throw toThrowable(error);
   }

@@ -46,6 +46,7 @@ All arguments are optional. Omitting some makes certain methods unavailable.
 | `rpc` | A [near-api-js provider](https://near.github.io/near-api-js/modules/providers.html) object used by the client (defaults to a basic RPC provider based on the network). |
 | `numKeys` | The number of key pairs the agent has (1–100, defaults to 1). More keys increase transaction throughput; the client rotates through them when signing transactions. |
 | `derivationPath` | A string used to derive deterministic agent account IDs when running locally. Lets you avoid re-whitelisting and re-funding the agent on each run. Use a unique secret (e.g. a private key). If two agents share the same derivation path, they get the same account ID and could control contracts they are not authorized for. |
+| `pccsEndpoints` | Ordered list of PCCS endpoint URLs used to fetch TDX attestation collateral. The client tries each entry in order; on per-endpoint failure or stale collateral it falls through to the next. Defaults to `["https://pccs.phala.network", "https://api.trustedservices.intel.com"]` (Phala PCCS, then Intel PCS). Providing a list replaces the defaults entirely — include them explicitly if you want a fallback chain. An empty array is rejected at construction time. |
 
 ---
 
@@ -179,6 +180,8 @@ const attestation = await agent.getAttestation();
 **TEE vs local:** 
 - TEE: Returns a real attestation. 
 - Local: Returns a mock attestation. 
+
+**Collateral source:** In a TEE, the client fetches attestation collateral (TCB Info, QE Identity, PCK CRL, certificate chains) directly from a PCCS using `@phala/dcap-qvl`. The list configured via `pccsEndpoints` is tried in order — the first endpoint that returns fresh, well-formed collateral wins; the remainder act as fallbacks. An endpoint that returns collateral older than 7 days, or fails to respond, is skipped in favor of the next. If every endpoint fails, the attestation call throws an aggregated error listing each per-endpoint failure. 
 
 ---
 
