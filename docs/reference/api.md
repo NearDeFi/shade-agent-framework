@@ -181,8 +181,6 @@ const attestation = await agent.getAttestation();
 - TEE: Returns a real attestation. 
 - Local: Returns a mock attestation. 
 
-**Collateral source:** In a TEE, the client fetches attestation collateral (TCB Info, QE Identity, PCK CRL, certificate chains) directly from a PCCS using `@phala/dcap-qvl`. The list configured via `pccsEndpoints` is tried in order — the first endpoint that returns fresh, well-formed collateral wins; the remainder act as fallbacks. An endpoint that returns collateral older than 7 days, or fails to respond, is skipped in favor of the next. If every endpoint fails, the attestation call throws an aggregated error listing each per-endpoint failure. 
-
 ---
 
 ## Get Private Keys
