@@ -40,7 +40,7 @@ export function createMockDstackTcbInfo(
 // ---------------------------------------------------------------------------
 // Freshness-passing fixture helpers
 //
-// internalGetAttestation now validates collateral freshness (7-day max age,
+// internalGetAttestation validates collateral freshness (7-day max age,
 // 5-min future grace) on tcb_info.issueDate, qe_identity.issueDate, and PCK
 // CRL thisUpdate. The mock collateral defaults below produce values that
 // pass that check against the real wall clock at call time.
@@ -68,9 +68,11 @@ const CertificateList = asn1.define("CertificateList", function (this: any) {
   );
 });
 
-// Build a minimal DER PCK CRL whose thisUpdate is `at`. Hex-encoded since
-// callers receive collateral fields as hex strings from the verify endpoint.
-export function synthFreshPckCrlHex(at: Date = new Date()): string {
+// Build a minimal DER PCK CRL whose thisUpdate is `at`. Other fields use
+// opaque DER placeholders — the freshness check only reads thisUpdate.
+// Returns raw bytes; use `synthFreshPckCrlHex` for the verify-endpoint
+// hex shape.
+export function synthFreshPckCrlBytes(at: Date = new Date()): number[] {
   const NULL_DER = Buffer.from([0x05, 0x00]);
   const encoded = CertificateList.encode(
     {
@@ -85,7 +87,13 @@ export function synthFreshPckCrlHex(at: Date = new Date()): string {
     },
     "der",
   );
-  return (encoded as Buffer).toString("hex");
+  return Array.from(encoded as Buffer);
+}
+
+// Hex-encoded form for callers that mock the verify endpoint response
+// (whose collateral fields arrive as hex strings, pre-transformCollateral).
+export function synthFreshPckCrlHex(at: Date = new Date()): string {
+  return Buffer.from(synthFreshPckCrlBytes(at)).toString("hex");
 }
 
 // JSON blob shaped like tcb_info / qe_identity for freshness purposes

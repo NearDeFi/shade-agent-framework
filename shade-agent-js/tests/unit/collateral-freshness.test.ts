@@ -1,5 +1,4 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import asn1 from "asn1.js";
 import {
   checkCollateralFreshness,
   FreshnessError,
@@ -7,56 +6,10 @@ import {
   FUTURE_TIMESTAMP_GRACE_MS,
 } from "../../src/utils/collateral-freshness";
 import type { Collateral } from "../../src/utils/tee";
-
-// Minimal CRL encoder mirroring the decoder in collateral-freshness.ts.
-// We only need enough to round-trip a controllable thisUpdate.
-const Time = asn1.define("Time", function (this: any) {
-  this.choice({
-    utcTime: this.utctime(),
-    generalTime: this.gentime(),
-  });
-});
-const TBSCertList = asn1.define("TBSCertList", function (this: any) {
-  this.seq().obj(
-    this.key("version").int().optional(),
-    this.key("signature").any(),
-    this.key("issuer").any(),
-    this.key("thisUpdate").use(Time),
-  );
-});
-const CertificateList = asn1.define("CertificateList", function (this: any) {
-  this.seq().obj(
-    this.key("tbsCertList").use(TBSCertList),
-    this.key("signatureAlgorithm").any(),
-    this.key("signature").bitstr(),
-  );
-});
-
-// Build a minimal valid-DER PCK CRL whose thisUpdate is `at`.
-// Other fields use opaque placeholder bytes — the freshness check only
-// reads thisUpdate, so the rest just needs to be valid DER any().
-function synthCrl(at: Date): number[] {
-  // Opaque DER stand-ins: NULL (05 00) is valid DER any().
-  const NULL_DER = Buffer.from([0x05, 0x00]);
-  const encoded = CertificateList.encode(
-    {
-      tbsCertList: {
-        version: 1,
-        signature: NULL_DER,
-        issuer: NULL_DER,
-        thisUpdate: { type: "generalTime", value: at },
-      },
-      signatureAlgorithm: NULL_DER,
-      signature: { data: Buffer.from([0x00]), unused: 0 },
-    },
-    "der",
-  );
-  return Array.from(encoded as Buffer);
-}
-
-function jsonWithIssueDate(at: Date): string {
-  return JSON.stringify({ issueDate: at.toISOString() });
-}
+import {
+  synthFreshPckCrlBytes,
+  freshTcbOrQeIdentityJson,
+} from "../mocks/tee-mocks";
 
 function makeCollateral(
   tcbAt: Date,
@@ -66,12 +19,12 @@ function makeCollateral(
   return {
     pck_crl_issuer_chain: "",
     root_ca_crl: [],
-    pck_crl: synthCrl(crlAt),
+    pck_crl: synthFreshPckCrlBytes(crlAt),
     tcb_info_issuer_chain: "",
-    tcb_info: jsonWithIssueDate(tcbAt),
+    tcb_info: freshTcbOrQeIdentityJson(tcbAt),
     tcb_info_signature: [],
     qe_identity_issuer_chain: "",
-    qe_identity: jsonWithIssueDate(qeAt),
+    qe_identity: freshTcbOrQeIdentityJson(qeAt),
     qe_identity_signature: [],
   };
 }
