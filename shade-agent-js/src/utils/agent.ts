@@ -71,6 +71,15 @@ export async function manageKeySetup(
     const numKeysOnAccount = keysOnAccount.keys.length;
     const numExistingAdditionalKeys = numKeysOnAccount - 1; // Subtract the first key
 
+    // Random-mode derivation cannot reproduce previous keys, so we cannot
+    // reconcile against any existing additional keys on the account.
+    const inRandomMode = !!dstackClient || !derivationPath;
+    if (inRandomMode && numExistingAdditionalKeys > 0) {
+      throw genericError(
+        `Account has ${numExistingAdditionalKeys} additional key(s) that cannot be reused in random-derivation mode. Set a derivationPath (local) or use a fresh account.`,
+      );
+    }
+
     // Derive keys using the higher number (needed for both adding and removing cases)
     const numKeysToDerive = Math.max(
       numAdditionalKeys,

@@ -112,7 +112,7 @@ describe("agent utils", () => {
         mockAccount as any,
         1,
         undefined,
-        undefined,
+        "test-path",
       );
 
       expect(removeKeysFromAccount).toHaveBeenCalledWith(
@@ -132,7 +132,7 @@ describe("agent utils", () => {
         mockAccount as any,
         1,
         undefined,
-        undefined,
+        "test-path",
       );
 
       expect(addKeysToAccount).not.toHaveBeenCalled();
@@ -162,8 +162,24 @@ describe("agent utils", () => {
       );
 
       await expect(
-        manageKeySetup(mockAccount as any, 1, undefined, undefined),
+        manageKeySetup(mockAccount as any, 1, undefined, "test-path"),
       ).rejects.toThrow("Remove keys failed");
+    });
+
+    it("should throw when in random mode and account has existing additional keys", async () => {
+      const mockAccount = createMockAccountWithKeys([
+        { public_key: "key1" },
+        { public_key: "key2" },
+      ]);
+
+      // No dstackClient + no derivationPath = random mode. Existing additional
+      // key cannot be reused because random derivation produces fresh keys.
+      await expect(
+        manageKeySetup(mockAccount as any, 1, undefined, undefined),
+      ).rejects.toThrow(/cannot be reused in random-derivation mode/);
+
+      expect(addKeysToAccount).not.toHaveBeenCalled();
+      expect(removeKeysFromAccount).not.toHaveBeenCalled();
     });
 
     it("should derive with random when dstackClient is provided (path ignored)", async () => {
@@ -201,7 +217,12 @@ describe("agent utils", () => {
       const mockAccount = createMockAccountWithKeys([{ public_key: "key1" }]);
       const derivationPath = "test-path";
 
-      await manageKeySetup(mockAccount as any, 3, undefined, derivationPath);
+      const result = await manageKeySetup(
+        mockAccount as any,
+        3,
+        undefined,
+        derivationPath,
+      );
       expect(addKeysToAccount).toHaveBeenCalled();
       const keys = vi.mocked(addKeysToAccount).mock.calls[0][1] as string[];
 
@@ -210,6 +231,7 @@ describe("agent utils", () => {
       expect(keys[0]).not.toBe(keys[1]);
       expect(keys[0]).not.toBe(keys[2]);
       expect(keys[1]).not.toBe(keys[2]);
+      expect(result.allDerivedWithRandom).toBe(false);
     });
 
     it("should generate unique keys when adding multiple keys without derivation path", async () => {

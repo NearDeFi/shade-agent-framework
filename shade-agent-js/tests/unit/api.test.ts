@@ -438,6 +438,41 @@ describe("ShadeClient", () => {
 
       await expect(client.register()).rejects.toThrow("Network error");
     });
+
+    it("no-TEE + derivationPath sends fake attestation (gate fires)", async () => {
+      const teeActual = await vi.importActual<typeof import("../../src/utils/tee")>(
+        "../../src/utils/tee",
+      );
+      const { getFakeAttestation } = await import(
+        "../../src/utils/attestation-transform"
+      );
+
+      setupClientMocks({ derivedWithRandom: false });
+      vi.mocked(internalGetAttestation).mockImplementation(
+        teeActual.internalGetAttestation,
+      );
+      (mockAccount.callFunction as ReturnType<typeof vi.fn>).mockResolvedValue(
+        true,
+      );
+      (mockProvider.callFunction as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
+        null,
+      );
+
+      const client = await ShadeClient.create({
+        agentContractId: "agent.contract.testnet",
+        rpc: mockProvider,
+        derivationPath: "mysecret",
+      });
+
+      await client.register();
+
+      expect(mockAccount.callFunction).toHaveBeenCalledWith(
+        expect.objectContaining({
+          methodName: "register_agent",
+          args: { attestation: getFakeAttestation() },
+        }),
+      );
+    });
   });
 
   describe("view", () => {
@@ -718,6 +753,35 @@ describe("ShadeClient", () => {
       await expect(client.getAttestation()).rejects.toThrow(
         "Quote fetch failed",
       );
+    });
+
+    it("valid TEE client + any path-derived key returns fake attestation (defense-in-depth)", async () => {
+      // Simulates: keys aggregate to allDerivedWithRandom=false (e.g. mixed
+      // random + deterministic). Even with a working dstackClient, the gate
+      // must refuse to produce a real attestation and must never touch the
+      // TEE — no info(), no getQuote().
+      const teeActual = await vi.importActual<typeof import("../../src/utils/tee")>(
+        "../../src/utils/tee",
+      );
+      const { getFakeAttestation } = await import(
+        "../../src/utils/attestation-transform"
+      );
+
+      setupClientMocks({
+        dstackClient: mockDstackClient,
+        derivedWithRandom: false,
+      });
+      vi.mocked(internalGetAttestation).mockImplementation(
+        teeActual.internalGetAttestation,
+      );
+
+      const client = await ShadeClient.create({});
+
+      const result = await client.getAttestation();
+
+      expect(result).toEqual(getFakeAttestation());
+      expect(mockDstackClient.info).not.toHaveBeenCalled();
+      expect(mockDstackClient.getQuote).not.toHaveBeenCalled();
     });
   });
 
