@@ -18,7 +18,6 @@ import {
   removeKeysFromAccount,
   createAccountObject,
 } from "../../src/utils/near";
-import { generateAgent } from "../../src/utils/agent";
 import { internalGetAttestation } from "../../src/utils/tee";
 import {
   transformQuote,
@@ -125,17 +124,6 @@ describe("redaction: each wrapped function routes errors through toThrowable", (
       await expectThrows(() =>
         createAccountObject("agent.testnet", createMockProvider()),
       );
-      expect(errorsModule.toThrowable).toHaveBeenCalled();
-    });
-  });
-
-  describe("agent.ts", () => {
-    it("generateAgent (TEE path)", async () => {
-      const client = createMockDstackClient();
-      (client.getKey as ReturnType<typeof vi.fn>).mockRejectedValue(
-        new Error("TEE fail"),
-      );
-      await expectThrows(() => generateAgent(client, undefined));
       expect(errorsModule.toThrowable).toHaveBeenCalled();
     });
   });

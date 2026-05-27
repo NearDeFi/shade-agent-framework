@@ -93,11 +93,13 @@ export async function getDstackClient(): Promise<DstackClient | undefined> {
 export async function internalGetAttestation(
   dstackClient: DstackClient | undefined,
   agentAccountId: string,
-  keysDerivedWithTEE: boolean,
+  keysDerivedWithRandom: boolean,
 ): Promise<DstackAttestationForContract> {
-  if (!dstackClient || !keysDerivedWithTEE) {
-    // If not in a TEE or keys were not derived with TEE, return a fake/empty attestation.
-    // The contract will accept this if requires_tee is false, or reject it if requires_tee is true.
+  if (!dstackClient || !keysDerivedWithRandom) {
+    // No TEE, or any key was path-derived (local-mode only).
+    // Path-derived keys are blocked from producing a real attestation because
+    // the same path produces the same account ID across callers.
+    // The contract accepts this fake if requires_tee is false, rejects it otherwise.
     return getFakeAttestation();
   }
 

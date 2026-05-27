@@ -6,7 +6,7 @@ import type { KeyPairSigner } from "@near-js/signers";
 import { addKeysToAccount, removeKeysFromAccount } from "./near";
 import { Account } from "@near-js/accounts";
 import { Provider } from "@near-js/providers";
-import { genericError, safeParseSigner, toThrowable, withRetry } from "./errors";
+import { genericError, safeParseSigner, toThrowable } from "./errors";
 
 // Generates an agent account ID and private key
 export async function generateAgent(
@@ -15,10 +15,10 @@ export async function generateAgent(
 ): Promise<{
   accountId: string;
   agentPrivateKey: string;
-  derivedWithTEE: boolean;
+  derivedWithRandom: boolean;
 }> {
   try {
-    const { hash, usedTEE } = await deriveHash(dstackClient, derivationPath);
+    const { hash, usedRandom } = deriveHash(dstackClient, derivationPath);
     const seedInfo = generateSeedPhrase(hash);
 
     const accountId = Buffer.from(PublicKey.from(seedInfo.publicKey).data)
@@ -28,89 +28,43 @@ export async function generateAgent(
     return {
       accountId,
       agentPrivateKey: seedInfo.secretKey,
-      derivedWithTEE: usedTEE,
+      derivedWithRandom: usedRandom,
     };
   } catch (error) {
     throw toThrowable(error);
   }
 }
 
-// Derives a hash from a derivation path (for deterministic key generation)
+// Derives a hash from a derivation path (for deterministic key generation in local mode)
 function deriveHashFromPath(derivationPath: string): Buffer {
   return createHash("sha256").update(Buffer.from(derivationPath)).digest();
 }
 
-// Derives a hash from random data (for non-TEE)
+// 32 bytes of CSPRNG entropy
 function deriveHashFromRandom(): Buffer {
-  const randomArray = new Uint8Array(32);
-  crypto.getRandomValues(randomArray);
-  const randomString = Buffer.from(randomArray).toString("hex");
-  return createHash("sha256").update(Buffer.from(randomString)).digest();
+  return Buffer.from(crypto.getRandomValues(new Uint8Array(32)));
 }
 
-// Derives a hash for TEE. The dstack `getKey` call is retried on transient
-// socket / TEE hiccups.
-async function deriveHashForTEE(dstackClient: DstackClient): Promise<Buffer> {
-  try {
-    // JS crypto random
-    const randomArray = new Uint8Array(32);
-    crypto.getRandomValues(randomArray);
-    const randomString = Buffer.from(randomArray).toString("hex");
-
-    const keyFromTee = (await withRetry(() => dstackClient.getKey(randomString)))
-      .key;
-
-    // Hash of JS crypto random and Phala key provider
-    return Buffer.from(
-      await crypto.subtle.digest(
-        "SHA-256",
-        Buffer.concat([randomArray, keyFromTee]),
-      ),
-    );
-  } catch (error) {
-    throw toThrowable(error);
-  }
-}
-
-// Derives a hash based on the environment (TEE, derivation path, or random)
-async function deriveHash(
+// In a TEE the derivationPath is ignored — only random-derived keys are
+// permitted to produce a real attestation (see internalGetAttestation).
+function deriveHash(
   dstackClient: DstackClient | undefined,
   derivationPath: string | undefined,
-): Promise<{ hash: Buffer; usedTEE: boolean }> {
-  try {
-    let hash: Buffer;
-    let usedTEE: boolean;
-
-    if (!dstackClient && derivationPath) {
-      // If not in a TEE and a derivation path is provided, use it to generate the hash
-      // if different users use the same derivation path, they will get the same account ID
-      // so they should generate it to be unique
-      hash = deriveHashFromPath(derivationPath);
-      usedTEE = false;
-    } else if (!dstackClient && !derivationPath) {
-      // If it is not in a TEE and no derivation path is provided, generate a random hash
-      hash = deriveHashFromRandom();
-      usedTEE = false;
-    } else {
-      // If it is in a TEE generate a hash from the Phala key provider and JS crypto random
-      hash = await deriveHashForTEE(dstackClient);
-      usedTEE = true;
-    }
-
-    return { hash, usedTEE };
-  } catch (error) {
-    throw toThrowable(error);
+): { hash: Buffer; usedRandom: boolean } {
+  if (!dstackClient && derivationPath) {
+    return { hash: deriveHashFromPath(derivationPath), usedRandom: false };
   }
+  return { hash: deriveHashFromRandom(), usedRandom: true };
 }
 
-// Manages the setup of additional keys for the agent account
-// Derives keys, adds missing ones, and removes excess keys as needed
+// Manages the setup of additional keys for the agent account.
+// Derives keys, adds missing ones, and removes excess keys as needed.
 export async function manageKeySetup(
   agentAccount: Account,
   numAdditionalKeys: number, // Number of additional keys to derive (not total)
   dstackClient: DstackClient | undefined,
   derivationPath: string | undefined,
-): Promise<{ keysToSave: string[]; allDerivedWithTEE: boolean }> {
+): Promise<{ keysToSave: string[]; allDerivedWithRandom: boolean }> {
   try {
     // Get the number of keys on the account already
     const keysOnAccount = await agentAccount.getAccessKeyList();
@@ -122,7 +76,7 @@ export async function manageKeySetup(
       numAdditionalKeys,
       numExistingAdditionalKeys,
     );
-    const { keys, allDerivedWithTEE } = await deriveAdditionalKeys(
+    const { keys, allDerivedWithRandom } = await deriveAdditionalKeys(
       numKeysToDerive,
       dstackClient,
       derivationPath,
@@ -145,8 +99,8 @@ export async function manageKeySetup(
     const keysToSave = keys.slice(0, numAdditionalKeys);
 
     return {
-      keysToSave: keysToSave,
-      allDerivedWithTEE,
+      keysToSave,
+      allDerivedWithRandom,
     };
   } catch (error) {
     throw toThrowable(error);
@@ -158,34 +112,28 @@ async function deriveAdditionalKeys(
   numKeys: number,
   dstackClient: DstackClient | undefined,
   derivationPath: string | undefined,
-): Promise<{ keys: string[]; allDerivedWithTEE: boolean }> {
+): Promise<{ keys: string[]; allDerivedWithRandom: boolean }> {
   try {
     // Generate numKeys additional keys
-    // Run all derivations in parallel for better performance for TEE
     const keyPromises = Array.from({ length: numKeys }, async (_, index) => {
       const i = index + 1; // Start from 1
       // For additional keys with derivation path, append key index
       const keyDerivationPath = derivationPath
         ? `${derivationPath}-${i}`
         : undefined;
-      const { hash, usedTEE } = await deriveHash(
-        dstackClient,
-        keyDerivationPath,
-      );
+      const { hash, usedRandom } = deriveHash(dstackClient, keyDerivationPath);
       const seedInfo = generateSeedPhrase(hash);
-      // Return both the key and whether it was derived with TEE
       return {
         key: seedInfo.secretKey,
-        derivedWithTEE: usedTEE,
+        usedRandom,
       };
     });
 
     const results = await Promise.all(keyPromises);
-    const keys = results.map((r) => r.key);
-    // Check if all keys were derived with TEE
-    const allDerivedWithTEE = results.every((r) => r.derivedWithTEE);
-
-    return { keys, allDerivedWithTEE };
+    return {
+      keys: results.map((r) => r.key),
+      allDerivedWithRandom: results.every((r) => r.usedRandom),
+    };
   } catch (error) {
     throw toThrowable(error);
   }
@@ -227,7 +175,7 @@ export async function ensureKeysSetup(
   numKeys: number,
   dstackClient: DstackClient | undefined,
   derivationPath: string | undefined,
-  keysDerivedWithTEE: boolean,
+  keysDerivedWithRandom: boolean,
   keysChecked: boolean,
 ): Promise<{ keysToAdd: string[]; wasChecked: boolean }> {
   try {
@@ -237,19 +185,17 @@ export async function ensureKeysSetup(
 
     const signer = safeParseSigner(agentPrivateKeys[0]);
     const agentAccount = new Account(agentAccountId, rpc, signer);
-    const { keysToSave, allDerivedWithTEE } = await manageKeySetup(
+    const { keysToSave, allDerivedWithRandom } = await manageKeySetup(
       agentAccount,
       numKeys - 1,
       dstackClient,
       derivationPath,
     );
 
-    if (!allDerivedWithTEE) {
-      if (keysDerivedWithTEE) {
-        throw genericError(
-          "First key was derived with TEE but additional keys were not. Something went wrong with the key derivation.",
-        );
-      }
+    if (allDerivedWithRandom !== keysDerivedWithRandom) {
+      throw genericError(
+        "First key and additional keys disagree on derivation method. Something went wrong with the key derivation.",
+      );
     }
 
     return { keysToAdd: keysToSave, wasChecked: true };

@@ -56,7 +56,7 @@ describe("agent utils", () => {
       expect(result).toHaveProperty("accountId");
       expect(result.accountId).toMatch(/^[0-9a-f]{64}$/); // 32 bytes = 64 hex chars
       expect(result.agentPrivateKey).toMatch(/^ed25519:/);
-      expect(result).toHaveProperty("derivedWithTEE", false);
+      expect(result).toHaveProperty("derivedWithRandom", false);
     });
 
     it("should generate agent with random hash when no TEE and no derivation path", async () => {
@@ -65,30 +65,20 @@ describe("agent utils", () => {
       expect(result).toHaveProperty("accountId");
       expect(result.accountId).toMatch(/^[0-9a-f]{64}$/); // 32 bytes = 64 hex chars
       expect(result.agentPrivateKey).toMatch(/^ed25519:/);
-      expect(result).toHaveProperty("derivedWithTEE", false);
+      expect(result).toHaveProperty("derivedWithRandom", true);
     });
 
-    it("should generate agent with TEE when dstackClient is provided", async () => {
+    it("should generate agent with random hash when in TEE (path is ignored)", async () => {
       const dstackClient = createMockDstackClient();
 
-      const result = await generateAgent(dstackClient, undefined);
+      const result = await generateAgent(dstackClient, "ignored-in-tee");
 
       expect(result).toHaveProperty("accountId");
       expect(result.accountId).toMatch(/^[0-9a-f]{64}$/); // 32 bytes = 64 hex chars
       expect(result.agentPrivateKey).toMatch(/^ed25519:/);
-      expect(result).toHaveProperty("derivedWithTEE", true);
-      expect(dstackClient.getKey).toHaveBeenCalled();
-    });
-
-    it("should rethrow sanitised when TEE getKey fails", async () => {
-      const dstackClient = createMockDstackClient();
-      vi.mocked(dstackClient.getKey).mockRejectedValue(
-        new Error("TEE unavailable"),
-      );
-
-      await expect(generateAgent(dstackClient, undefined)).rejects.toThrow(
-        "TEE unavailable",
-      );
+      expect(result).toHaveProperty("derivedWithRandom", true);
+      // dstack getKey is no longer called — entropy comes purely from CSPRNG.
+      expect(dstackClient.getKey).not.toHaveBeenCalled();
     });
   });
 
@@ -108,7 +98,7 @@ describe("agent utils", () => {
         expect.arrayContaining([expect.any(String), expect.any(String)]),
       );
       expect(result.keysToSave).toHaveLength(2);
-      expect(result.allDerivedWithTEE).toBe(false);
+      expect(result.allDerivedWithRandom).toBe(true);
     });
 
     it("should remove keys when account has more keys than needed", async () => {
@@ -176,7 +166,7 @@ describe("agent utils", () => {
       ).rejects.toThrow("Remove keys failed");
     });
 
-    it("should use TEE when dstackClient is provided", async () => {
+    it("should derive with random when dstackClient is provided (path ignored)", async () => {
       const dstackClient = createMockDstackClient();
       const mockAccount = createMockAccountWithKeys([{ public_key: "key1" }]);
 
@@ -184,11 +174,12 @@ describe("agent utils", () => {
         mockAccount as any,
         1,
         dstackClient,
-        undefined,
+        "ignored-in-tee",
       );
 
-      expect(result.allDerivedWithTEE).toBe(true);
-      expect(dstackClient.getKey).toHaveBeenCalled();
+      expect(result.allDerivedWithRandom).toBe(true);
+      // dstack getKey is no longer called — entropy comes purely from CSPRNG.
+      expect(dstackClient.getKey).not.toHaveBeenCalled();
     });
 
     it("should generate unique keys when adding multiple keys with TEE", async () => {
@@ -406,7 +397,7 @@ describe("agent utils", () => {
         1,
         undefined,
         undefined,
-        false,
+        true,
         true, // keysChecked = true
       );
 
@@ -434,7 +425,7 @@ describe("agent utils", () => {
         2,
         undefined,
         undefined,
-        false,
+        true,
         false,
       );
 
@@ -447,14 +438,11 @@ describe("agent utils", () => {
       );
     });
 
-    it("should throw error when first key was TEE but additional keys are not", async () => {
+    it("should throw error when first key was random but additional keys were path-derived", async () => {
       const mockProvider = createMockProvider();
       const mockAccount = createMockAccountWithKeys([{ public_key: "key1" }]);
 
-      // Generate a valid test key
       const testKey = generateTestKey("test-key");
-
-      // Set global mock account so Account constructor uses it
       globalMockAccount = mockAccount;
 
       await expect(
@@ -463,25 +451,22 @@ describe("agent utils", () => {
           [testKey],
           mockProvider,
           2,
-          undefined, // No TEE client, so additional keys won't use TEE
-          undefined,
-          true, // First key was derived with TEE
+          undefined, // no TEE
+          "some-path", // path → additional keys deterministic → allDerivedWithRandom=false
+          true, // first key claims it was derived with random
           false,
         ),
       ).rejects.toThrow(
-        "First key was derived with TEE but additional keys were not",
+        "First key and additional keys disagree on derivation method",
       );
     });
 
-    it("should not throw error when both first and additional keys use TEE", async () => {
+    it("should not throw when both first and additional keys are CSPRNG-derived (TEE)", async () => {
       const dstackClient = createMockDstackClient();
       const mockProvider = createMockProvider();
       const mockAccount = createMockAccountWithKeys([{ public_key: "key1" }]);
 
-      // Generate a valid test key
       const testKey = generateTestKey("test-key");
-
-      // Set global mock account so Account constructor uses it
       globalMockAccount = mockAccount;
 
       const result = await ensureKeysSetup(
@@ -496,17 +481,15 @@ describe("agent utils", () => {
       );
 
       expect(result.wasChecked).toBe(true);
-      expect(dstackClient.getKey).toHaveBeenCalled();
+      // dstack getKey is no longer called — entropy comes purely from CSPRNG.
+      expect(dstackClient.getKey).not.toHaveBeenCalled();
     });
 
-    it("should not throw error when no keys use TEE", async () => {
+    it("should not throw when both first and additional keys are path-derived (local)", async () => {
       const mockProvider = createMockProvider();
       const mockAccount = createMockAccountWithKeys([{ public_key: "key1" }]);
 
-      // Generate a valid test key
       const testKey = generateTestKey("test-key");
-
-      // Set global mock account so Account constructor uses it
       globalMockAccount = mockAccount;
 
       const result = await ensureKeysSetup(
@@ -515,8 +498,8 @@ describe("agent utils", () => {
         mockProvider,
         2,
         undefined,
-        undefined,
-        false,
+        "shared-path",
+        false, // first key was path-derived
         false,
       );
 

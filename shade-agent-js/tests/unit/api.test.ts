@@ -81,7 +81,7 @@ describe("ShadeClient", () => {
   // Helper function to set up mocks
   function setupClientMocks(options?: {
     dstackClient?: ReturnType<typeof createMockDstackClient>;
-    derivedWithTEE?: boolean;
+    derivedWithRandom?: boolean;
     keysToAdd?: string[];
     wasChecked?: boolean;
   }) {
@@ -92,7 +92,7 @@ describe("ShadeClient", () => {
     vi.mocked(generateAgent).mockResolvedValue({
       accountId: testAccountId,
       agentPrivateKey: testPrivateKey,
-      derivedWithTEE: options?.derivedWithTEE ?? false,
+      derivedWithRandom: options?.derivedWithRandom ?? false,
     });
     vi.mocked(createAccountObject).mockReturnValue(mockAccount);
     vi.mocked(ensureKeysSetup).mockResolvedValue({
@@ -145,7 +145,7 @@ describe("ShadeClient", () => {
     it("should create ShadeClient with TEE client", async () => {
       setupClientMocks({
         dstackClient: mockDstackClient,
-        derivedWithTEE: true,
+        derivedWithRandom: true,
       });
       const config: ShadeConfig = {};
 
@@ -690,7 +690,7 @@ describe("ShadeClient", () => {
     it("should use TEE client if available", async () => {
       setupClientMocks({
         dstackClient: mockDstackClient,
-        derivedWithTEE: true,
+        derivedWithRandom: true,
       });
       const attestation = createMockContractAttestation({ quote: [4, 5, 6] });
       vi.mocked(internalGetAttestation).mockResolvedValue(attestation);

@@ -107,7 +107,7 @@ describe("tee utils", () => {
       expect(result).toEqual(getFakeAttestation());
     });
 
-    it("should return dummy attestation when keysDerivedWithTEE is false", async () => {
+    it("should return dummy attestation when keysDerivedWithRandom is false", async () => {
       const mockClient = createMockDstackClient();
       const result = await internalGetAttestation(
         mockClient,
