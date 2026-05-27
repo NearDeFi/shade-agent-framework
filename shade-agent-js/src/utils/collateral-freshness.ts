@@ -5,7 +5,6 @@ import type { Collateral } from "./tee";
 // Intel re-signs the three pieces we check (tcb_info.issueDate,
 // qe_identity.issueDate, PCK CRL thisUpdate) on a ~weekly cadence inside
 // a 30-day validity window, so 7 days is stricter than Intel's window
-// but more permissive than any default PCCS refresh schedule.
 export const MAX_COLLATERAL_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 // Tolerate small forward clock skew on the issuer/PCCS side: a timestamp
@@ -47,8 +46,10 @@ export class FreshnessError extends Error {
   }
 }
 
-// asn1.js TIME = CHOICE { UTCTime, GeneralizedTime }. Decoded value is
-// `{ type: 'utcTime' | 'generalTime', value: Date }` regardless of which.
+// asn1.js TIME = CHOICE { UTCTime, GeneralizedTime }. Both decoders run
+// through asn1.js's _decodeTime, which returns `Date.UTC(...)` — a
+// Unix-ms `number`. The CHOICE wrapper yields
+// `{ type: 'utcTime' | 'generalTime', value: number }`.
 const Time = asn1.define("Time", function (this: any) {
   this.choice({
     utcTime: this.utctime(),

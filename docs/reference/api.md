@@ -132,8 +132,6 @@ All fields are optional. Omit the argument entirely (`register()`) or pass an em
 - **TEE:** Registers the agent with a real attestation.
 - **Local:** Registers the agent with a mock attestation.
 
-**Collateral freshness check (TEE only):** before submission, the SDK rejects collateral bundles whose Intel-signed timestamps (`tcb_info.issueDate`, `qe_identity.issueDate`, PCK CRL `thisUpdate`) are older than 7 days or more than 5 minutes in the future. A failure throws a `FreshnessError` carrying `{ field, kind, issuedAt?, elapsedMs?, limitMs? }` — `field` is one of `tcb_info | qe_identity | pck_crl` and `kind` is one of `stale | future-timestamp | json-parse | issue-date-rfc3339 | crl-parse`. Re-call `register()` once the PCCS / endpoint returns a fresher bundle.
-
 Requires `agentContractId` in config.
 
 ---

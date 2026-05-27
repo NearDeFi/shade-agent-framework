@@ -172,7 +172,7 @@ describe("redaction: each wrapped function routes errors through toThrowable", (
       expect(errorsModule.toThrowable).toHaveBeenCalled();
     });
 
-    it("internalGetAttestation — stale collateral fails freshness", async () => {
+    it("internalGetAttestation — malformed collateral fails freshness", async () => {
       const client = createMockDstackClient();
       // Use a fetch response whose tcb_info JSON is malformed — that
       // routes through checkCollateralFreshness → FreshnessError →
