@@ -116,7 +116,14 @@ describe("attestation-transform", () => {
     });
 
     it("should handle completely empty raw collateral", () => {
-      const rawCollateral = createMockQuoteCollateral();
+      // Mock factory now defaults to freshness-passing tcb_info / qe_identity
+      // / pck_crl values; override them back to empty for this edge case test
+      // of transformCollateral (which doesn't run freshness validation).
+      const rawCollateral = createMockQuoteCollateral({
+        tcb_info: "",
+        qe_identity: "",
+        pck_crl: "",
+      });
 
       const result = transformCollateral(rawCollateral);
 
@@ -146,6 +153,14 @@ describe("attestation-transform", () => {
     });
 
     it("should throw error when hex decoding fails", () => {
+      // Set up the fixture BEFORE installing the spy so the freshness-
+      // passing default pck_crl synthesis doesn't consume the
+      // mockImplementationOnce intended for transformCollateral's
+      // hexToBytes call.
+      const rawCollateral = createMockQuoteCollateral({
+        root_ca_crl: "deadbeef",
+      });
+
       // Mock Buffer.from to throw to test the error path; the
       // underlying message is propagated through toThrowable (the
       // input is non-secret Intel-signed attestation bytes, so the
@@ -156,10 +171,6 @@ describe("attestation-transform", () => {
           throw new Error("Invalid hex character");
         }
         return originalFrom.apply(Buffer, args as any);
-      });
-
-      const rawCollateral = createMockQuoteCollateral({
-        root_ca_crl: "deadbeef",
       });
 
       expect(() => transformCollateral(rawCollateral)).toThrow(

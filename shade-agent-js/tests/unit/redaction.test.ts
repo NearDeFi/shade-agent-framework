@@ -171,6 +171,33 @@ describe("redaction: each wrapped function routes errors through toThrowable", (
       );
       expect(errorsModule.toThrowable).toHaveBeenCalled();
     });
+
+    it("internalGetAttestation — malformed collateral fails freshness", async () => {
+      const client = createMockDstackClient();
+      // Use a fetch response whose tcb_info JSON is malformed — that
+      // routes through checkCollateralFreshness → FreshnessError →
+      // toThrowable in tee.ts's outer catch.
+      mockFetch.mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          quote_collateral: {
+            pck_crl_issuer_chain: "",
+            root_ca_crl: "",
+            pck_crl: "",
+            tcb_info_issuer_chain: "",
+            tcb_info: "{not valid json",
+            tcb_info_signature: "",
+            qe_identity_issuer_chain: "",
+            qe_identity: "",
+            qe_identity_signature: "",
+          },
+        }),
+      });
+      await expectThrows(() =>
+        internalGetAttestation(client, "agent.testnet", true),
+      );
+      expect(errorsModule.toThrowable).toHaveBeenCalled();
+    });
   });
 
   describe("attestation-transform.ts", () => {

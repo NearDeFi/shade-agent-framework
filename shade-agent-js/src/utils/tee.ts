@@ -9,6 +9,7 @@ import {
   type DstackAttestationForContract,
 } from "./attestation-transform";
 import { toThrowable, withRetry } from "./errors";
+import { checkCollateralFreshness } from "./collateral-freshness";
 
 // DstackAttestation structure matching the contract interface
 export interface DstackAttestation {
@@ -154,6 +155,11 @@ export async function internalGetAttestation(
         clearTimeout(timeoutId);
       }
     });
+
+    // Reject stale or implausibly-future collateral before the contract
+    // ever sees it (7-day max age, 5-min future grace on the three
+    // Intel-signed timestamps in the bundle).
+    checkCollateralFreshness(collateral, new Date());
 
     // Transform tcb_info from dstack response to contract interface structure.
     const tcb_info = transformTcbInfo(dstackTcbInfo);

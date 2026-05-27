@@ -4,10 +4,11 @@ import { DstackClient } from "@phala/dstack-sdk";
 import { getDstackClient, internalGetAttestation } from "../../src/utils/tee";
 import {
   createMockDstackClient,
-  mockAttestationResponse,
   createMockDstackTcbInfo,
   createMockQuoteCollateral,
   createMockAttestationResponse,
+  freshTcbOrQeIdentityJson,
+  synthFreshPckCrlHex,
 } from "../mocks/tee-mocks";
 import { getFakeAttestation } from "../../src/utils/attestation-transform";
 
@@ -127,7 +128,7 @@ describe("tee utils", () => {
       // Setup fetch mock
       const mockResponse = {
         ok: true,
-        json: vi.fn().mockResolvedValue(mockAttestationResponse),
+        json: vi.fn().mockResolvedValue(createMockAttestationResponse()),
       };
       mockFetch.mockResolvedValue(mockResponse);
 
@@ -235,7 +236,7 @@ describe("tee utils", () => {
 
       const mockResponse = {
         ok: true,
-        json: vi.fn().mockResolvedValue(mockAttestationResponse),
+        json: vi.fn().mockResolvedValue(createMockAttestationResponse()),
       };
       mockFetch.mockResolvedValue(mockResponse);
 
@@ -343,7 +344,7 @@ describe("tee utils", () => {
 
       const mockResponse = {
         ok: true,
-        json: vi.fn().mockResolvedValue(mockAttestationResponse),
+        json: vi.fn().mockResolvedValue(createMockAttestationResponse()),
       };
       mockFetch.mockResolvedValue(mockResponse);
 
@@ -373,7 +374,7 @@ describe("tee utils", () => {
 
       const mockResponse = {
         ok: true,
-        json: vi.fn().mockResolvedValue(mockAttestationResponse),
+        json: vi.fn().mockResolvedValue(createMockAttestationResponse()),
       };
       mockFetch.mockResolvedValue(mockResponse);
 
@@ -399,16 +400,21 @@ describe("tee utils", () => {
 
     it("should transform quote_collateral correctly", async () => {
       const mockClient = createMockDstackClient();
+      // tcb_info / qe_identity / pck_crl must pass the freshness check;
+      // capture the fresh values so we can assert pass-through below.
+      const freshTcbJson = freshTcbOrQeIdentityJson();
+      const freshQeJson = freshTcbOrQeIdentityJson();
+      const freshPckCrlHex = synthFreshPckCrlHex();
       const quoteCollateral = createMockQuoteCollateral({
         tcb_info_issuer_chain: "chain1",
-        tcb_info: "tcb_info_json",
+        tcb_info: freshTcbJson,
         tcb_info_signature: "deadbeef",
         qe_identity_issuer_chain: "chain2",
-        qe_identity: "qe_identity_json",
+        qe_identity: freshQeJson,
         qe_identity_signature: "cafebabe",
         pck_crl_issuer_chain: "chain3",
         root_ca_crl: "12345678",
-        pck_crl: "87654321",
+        pck_crl: freshPckCrlHex,
       });
       const customResponse = createMockAttestationResponse({
         checksum: "custom-checksum",
@@ -430,12 +436,12 @@ describe("tee utils", () => {
       expect(result.collateral).toEqual({
         pck_crl_issuer_chain: "chain3",
         root_ca_crl: "12345678", // hex string (contract format)
-        pck_crl: "87654321", // hex string (contract format)
+        pck_crl: freshPckCrlHex, // hex string (contract format)
         tcb_info_issuer_chain: "chain1",
-        tcb_info: "tcb_info_json",
+        tcb_info: freshTcbJson,
         tcb_info_signature: "deadbeef", // hex string (contract format)
         qe_identity_issuer_chain: "chain2",
-        qe_identity: "qe_identity_json",
+        qe_identity: freshQeJson,
         qe_identity_signature: "cafebabe", // hex string (contract format)
       });
     });
