@@ -79,7 +79,7 @@ export class ShadeClient {
   private agentAccountId: string;
   private agentPrivateKeys: string[];
   private currentKeyIndex: number;
-  private keysDerivedWithTEE: boolean; // true if all keys were derived with TEE entropy, false otherwise
+  private keysDerivedWithRandom: boolean; // true if all keys were derived from CSPRNG, false if any came from a derivation path
   private keysChecked: boolean; // true if the number of keys have been checked (happens on the first call), false otherwise
 
   // Private constructor so only `create()` can be used to create an instance
@@ -88,14 +88,14 @@ export class ShadeClient {
     dstackClient: DstackClient | undefined,
     accountId: string,
     agentPrivateKeys: string[],
-    keysDerivedWithTEE: boolean,
+    keysDerivedWithRandom: boolean,
   ) {
     this.config = config;
     this.dstackClient = dstackClient;
     this.agentAccountId = accountId;
     this.agentPrivateKeys = agentPrivateKeys;
     this.currentKeyIndex = 0;
-    this.keysDerivedWithTEE = keysDerivedWithTEE;
+    this.keysDerivedWithRandom = keysDerivedWithRandom;
     this.keysChecked = false;
   }
 
@@ -111,11 +111,12 @@ export class ShadeClient {
       await validateShadeConfig(config);
 
       // Detect if running in a TEE
+      // This is called once so will be in TEE or not in TEE the whole time
       const dstackClient = await getDstackClient();
 
       // Generate agent account ID and private key
       const agentPrivateKeys: string[] = [];
-      const { accountId, agentPrivateKey, derivedWithTEE } =
+      const { accountId, agentPrivateKey, derivedWithRandom } =
         await generateAgent(dstackClient, config.derivationPath);
       agentPrivateKeys.push(agentPrivateKey);
 
@@ -124,7 +125,7 @@ export class ShadeClient {
         dstackClient,
         accountId,
         agentPrivateKeys,
-        derivedWithTEE,
+        derivedWithRandom,
       );
     } catch (error) {
       throw toThrowable(error);
@@ -181,7 +182,7 @@ export class ShadeClient {
       const contractAttestation = await internalGetAttestation(
         this.dstackClient,
         this.agentAccountId,
-        this.keysDerivedWithTEE,
+        this.keysDerivedWithRandom,
       );
 
       let depositYocto: bigint;
@@ -277,7 +278,7 @@ export class ShadeClient {
         this.config.numKeys!,
         this.dstackClient,
         this.config.derivationPath,
-        this.keysDerivedWithTEE,
+        this.keysDerivedWithRandom,
         this.keysChecked,
       );
       this.agentPrivateKeys.push(...keysToAdd);
@@ -320,7 +321,7 @@ export class ShadeClient {
       return await internalGetAttestation(
         this.dstackClient,
         this.agentAccountId,
-        this.keysDerivedWithTEE,
+        this.keysDerivedWithRandom,
       );
     } catch (error) {
       throw toThrowable(error);
