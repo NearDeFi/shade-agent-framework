@@ -64,7 +64,8 @@ export async function manageKeySetup(
   numAdditionalKeys: number, // Number of additional keys to derive (not total)
   dstackClient: DstackClient | undefined,
   derivationPath: string | undefined,
-): Promise<{ keysToSave: string[]; allDerivedWithRandom: boolean }> {
+  keysDerivedWithRandom: boolean,
+): Promise<{ keysToSave: string[] }> {
   try {
     // Get the number of keys on the account already
     const keysOnAccount = await agentAccount.getAccessKeyList();
@@ -91,6 +92,15 @@ export async function manageKeySetup(
       derivationPath,
     );
 
+    // Validate derivation-mode consistency before mutating chain state. If the
+    // first key and additional keys disagree, the account must stay untouched
+    // so a retry can recover without orphaned keys on chain.
+    if (allDerivedWithRandom !== keysDerivedWithRandom) {
+      throw genericError(
+        "First key and additional keys disagree on derivation method. Something went wrong with the key derivation.",
+      );
+    }
+
     if (numExistingAdditionalKeys < numAdditionalKeys) {
       // Need to add keys
       const keysToAdd = keys.slice(
@@ -109,7 +119,6 @@ export async function manageKeySetup(
 
     return {
       keysToSave,
-      allDerivedWithRandom,
     };
   } catch (error) {
     throw toThrowable(error);
@@ -126,7 +135,7 @@ async function deriveAdditionalKeys(
     // Generate numKeys additional keys
     const keyPromises = Array.from({ length: numKeys }, async (_, index) => {
       const i = index + 1; // Start from 1
-      // For additional keys with derivation path, append key index
+      // For local mode with deriviation path append key index to deriviation path so its deterministic 
       const keyDerivationPath = derivationPath
         ? `${derivationPath}-${i}`
         : undefined;
@@ -194,18 +203,13 @@ export async function ensureKeysSetup(
 
     const signer = safeParseSigner(agentPrivateKeys[0]);
     const agentAccount = new Account(agentAccountId, rpc, signer);
-    const { keysToSave, allDerivedWithRandom } = await manageKeySetup(
+    const { keysToSave } = await manageKeySetup(
       agentAccount,
       numKeys - 1,
       dstackClient,
       derivationPath,
+      keysDerivedWithRandom,
     );
-
-    if (allDerivedWithRandom !== keysDerivedWithRandom) {
-      throw genericError(
-        "First key and additional keys disagree on derivation method. Something went wrong with the key derivation.",
-      );
-    }
 
     return { keysToAdd: keysToSave, wasChecked: true };
   } catch (error) {

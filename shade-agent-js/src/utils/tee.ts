@@ -72,6 +72,7 @@ interface QuoteCollateralResponse {
 // then it will generate a deterministic account ID for the agent.
 // This could be dangerous, however, it will not be able to register in the contract
 // as it will not provide the attestation, which is required for registration.
+// Regardless getDstackClient is only called once during setup of the client 
 export async function getDstackClient(): Promise<DstackClient | undefined> {
   // First check if socket exists
   if (!existsSync("/var/run/dstack.sock")) {

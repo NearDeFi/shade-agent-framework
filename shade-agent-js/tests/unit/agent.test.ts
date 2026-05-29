@@ -91,6 +91,7 @@ describe("agent utils", () => {
         2,
         undefined,
         undefined,
+        true,
       );
 
       expect(addKeysToAccount).toHaveBeenCalledWith(
@@ -98,7 +99,6 @@ describe("agent utils", () => {
         expect.arrayContaining([expect.any(String), expect.any(String)]),
       );
       expect(result.keysToSave).toHaveLength(2);
-      expect(result.allDerivedWithRandom).toBe(true);
     });
 
     it("should remove keys when account has more keys than needed", async () => {
@@ -113,6 +113,7 @@ describe("agent utils", () => {
         1,
         undefined,
         "test-path",
+        false,
       );
 
       expect(removeKeysFromAccount).toHaveBeenCalledWith(
@@ -133,6 +134,7 @@ describe("agent utils", () => {
         1,
         undefined,
         "test-path",
+        false,
       );
 
       expect(addKeysToAccount).not.toHaveBeenCalled();
@@ -147,7 +149,7 @@ describe("agent utils", () => {
       );
 
       await expect(
-        manageKeySetup(mockAccount as any, 2, undefined, undefined),
+        manageKeySetup(mockAccount as any, 2, undefined, undefined, true),
       ).rejects.toThrow("Add keys failed");
     });
 
@@ -162,7 +164,7 @@ describe("agent utils", () => {
       );
 
       await expect(
-        manageKeySetup(mockAccount as any, 1, undefined, "test-path"),
+        manageKeySetup(mockAccount as any, 1, undefined, "test-path", false),
       ).rejects.toThrow("Remove keys failed");
     });
 
@@ -175,8 +177,23 @@ describe("agent utils", () => {
       // No dstackClient + no derivationPath = random mode. Existing additional
       // key cannot be reused because random derivation produces fresh keys.
       await expect(
-        manageKeySetup(mockAccount as any, 1, undefined, undefined),
+        manageKeySetup(mockAccount as any, 1, undefined, undefined, true),
       ).rejects.toThrow(/cannot be reused in random-derivation mode/);
+
+      expect(addKeysToAccount).not.toHaveBeenCalled();
+      expect(removeKeysFromAccount).not.toHaveBeenCalled();
+    });
+
+    it("should throw without touching chain state when derivation mode disagrees with claim", async () => {
+      const mockAccount = createMockAccountWithKeys([{ public_key: "key1" }]);
+
+      // Caller claims first key was random-derived, but passes derivationPath
+      // (no dstackClient) which produces deterministic additional keys.
+      await expect(
+        manageKeySetup(mockAccount as any, 2, undefined, "test-path", true),
+      ).rejects.toThrow(
+        "First key and additional keys disagree on derivation method",
+      );
 
       expect(addKeysToAccount).not.toHaveBeenCalled();
       expect(removeKeysFromAccount).not.toHaveBeenCalled();
@@ -186,14 +203,14 @@ describe("agent utils", () => {
       const dstackClient = createMockDstackClient();
       const mockAccount = createMockAccountWithKeys([{ public_key: "key1" }]);
 
-      const result = await manageKeySetup(
+      await manageKeySetup(
         mockAccount as any,
         1,
         dstackClient,
         "ignored-in-tee",
+        true,
       );
 
-      expect(result.allDerivedWithRandom).toBe(true);
       // dstack getKey is no longer called — entropy comes purely from CSPRNG.
       expect(dstackClient.getKey).not.toHaveBeenCalled();
     });
@@ -202,7 +219,13 @@ describe("agent utils", () => {
       const dstackClient = createMockDstackClient();
       const mockAccount = createMockAccountWithKeys([{ public_key: "key1" }]);
 
-      await manageKeySetup(mockAccount as any, 3, dstackClient, undefined);
+      await manageKeySetup(
+        mockAccount as any,
+        3,
+        dstackClient,
+        undefined,
+        true,
+      );
       expect(addKeysToAccount).toHaveBeenCalled();
       const keys = vi.mocked(addKeysToAccount).mock.calls[0][1] as string[];
 
@@ -217,11 +240,12 @@ describe("agent utils", () => {
       const mockAccount = createMockAccountWithKeys([{ public_key: "key1" }]);
       const derivationPath = "test-path";
 
-      const result = await manageKeySetup(
+      await manageKeySetup(
         mockAccount as any,
         3,
         undefined,
         derivationPath,
+        false,
       );
       expect(addKeysToAccount).toHaveBeenCalled();
       const keys = vi.mocked(addKeysToAccount).mock.calls[0][1] as string[];
@@ -231,13 +255,12 @@ describe("agent utils", () => {
       expect(keys[0]).not.toBe(keys[1]);
       expect(keys[0]).not.toBe(keys[2]);
       expect(keys[1]).not.toBe(keys[2]);
-      expect(result.allDerivedWithRandom).toBe(false);
     });
 
     it("should generate unique keys when adding multiple keys without derivation path", async () => {
       const mockAccount = createMockAccountWithKeys([{ public_key: "key1" }]);
 
-      await manageKeySetup(mockAccount as any, 3, undefined, undefined);
+      await manageKeySetup(mockAccount as any, 3, undefined, undefined, true);
       expect(addKeysToAccount).toHaveBeenCalled();
       const keys = vi.mocked(addKeysToAccount).mock.calls[0][1] as string[];
 
@@ -265,13 +288,25 @@ describe("agent utils", () => {
       const mockAccount1 = createMockAccountWithKeys([{ public_key: "key1" }]);
       const mockAccount2 = createMockAccountWithKeys([{ public_key: "key1" }]);
 
-      await manageKeySetup(mockAccount1 as any, 2, dstackClient1, undefined);
+      await manageKeySetup(
+        mockAccount1 as any,
+        2,
+        dstackClient1,
+        undefined,
+        true,
+      );
       const additionalKeys1 = vi.mocked(addKeysToAccount).mock
         .calls[0][1] as string[];
 
       vi.clearAllMocks();
 
-      await manageKeySetup(mockAccount2 as any, 2, dstackClient2, undefined);
+      await manageKeySetup(
+        mockAccount2 as any,
+        2,
+        dstackClient2,
+        undefined,
+        true,
+      );
       const additionalKeys2 = vi.mocked(addKeysToAccount).mock
         .calls[0][1] as string[];
 
@@ -293,13 +328,13 @@ describe("agent utils", () => {
       const mockAccount1 = createMockAccountWithKeys([{ public_key: "key1" }]);
       const mockAccount2 = createMockAccountWithKeys([{ public_key: "key1" }]);
 
-      await manageKeySetup(mockAccount1 as any, 2, undefined, undefined);
+      await manageKeySetup(mockAccount1 as any, 2, undefined, undefined, true);
       const additionalKeys1 = vi.mocked(addKeysToAccount).mock
         .calls[0][1] as string[];
 
       vi.clearAllMocks();
 
-      await manageKeySetup(mockAccount2 as any, 2, undefined, undefined);
+      await manageKeySetup(mockAccount2 as any, 2, undefined, undefined, true);
       const additionalKeys2 = vi.mocked(addKeysToAccount).mock
         .calls[0][1] as string[];
 
@@ -323,13 +358,25 @@ describe("agent utils", () => {
       const mockAccount1 = createMockAccountWithKeys([{ public_key: "key1" }]);
       const mockAccount2 = createMockAccountWithKeys([{ public_key: "key1" }]);
 
-      await manageKeySetup(mockAccount1 as any, 2, undefined, derivationPath);
+      await manageKeySetup(
+        mockAccount1 as any,
+        2,
+        undefined,
+        derivationPath,
+        false,
+      );
       const additionalKeys1 = vi.mocked(addKeysToAccount).mock
         .calls[0][1] as string[];
 
       vi.clearAllMocks();
 
-      await manageKeySetup(mockAccount2 as any, 2, undefined, derivationPath);
+      await manageKeySetup(
+        mockAccount2 as any,
+        2,
+        undefined,
+        derivationPath,
+        false,
+      );
       const additionalKeys2 = vi.mocked(addKeysToAccount).mock
         .calls[0][1] as string[];
 
@@ -354,13 +401,25 @@ describe("agent utils", () => {
       const mockAccount1 = createMockAccountWithKeys([{ public_key: "key1" }]);
       const mockAccount2 = createMockAccountWithKeys([{ public_key: "key1" }]);
 
-      await manageKeySetup(mockAccount1 as any, 2, undefined, derivationPath1);
+      await manageKeySetup(
+        mockAccount1 as any,
+        2,
+        undefined,
+        derivationPath1,
+        false,
+      );
       const additionalKeys1 = vi.mocked(addKeysToAccount).mock
         .calls[0][1] as string[];
 
       vi.clearAllMocks();
 
-      await manageKeySetup(mockAccount2 as any, 2, undefined, derivationPath2);
+      await manageKeySetup(
+        mockAccount2 as any,
+        2,
+        undefined,
+        derivationPath2,
+        false,
+      );
       const additionalKeys2 = vi.mocked(addKeysToAccount).mock
         .calls[0][1] as string[];
 
@@ -481,6 +540,11 @@ describe("agent utils", () => {
       ).rejects.toThrow(
         "First key and additional keys disagree on derivation method",
       );
+
+      // Hardening invariant: chain state must remain untouched when the
+      // consistency check fires, so a retry can recover without orphaned keys.
+      expect(addKeysToAccount).not.toHaveBeenCalled();
+      expect(removeKeysFromAccount).not.toHaveBeenCalled();
     });
 
     it("should not throw when both first and additional keys are CSPRNG-derived (TEE)", async () => {

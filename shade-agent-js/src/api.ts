@@ -111,6 +111,7 @@ export class ShadeClient {
       await validateShadeConfig(config);
 
       // Detect if running in a TEE
+      // This is called once so will be in TEE or not in TEE the whole time
       const dstackClient = await getDstackClient();
 
       // Generate agent account ID and private key
