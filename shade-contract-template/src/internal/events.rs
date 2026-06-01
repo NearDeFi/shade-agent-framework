@@ -11,12 +11,12 @@ pub const MAX_ADVISORY_IDS: usize = 8;
 /// returning the capped list together with the true total.
 pub fn summarize_advisory_ids(advisory_ids: &[String]) -> (Vec<String>, u16) {
     let number_of_advisory_ids = u16::try_from(advisory_ids.len()).unwrap_or(u16::MAX);
-    let advisory_ids_max_8 = advisory_ids
+    let advisory_ids_truncated = advisory_ids
         .iter()
         .take(MAX_ADVISORY_IDS)
         .cloned()
         .collect();
-    (advisory_ids_max_8, number_of_advisory_ids)
+    (advisory_ids_truncated, number_of_advisory_ids)
 }
 
 #[derive(Serialize, Debug, Clone)]
@@ -29,7 +29,7 @@ pub enum Event<'a> {
         account_id: &'a AccountId,
         measurements: &'a FullMeasurementsHex,
         ppid: &'a Ppid,
-        advisory_ids_max_8: Vec<String>,
+        advisory_ids_truncated: Vec<String>,
         number_of_advisory_ids: u16,
         current_time_ms: U64,
         valid_until_ms: U64,

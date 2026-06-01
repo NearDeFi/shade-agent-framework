@@ -105,14 +105,14 @@ impl Contract {
         let (measurements, ppid, advisory_ids) = self.verify_attestation(attestation.clone());
 
         let valid_until_ms = block_timestamp_ms() + self.attestation_expiration_time_ms;
-        let (advisory_ids_max_8, number_of_advisory_ids) =
+        let (advisory_ids_truncated, number_of_advisory_ids) =
             internal::events::summarize_advisory_ids(&advisory_ids);
 
         Event::AgentRegistered {
             account_id: &predecessor,
             measurements: &measurements,
             ppid: &ppid,
-            advisory_ids_max_8,
+            advisory_ids_truncated,
             number_of_advisory_ids,
             current_time_ms: U64::from(block_timestamp_ms()),
             valid_until_ms: U64::from(valid_until_ms),
