@@ -14,7 +14,6 @@ use alloc::{
 };
 use borsh::{BorshDeserialize, BorshSerialize};
 use core::fmt;
-use dcap_qvl::verify::VerifiedReport;
 use derive_more::Constructor;
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -39,6 +38,18 @@ pub struct DstackAttestation {
     pub tcb_info: TcbInfo,
 }
 
+/// Result of a successful [`DstackAttestation::verify`] call.
+#[derive(Clone, Debug)]
+pub struct AcceptedDstackAttestation {
+    pub measurements: FullMeasurements,
+    pub ppid: HexBytes<16>,
+    /// Informational advisory IDs (e.g. `INTEL-DOC-10000` post-ESU) surfaced by
+    /// Intel's PCS alongside an `UpToDate` TCB status. They are not a security
+    /// failure — `UpToDate` is the sole security gate; these advisories convey
+    /// platform lifecycle information.
+    pub advisory_ids: Vec<String>,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, thiserror::Error)]
 pub enum VerificationError {
     #[error("could not parse embedded measurements: {0}")]
@@ -49,8 +60,6 @@ pub enum VerificationError {
     ReportNotTd10,
     #[error("TCB status `{0}` is not up to date")]
     TcbStatusNotUpToDate(String),
-    #[error("ouststanding advisories reported: {0}")]
-    NonEmptyAdvisoryIds(String),
     #[error("wrong {name} hash (found {found} expected {expected})")]
     WrongHash {
         name: &'static str,
@@ -152,14 +161,15 @@ impl DstackAttestation {
     ///   valid.
     /// - accepted_ppids: set of accepted PPIDs. PPID in the attestation must match one of the allowed PPIDs.
     ///
-    /// Returns the `FullMeasurements` that matched and the verified PPID if verification succeeds.
+    /// Returns the `FullMeasurements` that matched, the verified PPID
+    /// and informational advisory IDs if verification succeeds.
     pub fn verify(
         &self,
         expected_report_data: ReportData,
         timestamp_seconds: u64,
         accepted_measurements: &[FullMeasurements],
         accepted_ppids: &[HexBytes<16>],
-    ) -> Result<(FullMeasurements, HexBytes<16>), VerificationError> {
+    ) -> Result<AcceptedDstackAttestation, VerificationError> {
         let verification_result =
             dcap_qvl::verify::verify(&self.quote, &self.collateral, timestamp_seconds)
                 .map_err(|e| VerificationError::DcapVerification(e.to_string()))?;
@@ -170,7 +180,7 @@ impl DstackAttestation {
             .ok_or(VerificationError::ReportNotTd10)?;
 
         // Verify all attestation components
-        self.verify_tcb_status(&verification_result)?;
+        let advisory_ids = Self::verify_tcb_status(&verification_result)?;
         self.verify_report_data(&expected_report_data, report_data)?;
         let ppid = self.verify_ppid(verification_result.ppid, accepted_ppids)?;
 
@@ -179,7 +189,12 @@ impl DstackAttestation {
 
         let measurements =
             self.verify_any_measurements(report_data, &self.tcb_info, accepted_measurements)?;
-        Ok((measurements, ppid))
+
+        Ok(AcceptedDstackAttestation {
+            measurements,
+            ppid,
+            advisory_ids,
+        })
     }
 
     /// Replays RTMR3 from the event log by hashing all relevant events together and verifies all
@@ -247,29 +262,28 @@ impl DstackAttestation {
         compare_hashes("app_compose_payload", &app_compose_hash, &expected_payload)
     }
 
-    /// Verifies TCB status and security advisories.
+    /// Verifies the TCB status and returns any advisory IDs reported alongside it.
+    ///
+    /// The "UpToDate" TCB status indicates that the measured platform components (CPU
+    /// microcode, firmware, etc.) match the latest known good values published by Intel
+    /// and do not require any updates or mitigations — this is the sole security gate.
+    ///
+    /// Intel's PCS surfaces `advisory_ids` for two distinct purposes:
+    ///   1. `INTEL-SA-NNNNN`: real Security Advisories. Intel only attaches these to
+    ///      a non-UpToDate TCB status, so they are implicitly rejected by the status
+    ///      check below.
+    ///   2. `INTEL-DOC-NNNNN`: informational lifecycle markers (e.g. `INTEL-DOC-10000`
+    ///      after a product's Extended Servicing Updates date). These may appear with
+    ///      `UpToDate` and do not indicate a vulnerability; they are returned so the
+    ///      caller can log/expose them.
     fn verify_tcb_status(
-        &self,
-        verification_result: &VerifiedReport,
-    ) -> Result<(), VerificationError> {
-        // The "UpToDate" TCB status indicates that the measured platform components (CPU
-        // microcode, firmware, etc.) match the latest known good values published by Intel
-        // and do not require any updates or mitigations.
-        let status_is_up_to_date = verification_result.status == EXPECTED_QUOTE_STATUS;
-
-        // Advisory IDs indicate known security vulnerabilities or issues with the TEE.
-        // For a quote to be considered secure, there should be no outstanding advisories.
-        let no_security_advisories = verification_result.advisory_ids.is_empty();
-
-        status_is_up_to_date.or_err(|| {
+        verification_result: &dcap_qvl::verify::VerifiedReport,
+    ) -> Result<Vec<String>, VerificationError> {
+        (verification_result.status == EXPECTED_QUOTE_STATUS).or_err(|| {
             VerificationError::TcbStatusNotUpToDate(verification_result.status.clone())
         })?;
 
-        no_security_advisories.or_err(|| {
-            VerificationError::NonEmptyAdvisoryIds(verification_result.advisory_ids.join(", "))
-        })?;
-
-        Ok(())
+        Ok(verification_result.advisory_ids.clone())
     }
 
     /// Verifies report data matches expected values.
@@ -590,37 +604,35 @@ mod tests {
 
     // -------- verify_tcb_status --------
 
-    // "UpToDate" + no advisories passes.
+    // "UpToDate" + no advisories passes and returns no advisory IDs.
     #[test]
     fn verify_tcb_status_accepts_up_to_date_no_advisories() {
-        let attestation = create_mock_dstack_attestation();
         let report = verified_report("UpToDate", Vec::new());
-        assert_eq!(attestation.verify_tcb_status(&report), Ok(()));
+        assert_eq!(
+            DstackAttestation::verify_tcb_status(&report),
+            Ok(Vec::new())
+        );
     }
 
     // Any non-"UpToDate" status fails.
     #[test]
     fn verify_tcb_status_rejects_out_of_date_status() {
-        let attestation = create_mock_dstack_attestation();
         let report = verified_report("OutOfDate", Vec::new());
         assert_eq!(
-            attestation.verify_tcb_status(&report),
+            DstackAttestation::verify_tcb_status(&report),
             Err(VerificationError::TcbStatusNotUpToDate(
                 "OutOfDate".to_string()
             ))
         );
     }
 
-    // Outstanding advisories fail even when status is "UpToDate".
+    // Informational advisories are returned alongside an "UpToDate" status.
     #[test]
-    fn verify_tcb_status_rejects_non_empty_advisories() {
-        let attestation = create_mock_dstack_attestation();
-        let report = verified_report("UpToDate", vec!["INTEL-SA-00001".to_string()]);
+    fn verify_tcb_status_returns_informational_advisories() {
+        let report = verified_report("UpToDate", vec!["INTEL-DOC-10000".to_string()]);
         assert_eq!(
-            attestation.verify_tcb_status(&report),
-            Err(VerificationError::NonEmptyAdvisoryIds(
-                "INTEL-SA-00001".to_string()
-            ))
+            DstackAttestation::verify_tcb_status(&report),
+            Ok(vec!["INTEL-DOC-10000".to_string()])
         );
     }
 

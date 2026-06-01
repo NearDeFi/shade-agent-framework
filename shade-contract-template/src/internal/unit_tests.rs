@@ -1107,3 +1107,48 @@ fn test_get_agents_expiration_fields() {
     );
     assert!(matches!(agent2_info.validity, AgentValidity::Valid));
 }
+
+// -------- summarize_advisory_ids (AgentRegistered event payload) --------
+
+use super::events::{MAX_ADVISORY_IDS, summarize_advisory_ids};
+
+// Builds `n` distinct advisory IDs in a stable order.
+fn advisory_ids(n: usize) -> Vec<String> {
+    (0..n).map(|i| format!("INTEL-DOC-{i}")).collect()
+}
+
+// No advisories: empty list and a zero count.
+#[test]
+fn summarize_advisory_ids_empty() {
+    let (shown, total) = summarize_advisory_ids(&[]);
+    assert!(shown.is_empty());
+    assert_eq!(total, 0);
+}
+
+// Fewer than the cap: every ID is returned, in order, with the exact count.
+#[test]
+fn summarize_advisory_ids_below_cap() {
+    let ids = advisory_ids(3);
+    let (shown, total) = summarize_advisory_ids(&ids);
+    assert_eq!(shown, ids);
+    assert_eq!(total, 3);
+}
+
+// Exactly at the cap: every ID is returned and none are dropped.
+#[test]
+fn summarize_advisory_ids_at_cap() {
+    let ids = advisory_ids(MAX_ADVISORY_IDS);
+    let (shown, total) = summarize_advisory_ids(&ids);
+    assert_eq!(shown, ids);
+    assert_eq!(total as usize, MAX_ADVISORY_IDS);
+}
+
+// More than the cap: the shown list is truncated to the first `MAX_ADVISORY_IDS`,
+// but the reported total still reflects the true number of advisories.
+#[test]
+fn summarize_advisory_ids_above_cap_truncates_but_counts_all() {
+    let ids = advisory_ids(MAX_ADVISORY_IDS + 4);
+    let (shown, total) = summarize_advisory_ids(&ids);
+    assert_eq!(shown.as_slice(), &ids[..MAX_ADVISORY_IDS]);
+    assert_eq!(total as usize, MAX_ADVISORY_IDS + 4);
+}

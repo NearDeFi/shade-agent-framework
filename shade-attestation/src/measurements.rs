@@ -210,8 +210,14 @@ mod tests {
         assert_eq!(back.rtmrs.rtmr0, original.rtmrs.rtmr0);
         assert_eq!(back.rtmrs.rtmr1, original.rtmrs.rtmr1);
         assert_eq!(back.rtmrs.rtmr2, original.rtmrs.rtmr2);
-        assert_eq!(back.key_provider_event_digest, original.key_provider_event_digest);
-        assert_eq!(back.app_compose_hash_payload, original.app_compose_hash_payload);
+        assert_eq!(
+            back.key_provider_event_digest,
+            original.key_provider_event_digest
+        );
+        assert_eq!(
+            back.app_compose_hash_payload,
+            original.app_compose_hash_payload
+        );
     }
 
     // Borsh serialize → deserialize preserves all fields.
@@ -224,8 +230,14 @@ mod tests {
         assert_eq!(back.rtmrs.rtmr0, original.rtmrs.rtmr0);
         assert_eq!(back.rtmrs.rtmr1, original.rtmrs.rtmr1);
         assert_eq!(back.rtmrs.rtmr2, original.rtmrs.rtmr2);
-        assert_eq!(back.key_provider_event_digest, original.key_provider_event_digest);
-        assert_eq!(back.app_compose_hash_payload, original.app_compose_hash_payload);
+        assert_eq!(
+            back.key_provider_event_digest,
+            original.key_provider_event_digest
+        );
+        assert_eq!(
+            back.app_compose_hash_payload,
+            original.app_compose_hash_payload
+        );
     }
 
     // create_mock_full_measurements_hex returns the documented zero-filled shape.
