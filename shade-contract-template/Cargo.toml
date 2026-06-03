@@ -55,7 +55,7 @@ near-sandbox = "=0.3.9"
 near-sdk = { version = "=5.26.1", features = ["unit-testing"] }
 serde_json = "=1.0.149"
 shade-attestation = { path = "../shade-attestation" }
-tokio = { version = "=1.52.1", features = ["full"] }
+tokio = { version = "=1.52.3", features = ["full"] }
 
 [profile.release]
 codegen-units = 1
