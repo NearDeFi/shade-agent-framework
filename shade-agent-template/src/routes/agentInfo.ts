@@ -8,16 +8,17 @@ app.get("/", async (c) => {
     // Get the agent's account ID
     const accountId = agent.accountId();
 
-    // Get the balance of the agent account
+    // Get the balance of the agent in NEAR
     const balance = await agent.balance();
 
     return c.json({
       accountId,
-      balance: balance.toString(),
+      balance,
+      agentContractId: process.env.AGENT_CONTRACT_ID,
     });
   } catch (error) {
-    console.log("Error getting agent account:", error);
-    return c.json({ error: "Failed to get agent account " + error }, 500);
+    console.log("Failed to get agent info:", error);
+    return c.json({ error: "Failed to get agent info: " + error }, 500);
   }
 });
 
