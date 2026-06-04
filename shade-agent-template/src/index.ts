@@ -3,36 +3,22 @@ import { serve } from "@hono/node-server";
 import { cors } from "hono/cors";
 import dotenv from "dotenv";
 import { ShadeClient } from "@neardefi/shade-agent-js";
-import ethAccount from "./routes/ethAccount";
-import agentAccount from "./routes/agentAccount";
+import agentInfo from "./routes/agentInfo";
+import ethInfo from "./routes/ethAccountInfo";
 import transaction from "./routes/transaction";
 
 // Load environment variables from .env file (only needed for local development)
 if (process.env.NODE_ENV !== "production") {
   dotenv.config();
 }
-
 const agentContractId = process.env.AGENT_CONTRACT_ID;
 const sponsorAccountId = process.env.SPONSOR_ACCOUNT_ID;
 const sponsorPrivateKey = process.env.SPONSOR_PRIVATE_KEY;
-
 if (!agentContractId || !sponsorAccountId || !sponsorPrivateKey) {
   throw new Error(
     "Missing required environment variables AGENT_CONTRACT_ID, SPONSOR_ACCOUNT_ID, SPONSOR_PRIVATE_KEY",
   );
 }
-
-// Initialize agent
-export const agent = await ShadeClient.create({
-  networkId: "testnet",
-  agentContractId: agentContractId, // Agent contract the agent will interact with
-  sponsor: {
-    // Sponsor account details that will fund the agent
-    accountId: sponsorAccountId,
-    privateKey: sponsorPrivateKey,
-  },
-  derivationPath: sponsorPrivateKey, // Random string kept secret (private key does a good job)
-});
 
 // Initialize app
 const app = new Hono();
@@ -42,9 +28,22 @@ app.use(cors());
 
 // Routes
 app.get("/", (c) => c.json({ message: "App is running" }));
-app.route("/api/eth-account", ethAccount);
-app.route("/api/agent-account", agentAccount);
+app.route("/api/agent-info", agentInfo);
+app.route("/api/eth-info", ethInfo);
 app.route("/api/transaction", transaction);
+
+// Initialize Shade Agent client
+export const agent = await ShadeClient.create({
+  networkId: "testnet",
+  agentContractId: agentContractId, // Agent contract the agent will interact with
+  sponsor: {
+    // Sponsor account details that will fund the agent
+    accountId: sponsorAccountId,
+    privateKey: sponsorPrivateKey,
+  },
+  // Derivation path for fixed agent account ID for local
+  derivationPath: sponsorPrivateKey, // Random string kept secret (private key does a good job)
+});
 
 console.log("Agent account ID:", agent.accountId());
 
@@ -68,15 +67,15 @@ while (true) {
   } catch (error) {
     console.error("Error:", error);
   }
+  console.log("Whitelist the agent account ID");
   await new Promise((resolve) => setTimeout(resolve, 10000));
 }
 
 // Re-register every 6 days
 const SIX_DAYS_MS = 6 * 24 * 60 * 60 * 1000;
-const reRegister = agent.register.bind(agent);
 setInterval(async () => {
   try {
-    const registered = await reRegister();
+    const registered = await agent.register();
     if (registered) {
       console.log("Agent re-registered");
     }
