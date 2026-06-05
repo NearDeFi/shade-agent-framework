@@ -437,9 +437,12 @@ This will produce the MRTD, RTMR0, RTMR1, and RTMR2 measurements. You can compar
 
 # Key Provider
 
-While the key provider is measured in the Shade Agent Framework, it is not extensively used and is not critical to verify. It is only used as an additional source of entropy for agent account ID generation on top of JS crypto random. The "no key provider" option in Dstack is not supported on Phala Cloud.
+The Key Provider in the Shade Agent Framework is not used in the derivation of the agent's keys, but it is still measured as part of the attestation. It is used for:
+- Encrypting environment variables
+- Encrypting disk data
+- Deriving TLS keys
 
-The key provider event digest is set to Phala's centralized key provider by CLI default with a value of `83368b43a0fc6f824f5a9220592df85fd30e2d405ecbd253a5c6354af63e6c9b41aec557c38a38e348ab87f9ac8fc68c`. Any application should use this value for the key provider event digest unless there is a sufficient reason to use a different key provider.
+The framework uses Phala's centralized key provider; its event digest has the value `83368b43a0fc6f824f5a9220592df85fd30e2d405ecbd253a5c6354af63e6c9b41aec557c38a38e348ab87f9ac8fc68c`. Any application should use this value for the key provider event digest unless there is a sufficient reason to use a different key provider.
 
 ---
 

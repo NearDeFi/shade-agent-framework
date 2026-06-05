@@ -195,12 +195,14 @@ const keys = agent.getPrivateKeys({ acknowledgeRisk: true });
 
 ---
 
-## Utilities
+## Logging and Error Utilities
 
 `shade-agent-js` exports three error-handling helpers. The library itself
 funnels every internal error through `toThrowable` before it leaves the
 package — these utilities let consumer code do the same with arbitrary
 caught values.
+
+It's recommended to use `addSensitive` to add redaction for common keys and patterns specific to your codebase, and to wrap all actions where an error can be produced in the `toThrowable` pattern. For actions where there is a high risk of a secret being leaked via an error, you should catch the error and throw a generic string. It's also recommended to scan libraries used where secrets are taken as arguments or produced, to make sure no secrets can be leaked by the library.
 
 ### sanitize
 
