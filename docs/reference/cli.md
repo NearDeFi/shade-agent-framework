@@ -91,7 +91,7 @@ CLI configurations are read from a single `deployment.yaml` file in the project 
 | Key | Required | Description |
 |-----|----------|-------------|
 | **contract_id** | Yes | NEAR account ID for the agent contract (e.g. `example-contract-123.testnet`). Must be unused if you are deploying a new contract. |
-| **deploy_custom** | No | If enabled, the CLI creates the contract account with the same private key as the account set up via `shade auth`, and deploys a new contract. If the contract account already exists, it will be deleted and recreated to remove the old contract — this destroys all on-chain state and any assets the account holds (FTs, NFTs), so the CLI prompts you to type `yes` before continuing; anything else cancels. |
+| **deploy_custom** | No | If enabled, the CLI creates the contract account with the same private key as the account set up via `shade auth`, and deploys a new contract. If the contract account already exists, the CLI wipes the existing contract's stored state by deploying a state cleaning contract and then deploys the new contract on top. If the state cannot be cleared, try configuring a different RPC in `shade auth`. |
 
 #### deploy_custom
 
