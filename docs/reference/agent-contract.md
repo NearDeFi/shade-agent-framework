@@ -277,7 +277,7 @@ require!(
     self.approved_ppids.contains(&Ppid::default()),
     "Default PPID must be approved for local mode"
 );
-(default_measurements, Ppid::default())
+(default_measurements, Ppid::default(), Vec::new())
 ```
 
 ---
