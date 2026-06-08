@@ -11,12 +11,15 @@ on:
 
 jobs:
   claude:
-    # Cheap pre-filter so a runner only starts for a @claude mention from
-    # PiVortex — stops random/abusive @claude comments from spinning up jobs.
-    # This `==` is case-insensitive; the authoritative, case-sensitive + admin
-    # checks live in the "Authorize commenter" step below.
+    # Gate: a @claude mention from PiVortex who is ALSO a current NearDeFi org
+    # member. author_association is set by GitHub from the commenter's org
+    # membership (not from comment text), so it can't be spoofed; it falls back
+    # to COLLABORATOR/CONTRIBUTOR/NONE if membership is ever lost. The job-level
+    # `==` is case-insensitive — the case-sensitive exact match is in the
+    # "Authorize commenter" step.
     if: >-
       github.event.comment.user.login == 'PiVortex' &&
+      github.event.comment.author_association == 'MEMBER' &&
       contains(github.event.comment.body, '@claude')
     runs-on: ubuntu-latest
     permissions:
@@ -24,26 +27,16 @@ jobs:
       pull-requests: write     # post review comments / replies on PRs
       issues: write            # respond on issues
     steps:
-      # Authoritative authorization — fails closed (denies on any error).
-      #   1. Case-sensitive exact login match: bash `=` is case-sensitive,
-      #      unlike the job-level `==`. (Note: GitHub always reports the
-      #      canonical login casing, so this is belt-and-suspenders.)
-      #   2. Commenter must currently hold `admin` on the repo, so access is
-      #      revoked automatically if they ever lose admin.
+      # Case-sensitive exact login match — fails closed. bash `=` is
+      # case-sensitive, unlike the job-level `==`. Org membership is enforced
+      # by the author_association == 'MEMBER' guard in the job `if:` above.
       - name: Authorize commenter
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           COMMENTER: ${{ github.event.comment.user.login }}
         run: |
           set -euo pipefail
           if [ "$COMMENTER" != "PiVortex" ]; then
             echo "::error::'$COMMENTER' is not the authorized user."
-            exit 1
-          fi
-          PERMISSION="$(gh api "repos/${GITHUB_REPOSITORY}/collaborators/${COMMENTER}/permission" --jq '.permission')"
-          echo "Repo permission for ${COMMENTER}: ${PERMISSION}"
-          if [ "$PERMISSION" != "admin" ]; then
-            echo "::error::'$COMMENTER' must be a repo admin to trigger a review (has: ${PERMISSION})."
             exit 1
           fi
 
