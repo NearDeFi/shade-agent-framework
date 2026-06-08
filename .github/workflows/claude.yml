@@ -2,7 +2,7 @@ name: Claude PR Assistant
 
 # Comment-triggered: @PiVortex mentions @claude on a PR (a comment or an inline
 # review comment) and Claude runs the fixed review prompt below. Authorization
-# is layered — a cheap `if:` pre-filter plus an authoritative "Authorize" step.
+# is the job-level `if:` gate (PiVortex + current org MEMBER + the @claude mention).
 on:
   issue_comment:
     types: [created]
@@ -14,9 +14,9 @@ jobs:
     # Gate: a @claude mention from PiVortex who is ALSO a current NearDeFi org
     # member. author_association is set by GitHub from the commenter's org
     # membership (not from comment text), so it can't be spoofed; it falls back
-    # to COLLABORATOR/CONTRIBUTOR/NONE if membership is ever lost. The job-level
-    # `==` is case-insensitive — the case-sensitive exact match is in the
-    # "Authorize commenter" step.
+    # to COLLABORATOR/CONTRIBUTOR/NONE if membership is ever lost. (The `==` is
+    # case-insensitive, but GitHub only ever sends the canonical login casing,
+    # so this matches the PiVortex account exactly.)
     if: >-
       github.event.comment.user.login == 'PiVortex' &&
       github.event.comment.author_association == 'MEMBER' &&
@@ -27,19 +27,6 @@ jobs:
       pull-requests: write     # post review comments / replies on PRs
       issues: write            # respond on issues
     steps:
-      # Case-sensitive exact login match — fails closed. bash `=` is
-      # case-sensitive, unlike the job-level `==`. Org membership is enforced
-      # by the author_association == 'MEMBER' guard in the job `if:` above.
-      - name: Authorize commenter
-        env:
-          COMMENTER: ${{ github.event.comment.user.login }}
-        run: |
-          set -euo pipefail
-          if [ "$COMMENTER" != "PiVortex" ]; then
-            echo "::error::'$COMMENTER' is not the authorized user."
-            exit 1
-          fi
-
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0       # full history so Claude can diff against the base
