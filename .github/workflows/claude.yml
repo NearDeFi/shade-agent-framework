@@ -1,8 +1,8 @@
 name: Claude PR Assistant
 
 # Comment-triggered: @PiVortex mentions @claude on a PR (a comment or an inline
-# review comment) and Claude runs the fixed review prompt below. Only @PiVortex
-# can trigger it — every other user's @claude is ignored (see the `if:` guard).
+# review comment) and Claude runs the fixed review prompt below. Authorization
+# is layered — a cheap `if:` pre-filter plus an authoritative "Authorize" step.
 on:
   issue_comment:
     types: [created]
@@ -11,9 +11,10 @@ on:
 
 jobs:
   claude:
-    # Gate: only @PiVortex can invoke a review, and only when the comment
-    # mentions @claude. `comment.user.login` is the authenticated commenter and
-    # cannot be spoofed via comment text; GitHub Actions `==` is case-insensitive.
+    # Cheap pre-filter so a runner only starts for a @claude mention from
+    # PiVortex — stops random/abusive @claude comments from spinning up jobs.
+    # This `==` is case-insensitive; the authoritative, case-sensitive + admin
+    # checks live in the "Authorize commenter" step below.
     if: >-
       github.event.comment.user.login == 'PiVortex' &&
       contains(github.event.comment.body, '@claude')
@@ -23,6 +24,29 @@ jobs:
       pull-requests: write     # post review comments / replies on PRs
       issues: write            # respond on issues
     steps:
+      # Authoritative authorization — fails closed (denies on any error).
+      #   1. Case-sensitive exact login match: bash `=` is case-sensitive,
+      #      unlike the job-level `==`. (Note: GitHub always reports the
+      #      canonical login casing, so this is belt-and-suspenders.)
+      #   2. Commenter must currently hold `admin` on the repo, so access is
+      #      revoked automatically if they ever lose admin.
+      - name: Authorize commenter
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COMMENTER: ${{ github.event.comment.user.login }}
+        run: |
+          set -euo pipefail
+          if [ "$COMMENTER" != "PiVortex" ]; then
+            echo "::error::'$COMMENTER' is not the authorized user."
+            exit 1
+          fi
+          PERMISSION="$(gh api "repos/${GITHUB_REPOSITORY}/collaborators/${COMMENTER}/permission" --jq '.permission')"
+          echo "Repo permission for ${COMMENTER}: ${PERMISSION}"
+          if [ "$PERMISSION" != "admin" ]; then
+            echo "::error::'$COMMENTER' must be a repo admin to trigger a review (has: ${PERMISSION})."
+            exit 1
+          fi
+
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0       # full history so Claude can diff against the base
