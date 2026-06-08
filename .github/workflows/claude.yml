@@ -1,8 +1,8 @@
 name: Claude PR Assistant
 
-# Comment-triggered: mention @claude in a PR/issue comment or an inline PR
-# review comment, and Claude runs with whatever you wrote after @claude as the
-# instruction (e.g. "@claude review this for SQL injection risks").
+# Comment-triggered: @PiVortex mentions @claude on a PR (a comment or an inline
+# review comment) and Claude runs the fixed review prompt below. Only @PiVortex
+# can trigger it — every other user's @claude is ignored (see the `if:` guard).
 on:
   issue_comment:
     types: [created]
@@ -11,9 +11,12 @@ on:
 
 jobs:
   claude:
-    # Only run when the comment actually mentions @claude — without this guard
-    # every comment would start a run and draw down subscription usage.
-    if: contains(github.event.comment.body, '@claude')
+    # Gate: only @PiVortex can invoke a review, and only when the comment
+    # mentions @claude. `comment.user.login` is the authenticated commenter and
+    # cannot be spoofed via comment text; GitHub Actions `==` is case-insensitive.
+    if: >-
+      github.event.comment.user.login == 'PiVortex' &&
+      contains(github.event.comment.body, '@claude')
     runs-on: ubuntu-latest
     permissions:
       contents: read          # read the code being reviewed
@@ -26,6 +29,10 @@ jobs:
 
       - uses: anthropics/claude-code-action@v1
         with:
+          # Fixed review instruction — runs on every @claude trigger,
+          # regardless of any extra text in the comment.
+          prompt: "Review this PR following .github/copilot-instructions.md"
+
           # Authenticates with a Claude subscription (Max) via an OAuth token,
           # not a metered API key. Generate with `claude setup-token` and store
           # the value as the CLAUDE_CODE_OAUTH_TOKEN repo secret.
