@@ -1,0 +1,172 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # Detect which areas changed so we only run the relevant jobs. The `all`
+  # filter (CI config / toolchain) forces every job to run.
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      js_lib: ${{ steps.filter.outputs.js_lib }}
+      js_cli: ${{ steps.filter.outputs.js_cli }}
+      js_tmpl: ${{ steps.filter.outputs.js_tmpl }}
+      attestation: ${{ steps.filter.outputs.attestation }}
+      contract: ${{ steps.filter.outputs.contract }}
+      all: ${{ steps.filter.outputs.all }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            js_lib:
+              - 'shade-agent-js/**'
+            js_cli:
+              - 'shade-agent-cli/**'
+            js_tmpl:
+              - 'shade-agent-template/**'
+            attestation:
+              - 'shade-attestation/**'
+            contract:
+              - 'shade-contract-template/**'
+              - 'shade-attestation/**'
+            all:
+              - '.github/workflows/**'
+              - 'rust-toolchain.toml'
+
+  shade-agent-js:
+    needs: changes
+    if: needs.changes.outputs.js_lib == 'true' || needs.changes.outputs.all == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: shade-agent-js
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: shade-agent-js/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+
+  shade-agent-cli:
+    needs: changes
+    if: needs.changes.outputs.js_cli == 'true' || needs.changes.outputs.all == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: shade-agent-cli
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: shade-agent-cli/package-lock.json
+      - run: npm ci
+      - run: npm run build
+      - run: npm test
+
+  shade-agent-template:
+    needs: changes
+    if: needs.changes.outputs.js_tmpl == 'true' || needs.changes.outputs.all == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: shade-agent-template
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: shade-agent-template/package-lock.json
+      - run: npm ci
+      # No test script — `tsc` build is the typecheck gate.
+      - run: npm run build
+
+  shade-attestation:
+    needs: changes
+    if: needs.changes.outputs.attestation == 'true' || needs.changes.outputs.all == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: shade-attestation
+    steps:
+      - uses: actions/checkout@v4
+      # Installs the toolchain pinned in rust-toolchain.toml (+ rustfmt/clippy/wasm target).
+      - run: rustup show
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: shade-attestation
+      - run: cargo fmt --check
+      # Lenient for now (no -D warnings); tighten once the tree is warning-clean.
+      - run: cargo clippy --all-targets
+      - run: cargo test
+
+  shade-contract-template:
+    needs: changes
+    if: needs.changes.outputs.contract == 'true' || needs.changes.outputs.all == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: shade-contract-template
+    steps:
+      - uses: actions/checkout@v4
+      - run: rustup show
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: shade-contract-template
+      # cargo-near pinned to the contract's reproducible-build image version.
+      - name: Install cargo-near
+        run: |
+          curl --proto '=https' --tlsv1.2 -LsSf \
+            https://github.com/near/cargo-near/releases/download/cargo-near-v0.19.0/cargo-near-installer.sh | sh
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets
+      # Builds target/near/shade_contract_template.wasm, which the integration
+      # tests load via std::fs::read (tests/helpers/mod.rs).
+      - name: Build contract wasm
+        run: cargo near build non-reproducible-wasm --no-abi
+      - run: cargo test
+
+  # Single required status check. Succeeds if every needed job either passed or
+  # was skipped (path-filtered out); fails if any failed or was cancelled. Make
+  # THIS the required check on main — not the individual jobs — so docs-only PRs
+  # (all jobs skipped) still pass.
+  ci-passed:
+    needs:
+      - shade-agent-js
+      - shade-agent-cli
+      - shade-agent-template
+      - shade-attestation
+      - shade-contract-template
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify no required job failed
+        run: |
+          results="${{ join(needs.*.result, ' ') }}"
+          echo "Job results: $results"
+          for r in $results; do
+            if [ "$r" = "failure" ] || [ "$r" = "cancelled" ]; then
+              echo "::error::A required CI job did not succeed."
+              exit 1
+            fi
+          done
+          echo "All required jobs passed or were skipped."
