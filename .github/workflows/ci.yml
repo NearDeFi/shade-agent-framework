@@ -1,8 +1,11 @@
 name: CI
 
 on:
+  # Runs on PRs into main (the fast feedback loop) and also re-runs on
+  # main->stable promotion PRs, which are additionally gated by the manual
+  # /run-e2e heavy suite (see e2e.yml).
   pull_request:
-    branches: [main]
+    branches: [main, stable]
   push:
     branches: [main]
 
@@ -96,6 +99,12 @@ jobs:
           node-version: 22
           cache: npm
           cache-dependency-path: shade-agent-template/package-lock.json
+      # The template depends on `@neardefi/shade-agent-js` via `file:../shade-agent-js`,
+      # whose dist/ (incl. the .d.cts types) is gitignored and has no `prepare`
+      # script — so build the sibling first or `tsc` can't resolve the import.
+      - name: "Build shade-agent-js (file: dependency)"
+        working-directory: shade-agent-js
+        run: npm ci && npm run build
       - run: npm ci
       # No test script — `tsc` build is the typecheck gate.
       - run: npm run build
@@ -132,18 +141,15 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: shade-contract-template
-      # cargo-near pinned to the contract's reproducible-build image version.
-      - name: Install cargo-near
-        run: |
-          curl --proto '=https' --tlsv1.2 -LsSf \
-            https://github.com/near/cargo-near/releases/download/cargo-near-v0.19.0/cargo-near-installer.sh | sh
       - run: cargo fmt --check
+      # clippy --all-targets still compiles the integration-test code, so test
+      # compile breakage surfaces here; only the slow sandbox *runtime* (the
+      # tests/*.rs integration tests) plus the wasm build move to the manual
+      # /run-e2e gate on main->stable PRs (see .github/workflows/e2e.yml).
       - run: cargo clippy --all-targets
-      # Builds target/near/shade_contract_template.wasm, which the integration
-      # tests load via std::fs::read (tests/helpers/mod.rs).
-      - name: Build contract wasm
-        run: cargo near build non-reproducible-wasm --no-abi
-      - run: cargo test
+      # Unit tests only — fast. The full `cargo test` (sandbox integration
+      # tests) runs in the /run-e2e gate.
+      - run: cargo test --lib
 
   # Single required status check. Succeeds if every needed job either passed or
   # was skipped (path-filtered out); fails if any failed or was cancelled. Make

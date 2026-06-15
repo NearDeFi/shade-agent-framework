@@ -65,6 +65,27 @@ Integration tests that run inside a TEE (Phala). They test shade-agent-js, shade
   npm run test
   ```
 
+## Cleanup
+
+`test-script.js` always tears down the Phala CVM it provisions when the run
+finishes — on success **or** failure — so a failed run no longer leaves a paid
+TEE instance running. The CVM id is also written to `tests-in-tee/.cvm-id` so
+CI can delete it as a backstop if the process is killed before cleanup runs.
+
+## Running in CI
+
+This suite is the heavy gate for `main` → `stable` promotion PRs. It does **not**
+run on every commit. A maintainer comments **`/run-e2e`** on the promotion PR and
+the `E2E (manual gate)` workflow (`.github/workflows/e2e.yml`) runs the contract
+integration tests and this suite, then reports a required `e2e/required` status
+on the PR. The contract wasm is built once and shared with both jobs via an
+artifact.
+
+CI supplies the same inputs as the local `.env` via repository secrets:
+`TESTNET_ACCOUNT_ID`, `TESTNET_PRIVATE_KEY`, `PHALA_API_KEY` (and optionally
+`SPONSOR_ACCOUNT_ID` / `SPONSOR_PRIVATE_KEY`), plus `DOCKERHUB_USERNAME` /
+`DOCKERHUB_TOKEN` for pushing the test image.
+
 ## Tests
 
 | Test                          | What it tests                                                                                                                                                                                                                                                                                                                                                                    |
