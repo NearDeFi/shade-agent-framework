@@ -87,7 +87,13 @@ jobs:
 
   shade-agent-template:
     needs: changes
-    if: needs.changes.outputs.js_tmpl == 'true' || needs.changes.outputs.all == 'true'
+    # Also run when shade-agent-js changes: the template depends on it via
+    # `file:../shade-agent-js`, so a breaking lib change must re-typecheck the
+    # template (its `npm run build`/tsc is the only gate).
+    if: >-
+      needs.changes.outputs.js_tmpl == 'true' ||
+      needs.changes.outputs.js_lib == 'true' ||
+      needs.changes.outputs.all == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:

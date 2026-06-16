@@ -1,0 +1,163 @@
+name: Claude PR Assistant
+
+on:
+  issue_comment:
+    types: [created]
+
+concurrency:
+  group: claude-review-${{ github.event.issue.number || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  claude:
+    name: Claude Code Review
+    if: >-
+      github.repository == 'NearDeFi/shade-agent-framework' &&
+      github.event.comment.user.login == 'PiVortex' &&
+      github.event.comment.author_association == 'MEMBER' &&
+      contains(github.event.comment.body, '/claude-review') &&
+      github.event.issue.pull_request
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+    env:
+      PR_NUMBER: ${{ github.event.issue.number }}
+    steps:
+      - name: Check PR trust boundary
+        id: pr_metadata
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          is_cross_repository="$(
+            gh pr view "$PR_NUMBER" \
+              --repo "$GITHUB_REPOSITORY" \
+              --json isCrossRepository \
+              --jq .isCrossRepository
+          )"
+          echo "is_cross_repository=${is_cross_repository}" >> "$GITHUB_OUTPUT"
+          if [ "${is_cross_repository}" = "true" ]; then
+            echo "Skipping Claude review for forked pull request #${PR_NUMBER}."
+          fi
+
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        if: steps.pr_metadata.outputs.is_cross_repository != 'true'
+        with:
+          ref: refs/pull/${{ env.PR_NUMBER }}/merge
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Run Claude Code review
+        if: steps.pr_metadata.outputs.is_cross_repository != 'true'
+        uses: anthropics/claude-code-action@fbda2eb1bdc90d319b8d853f5deb53bca199a7c1 # v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          claude_args: "--model claude-opus-4-8 --effort xhigh --max-turns 50 --allowedTools 'Read,Glob,Grep,Agent,Bash(gh pr comment:*),Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr list:*),Bash(gh issue view:*),Bash(gh issue list:*),Bash(gh search:*),Bash(git blame:*),Bash(git log:*),Bash(git diff:*)'"
+          prompt: |
+            Code review pull request #${{ env.PR_NUMBER }}. Follow these steps precisely:
+
+            This is the Shade Agent Framework monorepo: verifiable, trust-minimized Web3 agents
+            that sign cross-chain transactions, with trust rooted in TEE (Phala/dstack) attestations
+            verified inside NEAR smart contracts. It mixes Rust and TypeScript/JavaScript —
+            `shade-attestation` (published Rust crate that verifies TEE attestations in NEAR contracts)
+            and `shade-contract-template` (Rust NEAR agent contract); `shade-agent-js` (published TS
+            library abstracting TEEs and the agent contract), `shade-agent-cli` (published TS/JS deploy
+            CLI that parses `deployment.yaml`), and `shade-agent-template` (TS example agent).
+            `tests-in-tee` is the end-to-end suite that runs under real or simulated attestation.
+            Apply the checks appropriate to the language of each changed file.
+
+            1. Find relevant CLAUDE.md files: the root CLAUDE.md and any CLAUDE.md files
+               in directories whose files this PR modifies. Use Glob to find them, then Read
+               to load their contents.
+
+            2. Get the PR diff with `gh pr diff ${{ env.PR_NUMBER }}` and summarize the change.
+
+            3. Launch 4 parallel agents to review the change independently. Each agent should
+               read the PR diff with `gh pr diff ${{ env.PR_NUMBER }}` and the full source files
+               for changed code, then return a list of issues. Each agent MUST score its own
+               findings inline using the severity and confidence rubric below.
+
+               Severity levels:
+               - CRITICAL: TEE attestation/measurement verification weakened or bypassed (accepting an invalid quote, skipping compose-hash / PPID / approved-measurement gating, trusting unverified TEE state); contract owner-gating or access control removed so an unauthorized caller can approve measurements, register an agent, or trigger signing; the chain-signature path made to sign an unauthorized or unintended payload; private/signing/derivation keys, NEAR keys, or API keys (PHALA_API_KEY, TESTNET/SPONSOR keys) leaked, logged, or committed.
+               - HIGH: logic bugs in attestation/signing/deploy paths; missing error handling on attestation, RPC, or deploy calls; a breaking change to a published surface (`@neardefi/shade-agent-js` exports, the CLI `deployment.yaml` schema/validation, a contract public/owner method, the `shade-attestation` crate API) without the matching docs/reference, example-template, and tests-in-tee updates.
+               - MEDIUM: missing tests, unnecessary complexity, performance issues
+               - LOW: documentation gaps, naming suggestions
+
+               Confidence scoring (0-100):
+               0: False positive, doesn't stand up to scrutiny, or pre-existing issue.
+               25: Might be real, but may be false positive. Stylistic issues not in CLAUDE.md.
+               50: Real issue but nitpick or rare in practice. Not very important.
+               75: Verified real issue, will be hit in practice. Directly impacts functionality
+                   or explicitly mentioned in CLAUDE.md.
+               100: Certain, confirmed, will happen frequently. Evidence directly confirms.
+
+               Each agent returns findings as: [SEVERITY:CONFIDENCE] <brief description>
+
+               Agent 1 — Security & Safety
+               Check for:
+               - TEE attestation verification correctness: quote/measurement validation,
+                 compose-hash computation, PPID handling, and approved-measurement gating must
+                 never be weakened, short-circuited, or bypassed.
+               - NEAR contract access control: owner-gated methods stay owner-gated; no new
+                 unauthenticated path to approve measurements, register an agent, or request a signature.
+               - Chain-signature / transaction signing: only authorized, intended payloads can be
+                 signed; on-chain guardrails preserved.
+               - Secrets: no private/signing/derivation keys, NEAR keys, or API keys
+                 (PHALA_API_KEY, TESTNET/SPONSOR keys) in code, logs, tests, fixtures, or errors.
+               - Validation of untrusted input: attestation quotes, RPC responses, `deployment.yaml`
+                 fields, and env-derived config.
+               - (Rust) no `unwrap`/`expect`/`panic!` on attacker-influenced input in contract or
+                 attestation code.
+
+               Agent 2 — Architecture & Patterns
+               Check for:
+               - Cross-package sync rules (root CLAUDE.md): a change to shade-agent-js / shade-agent-cli /
+                 shade-contract-template / shade-attestation must update the matching docs/reference
+                 (`docs/reference/api.md`, `cli.md`, `agent-contract.md`), the example templates, and the
+                 `tests-in-tee/` scenarios that exercise it.
+               - Published-API discipline: changes to `@neardefi/shade-agent-js` exports, the CLI's
+                 `deployment.yaml` schema/validation, the contract's public/owner methods, or the
+                 `shade-attestation` crate API are breaking — flag missing version/consumer/doc updates.
+               - `shade-agent-cli/example-deployment-files/` stay valid against the CLI parser (a new
+                 required field means every example needs it).
+               - Consistency with existing patterns in the touched package; no local-dependency drift
+                 (`file:../shade-agent-js`).
+               - NEAR contract conventions: storage-layout/migration safety and correct serialization.
+
+               Agent 3 — Bug Scan
+               Shallow diff-only scan for obvious bugs: logic errors, off-by-one,
+               missing error handling, incorrect return values, division by zero.
+               Ignore nitpicks and likely false positives.
+
+               Agent 4 — Performance & Production
+               Check for:
+               - On-chain cost: attestation/verification gas and compute in contract code; no
+                 unbounded loops or unbounded storage growth.
+               - Error handling and retries on network/RPC/Phala/deploy calls; failures surface
+                 clearly and are not silently swallowed.
+               - No blocking or unbounded operations in the CLI deploy pipeline; sensible timeouts.
+               - (Rust) avoid needless allocation/clone in hot attestation paths.
+               - Resource cleanup and timeouts for TEE/deploy operations.
+
+            4. Consolidate all agent findings and post exactly one comment on PR #${{ env.PR_NUMBER }}
+               using `gh pr comment ${{ env.PR_NUMBER }}`. If no issues were found, post
+               "No issues found." instead.
+
+            ### Code review
+
+            Found N issues:
+
+            1. [SEVERITY:CONFIDENCE] <brief description>
+
+            <permalink to file:line using full SHA, eg https://github.com/owner/repo/blob/abc123def/shade-agent-js/src/index.ts#L10-L15>
+
+            IMPORTANT rules:
+            - Only YOU (the main process) may call `gh pr comment`. Agents must return
+              their findings to you; they must NOT post comments themselves.
+            - You MUST post exactly one `gh pr comment` before finishing, even if agents
+              fail or return empty results. If review is incomplete, post "No issues found."
+            - Use Read/Glob for file access and `gh` for GitHub interactions.
+            - Do NOT build or test the code.
+            - Ignore pre-existing issues not introduced by this PR.
+            - Ignore issues a linter/compiler would catch.
