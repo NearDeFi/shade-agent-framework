@@ -173,8 +173,8 @@ jobs:
         run: |
           (cd shade-agent-cli && npm ci)
           (cd shade-agent-js && npm ci && npm run build)
-          (cd tests-in-tee && npm i)
-          (cd tests-in-tee/test-image && npm i)
+          (cd tests-in-tee && npm ci)
+          (cd tests-in-tee/test-image && npm ci)
       # test-script.js shells out to `sudo docker build/push` on Linux, so the
       # push reads root's docker config — log in under sudo so the creds exist.
       - name: Log in to Docker Hub (for sudo docker push)
