@@ -31,6 +31,9 @@
       "Bash(git push -u origin stable:*)",
       "Bash(git push origin HEAD:stable)",
       "Bash(git push origin HEAD:stable:*)"
+    ],
+    "allow": [
+      "Bash(gh pr comment:*)"
     ]
   }
 }
