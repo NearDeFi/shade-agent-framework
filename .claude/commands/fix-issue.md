@@ -127,6 +127,14 @@ Read `.claude/commands/utils/check-and-fix-ci.md` and follow it for PR #{pr-numb
    gh pr comment {pr-number} --repo {REPO} --body "/claude-review"
    ```
 
-   This fires only if `claude-review.yml` is on the repo's default branch and the authenticated `gh` user is the configured trigger user — if the workflow doesn't start, say so in the recap rather than re-commenting. Copilot review is **not** comment-triggered: if the repo has the Copilot review ruleset, opening the PR already requested Copilot automatically — do not comment for it.
+   This fires only if `claude-review.yml` is on the repo's default branch and the authenticated `gh` user is the configured trigger user — if the workflow doesn't start, say so in the recap rather than re-commenting.
 
-2. Report back in chat: the PR URL, the CI outcome, whether the Claude review comment was posted, whether Copilot was auto-requested (if the ruleset is set up), and a short recap of the change, tests, and open questions. Remind the user: once the reviews land, continue with `/resolve-pr-reviews {pr-number}`.
+2. Request the Copilot review. Copilot is **not** comment-triggered and is **not** auto-requested (there is no Copilot review ruleset), so request it explicitly via the API — the reviewer slug is `copilot-pull-request-reviewer[bot]`, and it reviews the current head:
+
+   ```
+   gh api --method POST repos/{REPO}/pulls/{pr-number}/requested_reviewers -f "reviewers[]=copilot-pull-request-reviewer[bot]"
+   ```
+
+   This needs the repo/author to have Copilot code-review access and available premium-request quota; if the request errors or Copilot never posts, note it in the recap rather than retrying.
+
+3. Report back in chat: the PR URL, the CI outcome, whether the Claude review comment was posted, whether the Copilot review was requested, and a short recap of the change, tests, and open questions. Remind the user: once the reviews land, continue with `/resolve-pr-reviews {pr-number}`.
