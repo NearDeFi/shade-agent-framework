@@ -22,6 +22,7 @@ jobs:
       contents: read
       pull-requests: write
       issues: write
+      id-token: write
     env:
       PR_NUMBER: ${{ github.event.issue.number }}
     steps:
