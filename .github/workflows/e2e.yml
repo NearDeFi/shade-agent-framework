@@ -29,8 +29,16 @@ concurrency:
 
 jobs:
   guard:
-    # Only react to `/run-e2e` comments on pull requests.
-    if: ${{ github.event.issue.pull_request && contains(github.event.comment.body, '/run-e2e') }}
+    # Lock the heavy e2e suite to PiVortex (a NearDeFi org member) only, via
+    # `/run-e2e` on a PR in this repo — mirrors the claude-review trigger gate.
+    # The base-branch (must be stable) and not-a-fork checks run in `resolve`
+    # below, since they need the PR API that an `if:` expression can't call.
+    if: >-
+      github.repository == 'NearDeFi/shade-agent-framework' &&
+      github.event.comment.user.login == 'PiVortex' &&
+      github.event.comment.author_association == 'MEMBER' &&
+      contains(github.event.comment.body, '/run-e2e') &&
+      github.event.issue.pull_request
     runs-on: ubuntu-latest
     outputs:
       proceed: ${{ steps.resolve.outputs.proceed }}
@@ -61,17 +69,8 @@ jobs:
               core.setOutput('proceed', 'false');
               return;
             }
-            // Require write+ so only maintainers can spend Phala resources.
-            const actor = context.payload.comment.user.login;
-            const perm = await github.rest.repos.getCollaboratorPermissionLevel({ owner, repo, username: actor });
-            if (!['admin', 'write', 'maintain'].includes(perm.data.permission)) {
-              core.setOutput('proceed', 'false');
-              await github.rest.issues.createComment({
-                owner, repo, issue_number: prNumber,
-                body: `@${actor} you need write access to run \`/run-e2e\`.`,
-              });
-              return;
-            }
+            // Trigger access (PiVortex, org MEMBER) is enforced by the job-level
+            // `if:` above, so no runtime permission lookup is needed here.
 
             core.setOutput('proceed', 'true');
             core.setOutput('head_sha', headSha);

@@ -1,9 +1,5 @@
 # Copilot code review instructions for shade-agent-framework
 
-GitHub Copilot reviews pull requests in this repository using the instructions
-below. Copilot reads the copy on the PR's **base branch** and uses only the
-**first 4,000 characters**, so keep this file focused.
-
 The Shade Agent Framework monorepo: verifiable, trust-minimized Web3 agents that sign
 cross-chain transactions, with trust rooted in TEE (Phala/dstack) attestations verified inside
 NEAR smart contracts. Mixed Rust + TypeScript/JavaScript — `shade-attestation` (Rust crate
@@ -33,20 +29,6 @@ Review the changed lines and their direct impact. Check for:
 - **Performance & production:** on-chain gas/compute and no unbounded loops or storage growth
   in contracts; error handling and retries on RPC/Phala/deploy calls; sensible timeouts and no
   blocking ops in the deploy pipeline.
-
-## Severity
-
-Lead each comment with its severity, so the author can triage:
-
-- **CRITICAL:** attestation/measurement verification weakened or bypassed; contract
-  access control removed; the chain-signature path signing an unauthorized payload; any
-  secret leaked, logged, or committed.
-- **HIGH:** logic bugs in attestation/signing/deploy paths; missing error handling on
-  attestation/RPC/deploy calls; a breaking change to a published surface (shade-agent-js
-  exports, CLI `deployment.yaml` schema, a contract method, the shade-attestation crate API)
-  without matching docs/reference, template, and tests-in-tee updates.
-- **MEDIUM:** missing tests, unnecessary complexity, performance issues.
-- **LOW:** documentation gaps, naming suggestions.
 
 ## Rules
 
