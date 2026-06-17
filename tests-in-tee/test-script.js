@@ -27,7 +27,7 @@ import {
 } from "../shade-agent-cli/src/utils/measurements.js";
 import { getPpids } from "../shade-agent-cli/src/utils/ppids.js";
 import { tgasToGas } from "../shade-agent-cli/src/utils/near.js";
-import { deployToPhala as deployToPhalaSdk } from "../shade-agent-cli/src/utils/phala-deploy.js";
+import { deployToPhala as deployToPhalaSdk, createClient } from "../shade-agent-cli/src/utils/phala-deploy.js";
 import { wipeContractState } from "../shade-agent-cli/src/utils/state-cleanup.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -49,6 +49,9 @@ if (!TESTNET_ACCOUNT_ID || !TESTNET_PRIVATE_KEY || !PHALA_API_KEY) {
   console.error("  PHALA_API_KEY");
   process.exit(1);
 }
+
+// Phala Cloud SDK client (same SDK the CLI deploy path uses)
+const phalaClient = createClient({ apiKey: PHALA_API_KEY });
 
 // Generate contract ID as subaccount of TESTNET_ACCOUNT_ID
 const AGENT_CONTRACT_ID = `shade-test-contract.${TESTNET_ACCOUNT_ID}`;
@@ -389,27 +392,20 @@ async function deployToPhala() {
 }
 
 // Delete the Phala CVM to avoid leaking a paid TEE instance. Idempotent: a 404
-// (already deleted) counts as success. Self-contained (raw fetch) so this file
-// gains no extra dependency on shade-agent-cli. Never throws — safe in a finally.
+// (already deleted) counts as success. Uses the SDK's safeDeleteCvm, which
+// returns a { success, error } result instead of throwing, so this file never
+// throws during teardown.
 async function deletePhalaApp(appId) {
   if (!appId) return;
-  const url = `https://cloud-api.phala.network/api/v1/cvms/${appId}`;
-  try {
-    console.log(`\nTearing down Phala CVM ${appId}...`);
-    const response = await fetch(url, {
-      method: "DELETE",
-      headers: { "X-API-Key": PHALA_API_KEY },
-    });
-    if (response.ok || response.status === 404) {
-      console.log(`✓ Phala CVM ${appId} torn down`);
-      fs.rmSync(resolve(__dirname, ".cvm-id"), { force: true });
-    } else {
-      console.error(
-        `⚠ Failed to tear down Phala CVM ${appId}: HTTP ${response.status}`,
-      );
-    }
-  } catch (e) {
-    console.error(`⚠ Error tearing down Phala CVM ${appId}: ${e.message}`);
+  console.log(`\nTearing down Phala CVM ${appId}...`);
+  const { success, error } = await phalaClient.safeDeleteCvm({ uuid: appId });
+  if (success || error?.status === 404) {
+    console.log(`✓ Phala CVM ${appId} torn down`);
+    fs.rmSync(resolve(__dirname, ".cvm-id"), { force: true });
+  } else {
+    console.error(
+      `⚠ Failed to tear down Phala CVM ${appId}: ${error?.message ?? "unknown error"}`,
+    );
   }
 }
 
