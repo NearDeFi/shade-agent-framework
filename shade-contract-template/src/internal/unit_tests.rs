@@ -10,8 +10,10 @@ use shade_attestation::{
 // Only testing requires_tee = false since we cannot produce a valid attestation for a TEE in unit tests
 
 // Deposit constants for tests
-const DEPOSIT_005_NEAR: NearToken = NearToken::from_yoctonear(5_000_000_000_000_000_000_000); // 0.005 NEAR
-const DEPOSIT_003_NEAR: NearToken = NearToken::from_yoctonear(3_000_000_000_000_000_000_000); // 0.003 NEAR
+// Exact storage cost for a first-time registration: 486 bytes * 1e19 yocto/byte = 0.00486 NEAR
+const EXACT_STORAGE_DEPOSIT: NearToken = NearToken::from_yoctonear(4_860_000_000_000_000_000_000);
+const DEPOSIT_BELOW_COST: NearToken = NearToken::from_yoctonear(3_000_000_000_000_000_000_000); // 0.003 NEAR
+const DEPOSIT_ABOVE_COST: NearToken = NearToken::from_yoctonear(5_000_000_000_000_000_000_000); // 0.005 NEAR
 const DEPOSIT_ZERO: NearToken = NearToken::from_yoctonear(0);
 
 // Helper function to create a mock context
@@ -231,7 +233,7 @@ fn test_whitelist_agent_after_registration() {
     contract.whitelist_agent_for_local(agent.clone());
 
     // Register agent (default measurements and PPID already approved in setup)
-    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
+    let context = get_context_with_deposit(agent.clone(), false, Some(EXACT_STORAGE_DEPOSIT));
     testing_env!(context.build());
     contract.register_agent(create_mock_dstack_attestation());
 
@@ -307,7 +309,7 @@ fn test_remove_agent() {
     let agent = accounts(2);
 
     contract.whitelist_agent_for_local(agent.clone());
-    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
+    let context = get_context_with_deposit(agent.clone(), false, Some(EXACT_STORAGE_DEPOSIT));
     testing_env!(context.build());
     contract.register_agent(create_mock_dstack_attestation());
     assert!(contract.get_agent(agent.clone()).is_some());
@@ -336,7 +338,7 @@ fn test_remove_agent_not_owner() {
     let non_owner = accounts(2);
     let agent = accounts(3);
     contract.whitelist_agent_for_local(agent.clone());
-    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
+    let context = get_context_with_deposit(agent.clone(), false, Some(EXACT_STORAGE_DEPOSIT));
     testing_env!(context.build());
     contract.register_agent(create_mock_dstack_attestation());
 
@@ -345,7 +347,7 @@ fn test_remove_agent_not_owner() {
     contract.remove_agent(agent);
 }
 
-// Happy path: first-time registration must attach sufficient storage deposit
+// Happy path: first-time registration must attach exactly the storage deposit
 #[test]
 fn test_register_agent_happy_first_registration_with_storage_deposit() {
     let mut contract = setup_contract();
@@ -353,7 +355,7 @@ fn test_register_agent_happy_first_registration_with_storage_deposit() {
 
     contract.whitelist_agent_for_local(agent.clone());
 
-    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
+    let context = get_context_with_deposit(agent.clone(), false, Some(EXACT_STORAGE_DEPOSIT));
     testing_env!(context.build());
 
     let result = contract.register_agent(create_mock_dstack_attestation());
@@ -371,7 +373,7 @@ fn test_register_agent_happy_reregister_without_additional_deposit() {
 
     contract.whitelist_agent_for_local(agent.clone());
 
-    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
+    let context = get_context_with_deposit(agent.clone(), false, Some(EXACT_STORAGE_DEPOSIT));
     testing_env!(context.build());
     assert!(contract.register_agent(create_mock_dstack_attestation()));
     assert!(matches!(
@@ -394,15 +396,15 @@ fn test_register_agent_happy_reregister_without_additional_deposit() {
 fn test_register_agent_not_whitelisted() {
     let mut contract = setup_contract();
     let agent = accounts(2);
-    let context = get_context_with_deposit(agent, false, Some(DEPOSIT_005_NEAR));
+    let context = get_context_with_deposit(agent, false, Some(EXACT_STORAGE_DEPOSIT));
     testing_env!(context.build());
 
     contract.register_agent(create_mock_dstack_attestation());
 }
 
-// First-time registration requires storage stake: zero attached deposit must fail
+// First-time registration requires the exact storage stake: zero attached deposit must fail
 #[test]
-#[should_panic(expected = "Attached deposit must be greater than storage cost")]
+#[should_panic(expected = "Attached deposit must be exactly the storage cost")]
 fn test_register_agent_errors_when_storage_deposit_required_but_zero_attached() {
     let mut contract = setup_contract();
     let agent = accounts(2);
@@ -418,7 +420,7 @@ fn test_register_agent_errors_when_storage_deposit_required_but_zero_attached() 
 
 // First-time registration: attached deposit below storage cost must fail
 #[test]
-#[should_panic(expected = "Attached deposit must be greater than storage cost")]
+#[should_panic(expected = "Attached deposit must be exactly the storage cost")]
 fn test_register_agent_errors_when_storage_deposit_insufficient() {
     let mut contract = setup_contract();
     let agent = accounts(2);
@@ -426,10 +428,53 @@ fn test_register_agent_errors_when_storage_deposit_insufficient() {
     contract.whitelist_agent_for_local(agent.clone());
 
     // Try to register with 0.003 NEAR deposit (less than storage cost)
-    let context = get_context_with_deposit(agent, false, Some(DEPOSIT_003_NEAR));
+    let context = get_context_with_deposit(agent, false, Some(DEPOSIT_BELOW_COST));
     testing_env!(context.build());
 
     contract.register_agent(create_mock_dstack_attestation());
+}
+
+// First-time registration: attached deposit above storage cost must fail (no overpayment, no refund)
+#[test]
+#[should_panic(expected = "Attached deposit must be exactly the storage cost")]
+fn test_register_agent_errors_when_storage_deposit_exceeds_cost() {
+    let mut contract = setup_contract();
+    let agent = accounts(2);
+
+    contract.whitelist_agent_for_local(agent.clone());
+
+    // Try to register with 0.005 NEAR deposit (more than the 0.00486 storage cost)
+    let context = get_context_with_deposit(agent, false, Some(DEPOSIT_ABOVE_COST));
+    testing_env!(context.build());
+
+    contract.register_agent(create_mock_dstack_attestation());
+}
+
+// Re-registration must attach exactly zero: any deposit on an already-registered agent must fail
+#[test]
+#[should_panic(expected = "Attached deposit must be exactly the storage cost")]
+fn test_register_agent_errors_when_reregister_attaches_deposit() {
+    let mut contract = setup_contract();
+    let agent = accounts(2);
+
+    contract.whitelist_agent_for_local(agent.clone());
+
+    let context = get_context_with_deposit(agent.clone(), false, Some(EXACT_STORAGE_DEPOSIT));
+    testing_env!(context.build());
+    assert!(contract.register_agent(create_mock_dstack_attestation()));
+
+    // Already registered, so the required deposit is now zero; attaching anything must fail
+    let context = get_context_with_deposit(agent, false, Some(EXACT_STORAGE_DEPOSIT));
+    testing_env!(context.build());
+    contract.register_agent(create_mock_dstack_attestation());
+}
+
+// The exact storage deposit matches STORAGE_BYTES_TO_REGISTER * storage_byte_cost.
+// Guards the hardcoded EXACT_STORAGE_DEPOSIT used throughout these tests against byte-cost drift.
+#[test]
+fn test_agent_storage_cost_matches_expected() {
+    let _contract = setup_contract();
+    assert_eq!(Contract::agent_storage_cost(), EXACT_STORAGE_DEPOSIT);
 }
 
 // Test that owner can update the owner ID
@@ -546,11 +591,11 @@ fn test_get_agents() {
     assert_eq!(contract.get_agents(&None, &None).len(), 0);
 
     // Register agent1 and agent2; agent3 remains unregistered
-    let context = get_context_with_deposit(agent1.clone(), false, Some(DEPOSIT_005_NEAR));
+    let context = get_context_with_deposit(agent1.clone(), false, Some(EXACT_STORAGE_DEPOSIT));
     testing_env!(context.build());
     contract.register_agent(create_mock_dstack_attestation());
 
-    let context = get_context_with_deposit(agent2.clone(), false, Some(DEPOSIT_005_NEAR));
+    let context = get_context_with_deposit(agent2.clone(), false, Some(EXACT_STORAGE_DEPOSIT));
     testing_env!(context.build());
     contract.register_agent(create_mock_dstack_attestation());
 
@@ -599,7 +644,7 @@ fn test_get_agent() {
     assert!(contract.get_agent(agent.clone()).is_none());
 
     // Register agent
-    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
+    let context = get_context_with_deposit(agent.clone(), false, Some(EXACT_STORAGE_DEPOSIT));
     testing_env!(context.build());
     contract.register_agent(create_mock_dstack_attestation());
 
@@ -617,7 +662,7 @@ fn test_request_signature_not_whitelisted() {
 
     // Register agent first (while whitelisted)
     contract.whitelist_agent_for_local(agent.clone());
-    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
+    let context = get_context_with_deposit(agent.clone(), false, Some(EXACT_STORAGE_DEPOSIT));
     testing_env!(context.build());
     contract.register_agent(create_mock_dstack_attestation());
 
@@ -669,7 +714,7 @@ fn test_require_valid_agent_removes_on_invalid_measurements() {
     contract.whitelist_agent_for_local(agent.clone());
 
     // Register agent
-    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
+    let context = get_context_with_deposit(agent.clone(), false, Some(EXACT_STORAGE_DEPOSIT));
     testing_env!(context.build());
     contract.register_agent(create_mock_dstack_attestation());
 
@@ -699,7 +744,7 @@ fn test_require_valid_agent_removes_on_invalid_ppid() {
     contract.whitelist_agent_for_local(agent.clone());
 
     // Register agent
-    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
+    let context = get_context_with_deposit(agent.clone(), false, Some(EXACT_STORAGE_DEPOSIT));
     testing_env!(context.build());
     contract.register_agent(create_mock_dstack_attestation());
 
@@ -729,7 +774,7 @@ fn test_require_valid_agent_removes_on_not_whitelisted() {
     contract.whitelist_agent_for_local(agent.clone());
 
     // Register agent
-    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
+    let context = get_context_with_deposit(agent.clone(), false, Some(EXACT_STORAGE_DEPOSIT));
     testing_env!(context.build());
     contract.register_agent(create_mock_dstack_attestation());
 
@@ -759,7 +804,7 @@ fn test_require_valid_agent_removes_with_multiple_reasons() {
     contract.whitelist_agent_for_local(agent.clone());
 
     // Register agent
-    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
+    let context = get_context_with_deposit(agent.clone(), false, Some(EXACT_STORAGE_DEPOSIT));
     testing_env!(context.build());
     contract.register_agent(create_mock_dstack_attestation());
 
@@ -790,7 +835,7 @@ fn test_request_signature_measurements_removed() {
 
     contract.whitelist_agent_for_local(agent.clone());
 
-    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
+    let context = get_context_with_deposit(agent.clone(), false, Some(EXACT_STORAGE_DEPOSIT));
     testing_env!(context.build());
     contract.register_agent(create_mock_dstack_attestation());
 
@@ -835,7 +880,7 @@ fn test_request_signature_ppid_removed() {
 
     contract.whitelist_agent_for_local(agent.clone());
 
-    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
+    let context = get_context_with_deposit(agent.clone(), false, Some(EXACT_STORAGE_DEPOSIT));
     testing_env!(context.build());
     contract.register_agent(create_mock_dstack_attestation());
 
@@ -879,7 +924,7 @@ fn test_request_signature_success() {
 
     contract.whitelist_agent_for_local(agent.clone());
 
-    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
+    let context = get_context_with_deposit(agent.clone(), false, Some(EXACT_STORAGE_DEPOSIT));
     testing_env!(context.build());
     contract.register_agent(create_mock_dstack_attestation());
 
@@ -900,7 +945,7 @@ fn test_request_signature_with_eddsa() {
 
     contract.whitelist_agent_for_local(agent.clone());
 
-    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
+    let context = get_context_with_deposit(agent.clone(), false, Some(EXACT_STORAGE_DEPOSIT));
     testing_env!(context.build());
     contract.register_agent(create_mock_dstack_attestation());
 
@@ -922,7 +967,7 @@ fn test_request_signature_invalid_key_type() {
 
     contract.whitelist_agent_for_local(agent.clone());
 
-    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
+    let context = get_context_with_deposit(agent.clone(), false, Some(EXACT_STORAGE_DEPOSIT));
     testing_env!(context.build());
     contract.register_agent(create_mock_dstack_attestation());
 
@@ -947,7 +992,7 @@ fn test_request_signature_expired_attestation() {
     let context = get_context_with_deposit_and_timestamp(
         agent.clone(),
         false,
-        Some(DEPOSIT_005_NEAR),
+        Some(EXACT_STORAGE_DEPOSIT),
         Some(1000u64),
     );
     testing_env!(context.build());
@@ -983,7 +1028,7 @@ fn test_require_valid_agent_removes_on_expired_attestation() {
     let context = get_context_with_deposit_and_timestamp(
         agent.clone(),
         false,
-        Some(DEPOSIT_005_NEAR),
+        Some(EXACT_STORAGE_DEPOSIT),
         Some(1000u64),
     );
     testing_env!(context.build());
@@ -1019,7 +1064,7 @@ fn test_get_agent_expiration_fields() {
     let context = get_context_with_deposit_and_timestamp(
         agent.clone(),
         false,
-        Some(DEPOSIT_005_NEAR),
+        Some(EXACT_STORAGE_DEPOSIT),
         Some(1000u64),
     );
     testing_env!(context.build());
@@ -1059,7 +1104,7 @@ fn test_get_agents_expiration_fields() {
     let context = get_context_with_deposit_and_timestamp(
         agent1.clone(),
         false,
-        Some(DEPOSIT_005_NEAR),
+        Some(EXACT_STORAGE_DEPOSIT),
         Some(1000u64),
     );
     testing_env!(context.build());
@@ -1069,7 +1114,7 @@ fn test_get_agents_expiration_fields() {
     let context = get_context_with_deposit_and_timestamp(
         agent2.clone(),
         false,
-        Some(DEPOSIT_005_NEAR),
+        Some(EXACT_STORAGE_DEPOSIT),
         Some(2000u64),
     );
     testing_env!(context.build());

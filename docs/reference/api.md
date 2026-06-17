@@ -105,7 +105,7 @@ Registers the agent's account on the agent contract by calling `register_agent` 
 await agent.register();
 
 await agent.register({
-  deposit: "6000000000000000000000", // optional yoctoNEAR when storage stake is needed
+  deposit: "4860000000000000000000", // optional; must exactly match the contract's storage cost
   forceDeposit: true, // optional; see below
 });
 ```
@@ -116,15 +116,15 @@ All fields are optional. Omit the argument entirely (`register()`) or pass an em
 
 | Parameter | Description |
 |-----------|-------------|
-| `deposit` | Attached deposit in **yoctoNEAR** when the call must include a storage stake: first-time registration in auto mode, or whenever `forceDeposit` is `true`. If omitted in those cases, the client uses **`5000000000000000000000` yoctoNEAR** (0.005 NEAR). Raise this if your contract’s required storage stake is higher than that default. |
+| `deposit` | Attached deposit in **yoctoNEAR** when the call must include a storage stake: first-time registration in auto mode, or whenever `forceDeposit` is `true`. If omitted in those cases, the client uses **`4860000000000000000000` yoctoNEAR** (0.00486 NEAR). The default contract requires this **exact** amount and never refunds, so attaching more fails — only override this if your contract was customized to require a different storage cost. |
 | `forceDeposit` | Controls whether the client calls `get_agent` to decide how much to attach. See the table below. |
 
 ### How the attached deposit is chosen
 
 | `forceDeposit` | Behavior |
 |----------------|----------|
-| *Omitted* or `undefined` | The client calls **`get_agent`** for the agent’s account ID. If the agent **is not** registered (`null`), it attaches **`deposit` or the default** (0.005 NEAR in yocto). If the agent **is** already registered (re-registration / refresh), it attaches **no** deposit (`0`), because the contract does not charge extra storage for an existing key. |
-| `true` | **Skips** `get_agent`. Always attaches **`deposit` or the default** (0.005 NEAR yocto). Use when you know the contract expects a storage stake regardless of prior state. |
+| *Omitted* or `undefined` | The client calls **`get_agent`** for the agent’s account ID. If the agent **is not** registered (`null`), it attaches **`deposit` or the default** (0.00486 NEAR in yocto). If the agent **is** already registered (re-registration / refresh), it attaches **no** deposit (`0`), because the contract does not charge extra storage for an existing key — and the default contract requires re-registration to attach exactly `0`. |
+| `true` | **Skips** `get_agent`. Always attaches **`deposit` or the default** (0.00486 NEAR yocto). Use when you know the contract expects a storage stake regardless of prior state. |
 | `false` | **Skips** `get_agent`. Always attaches **0**. Use when you know the contract will not require a deposit for this call (e.g. re-register after the contract was updated to waive deposit for existing agents). If the contract still requires a stake, the transaction will fail. |
 
 **TEE vs local (attestation):**

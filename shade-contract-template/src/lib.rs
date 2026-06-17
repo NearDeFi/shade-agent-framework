@@ -86,20 +86,20 @@ impl Contract {
         let predecessor = env::predecessor_account_id();
         let already_registered = self.agents.get(&predecessor).is_some();
 
-        // New agents must cover storage; re-registration only updates existing state (no extra storage)
-        if !already_registered {
-            // You should update the STORAGE_BYTES_TO_REGISTER const if you store more data
-            let storage_cost = env::storage_byte_cost()
-                .checked_mul(STORAGE_BYTES_TO_REGISTER)
-                .unwrap();
-            require!(
-                env::attached_deposit() >= storage_cost,
-                &format!(
-                    "Attached deposit must be greater than storage cost {:?}",
-                    storage_cost.exact_amount_display()
-                )
-            );
-        }
+        // New agents pay the exact storage cost; re-registration reuses the existing slot and must
+        // attach nothing. The deposit must match exactly — the contract never refunds.
+        let required_deposit = if already_registered {
+            NearToken::from_yoctonear(0)
+        } else {
+            Self::agent_storage_cost()
+        };
+        require!(
+            env::attached_deposit() == required_deposit,
+            &format!(
+                "Attached deposit must be exactly the storage cost {}",
+                required_deposit.exact_amount_display()
+            )
+        );
 
         // Verify the attestation and get the measurements and PPID for the agent
         let (measurements, ppid, advisory_ids) = self.verify_attestation(attestation);
@@ -130,5 +130,15 @@ impl Contract {
         );
 
         true
+    }
+}
+
+impl Contract {
+    // Exact deposit an agent must attach to cover its storage in the contract.
+    // Update STORAGE_BYTES_TO_REGISTER if you store more data per agent.
+    pub(crate) fn agent_storage_cost() -> NearToken {
+        env::storage_byte_cost()
+            .checked_mul(STORAGE_BYTES_TO_REGISTER)
+            .unwrap()
     }
 }

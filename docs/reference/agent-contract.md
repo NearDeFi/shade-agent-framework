@@ -122,7 +122,7 @@ pub fn remove_agent(&mut self, account_id: AccountId) {
 ```
 
 > [!NOTE]
-> A removed agent can re-register by calling `register_agent` with a valid attestation.
+> A removed agent can re-register by calling `register_agent` with a valid attestation. Removal does not refund the storage deposit, so a re-registration is treated as a first-time registration and must attach the storage cost again. The same applies when an agent is auto-removed for becoming invalid (e.g. an expired attestation).
 
 ### Whitelist
 
@@ -158,22 +158,27 @@ pub fn remove_agent_from_whitelist_for_local(&mut self, account_id: AccountId) {
 
 Agents register by calling `register_agent`. The method checks that the agent has a valid attestation via `verify_attestation`; if it passes, the agent is stored with its measurements, PPID, and validity period (determined by `attestation_expiration_time_ms`).
 
-An agent must attach 0.00486 NEAR to cover its own storage cost in the contract. If you change how much data is stored per agent, update the `STORAGE_BYTES_TO_REGISTER` constant accordingly.
+For a first-time registration an agent must attach **exactly** 0.00486 NEAR to cover its own storage cost in the contract. The deposit must match the storage cost exactly — the contract never refunds an overpayment, so attaching more is rejected. Re-registering an already-registered agent uses no new storage, so it must attach exactly `0`. If you change how much data is stored per agent, update the `STORAGE_BYTES_TO_REGISTER` constant accordingly.
 
 ```rust
 // Register an agent, this needs to be called by the agent itself
 #[payable]
 pub fn register_agent(&mut self, attestation: DstackAttestation) -> bool {
-    // Require the agent to pay for the storage cost
-    // You should update the STORAGE_BYTES_TO_REGISTER const if you store more data
-    let storage_cost = env::storage_byte_cost()
-        .checked_mul(STORAGE_BYTES_TO_REGISTER)
-        .unwrap();
+    let predecessor = env::predecessor_account_id();
+    let already_registered = self.agents.get(&predecessor).is_some();
+
+    // New agents pay the exact storage cost; re-registration reuses the existing slot and must
+    // attach nothing. The deposit must match exactly — the contract never refunds.
+    let required_deposit = if already_registered {
+        NearToken::from_yoctonear(0)
+    } else {
+        Self::agent_storage_cost()
+    };
     require!(
-        env::attached_deposit() >= storage_cost,
+        env::attached_deposit() == required_deposit,
         &format!(
-            "Attached deposit must be greater than storage cost {:?}",
-            storage_cost.exact_amount_display()
+            "Attached deposit must be exactly the storage cost {}",
+            required_deposit.exact_amount_display()
         )
     );
 
@@ -185,7 +190,7 @@ pub fn register_agent(&mut self, attestation: DstackAttestation) -> bool {
         internal::events::summarize_advisory_ids(&advisory_ids);
 
     Event::AgentRegistered {
-        account_id: &env::predecessor_account_id(),
+        account_id: &predecessor,
         measurements: &measurements,
         ppid: &ppid,
         advisory_ids_truncated,
@@ -197,7 +202,7 @@ pub fn register_agent(&mut self, attestation: DstackAttestation) -> bool {
 
     // Register the agent
     self.agents.insert(
-        env::predecessor_account_id(),
+        predecessor,
         Agent {
             measurements,
             ppid,

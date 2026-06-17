@@ -47,8 +47,8 @@ export interface ContractInfo {
   mpc_contract_id: string;
 }
 
-/** Default attached deposit for first-time `register_agent` when `deposit` is omitted (0.005 NEAR, yocto string). */
-const DEFAULT_REGISTER_DEPOSIT_YOCTO = "5000000000000000000000";
+/** Default attached deposit for first-time `register_agent` when `deposit` is omitted: the exact storage cost the contract requires (0.00486 NEAR, yocto string). The contract requires this exact amount and never refunds, so attaching more would be rejected. */
+const DEFAULT_REGISTER_DEPOSIT_YOCTO = "4860000000000000000000";
 
 /**
  * Configuration object for creating a ShadeClient instance
@@ -164,7 +164,7 @@ export class ShadeClient {
    * Registers the agent in the agent contract.
    *
    * @param params
-   * @param params.deposit Attached deposit in yoctoNEAR when storage is required or when `forceDeposit` is `true` (defaults to `5000000000000000000000` — 0.005 NEAR)
+   * @param params.deposit Attached deposit in yoctoNEAR when storage is required or when `forceDeposit` is `true` (defaults to `4860000000000000000000` — 0.00486 NEAR). The contract requires this exact amount for a first-time registration and never refunds, so only override it if your contract was customized to require a different storage cost.
    * @param params.forceDeposit If `true`, always attach `deposit` (or the default) and skip `get_agent`. If `false`, attach no deposit and skip `get_agent`. If omitted, use `get_agent` to decide.
    * @returns Promise that resolves to true if registration was successful
    * @throws Error if agentContractId is not configured, if fetching attestation fails, or if the contract call fails
