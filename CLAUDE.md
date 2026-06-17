@@ -2,6 +2,10 @@
 
 Subdirectory `CLAUDE.md` files (e.g. `shade-agent-cli/CLAUDE.md`) carry per-package conventions. The rules below apply across the whole repo.
 
+## Installing dependencies
+
+Default to `npm ci` for every install — it installs strictly from the committed `package-lock.json`, so local dev, CI, and Docker all reproduce the same tree. Only reach for `npm i <package>` when **adding or changing that specific dependency**, and commit the updated `package-lock.json` in the same change. Never run a bare `npm i` / `npm install` to bulk-install deps — it can silently drift the lockfile; use `npm ci`. (Installing a published package into another project — e.g. `npm i @neardefi/shade-agent-js`, `npm i -g @neardefi/shade-agent-cli` — is the same `npm i <package>` form and is expected.)
+
 ## Always update the relevant docs and consumers when changing a package
 
 Changes to a package are not done until every downstream artefact has been updated to match. Before declaring a change complete, walk the list below.
@@ -32,7 +36,7 @@ Changes to a package are not done until every downstream artefact has been updat
 
 ## Tests
 
-`tests-in-tee/` is the integration-test suite that runs inside (or simulates) a real Phala / dstack environment. It's the only place that proves an end-to-end change actually works under attestation. Update or add scenarios there whenever a change touches:
+`tests-in-tee/` is the integration-test suite that proves an end-to-end change actually works under attestation — the only place that does. It deploys to a **real Phala CVM** with **real TEE attestations** (not a simulation): the test script runs *outside* the TEE, deploys the contract and test image, configures measurements/PPIDs, then calls the running app and checks results. It needs a `PHALA_API_KEY` and a funded testnet NEAR account (see the root README). Update or add scenarios there whenever a change touches:
 
 - Agent registration flow
 - Compose-hash computation, PPID handling, measurement approval

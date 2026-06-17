@@ -48,3 +48,32 @@ When throwing a non-OK HTTP response that should be retryable, attach
 the status on the error so the predicate can match cleanly:
 
     throw Object.assign(new Error("Failed to fetch X"), { status: response.status });
+
+## Secret-key parsing
+
+Never call `KeyPair.fromString()` or `KeyPairSigner.fromSecretKey()`
+directly — a parse failure from `@near-js` echoes the secret-key string
+in its message. Use the wrappers `safeParseKeyPair(secret)` /
+`safeParseSigner(secret)` (in `utils/errors.ts`), which catch the parse
+error and rethrow `genericError("Failed to parse key")` with no secret
+material. Same fail-closed principle as `toThrowable`/`sanitize`: a
+secret must never reach a throw or log surface.
+
+## Public API surface
+
+`src/index.ts` is the entire public API: `ShadeClient`; the types
+`ShadeConfig`, `Measurements`, `FullMeasurements`,
+`DstackAttestationForContract`; and the error utilities `sanitize`,
+`toThrowable`, `addSensitive`. Everything else — `withRetry`,
+`genericError`, `safeParse*`, the dstack/Phala/NEAR helpers — is
+internal. Adding, renaming, or removing an export is a public-API change:
+update `docs/reference/api.md` (and check `shade-agent-template`) per the
+repo-wide rules.
+
+## Contract call boundary
+
+Client-side code is camelCase (`agentAccountId`, `dstackClient`); the NEAR
+contract interface is snake_case (`register_agent`, `account_id`,
+`requires_tee`, `{ quote, collateral, tcb_info }`). Args passed into a
+contract call must use the contract's snake_case names — there is no
+auto-conversion at the boundary.
