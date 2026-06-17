@@ -5,6 +5,9 @@
   "author": "Matt Lockyer <github.com/mattlockyer>",
   "license": "Apache-2.0",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "main": "dist/src/cli.js",
   "bin": {
     "shade": "dist/src/cli.js"

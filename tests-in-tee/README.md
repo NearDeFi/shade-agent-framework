@@ -10,14 +10,14 @@ Integration tests that run inside a TEE (Phala). They test shade-agent-js, shade
 
   ```bash
   cd shade-agent-cli
-  npm i
+  npm ci
   cd ../shade-agent-js
-  npm i
+  npm ci
   npm run build
   cd ../tests-in-tee
-  npm i
+  npm ci
   cd test-image
-  npm i
+  npm ci
   cd ../..
   ```
 

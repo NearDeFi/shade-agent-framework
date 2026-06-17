@@ -10,7 +10,7 @@ An example agent that uses shade-agent-js locally.
 
   ```bash
   cd shade-agent-js
-  npm i
+  npm ci
   npm run build
   cd ..
   ```
@@ -42,7 +42,7 @@ An example agent that uses shade-agent-js locally.
 
   ```bash
   cd shade-agent-template
-  npm i
+  npm ci
   ```
 
 - Fill out agent_contract.contract_id and build_docker_image.tag in [deployment.yaml](./deployment.yaml)
