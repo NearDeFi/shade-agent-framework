@@ -73,7 +73,7 @@ async fn test_measurements_and_ppid_lifecycle()
         .await?
         .assert_success();
 
-        // Register agent with 0.005 NEAR deposit
+        // Register agent with the exact 0.00486 NEAR storage deposit
         let _ = call_transaction(
             &contract_id,
             "register_agent",
@@ -83,7 +83,7 @@ async fn test_measurements_and_ppid_lifecycle()
             agent_id,
             agent_signer,
             &network_config,
-            Some(helpers::DEPOSIT_005_NEAR),
+            Some(helpers::EXACT_STORAGE_DEPOSIT),
         )
         .await?
         .assert_success();
@@ -284,7 +284,7 @@ async fn test_measurements_and_ppid_lifecycle()
         &agent3_id,
         &agent3_signer,
         &network_config,
-        Some(helpers::DEPOSIT_005_NEAR),
+        Some(helpers::EXACT_STORAGE_DEPOSIT),
     )
     .await?
     .assert_failure();
@@ -629,7 +629,7 @@ async fn test_register_fails_without_default_measurements_or_ppid()
         &agent_id,
         &agent_signer,
         &network_config,
-        Some(helpers::DEPOSIT_005_NEAR),
+        Some(helpers::EXACT_STORAGE_DEPOSIT),
     )
     .await?
     .into_result();
@@ -696,7 +696,7 @@ async fn test_register_fails_without_default_measurements_or_ppid()
         &agent_id,
         &agent_signer,
         &network_config,
-        Some(helpers::DEPOSIT_005_NEAR),
+        Some(helpers::EXACT_STORAGE_DEPOSIT),
     )
     .await?
     .into_result();
@@ -751,7 +751,7 @@ async fn test_attestation_expiration() -> Result<(), Box<dyn std::error::Error +
     .await?
     .assert_success();
 
-    // Register agent with 0.005 NEAR deposit
+    // Register agent with the exact 0.00486 NEAR storage deposit
     let _ = call_transaction(
         &contract_id,
         "register_agent",
@@ -761,7 +761,7 @@ async fn test_attestation_expiration() -> Result<(), Box<dyn std::error::Error +
         &agent_id,
         &agent_signer,
         &network_config,
-        Some(helpers::DEPOSIT_005_NEAR),
+        Some(helpers::EXACT_STORAGE_DEPOSIT),
     )
     .await?
     .assert_success();
@@ -927,7 +927,7 @@ async fn test_attestation_expiration() -> Result<(), Box<dyn std::error::Error +
         &agent_id,
         &agent_signer,
         &network_config,
-        Some(helpers::DEPOSIT_005_NEAR),
+        Some(helpers::EXACT_STORAGE_DEPOSIT),
     )
     .await?
     .assert_success();
@@ -1014,7 +1014,7 @@ async fn test_register_agent_new_agent_requires_storage_deposit_integration()
         &agent_id,
         &agent_signer,
         &network_config,
-        Some(helpers::DEPOSIT_005_NEAR),
+        Some(helpers::EXACT_STORAGE_DEPOSIT),
     )
     .await?
     .assert_success();
@@ -1082,7 +1082,7 @@ async fn test_register_agent_reregister_without_storage_deposit_integration()
         &agent_id,
         &agent_signer,
         &network_config,
-        Some(helpers::DEPOSIT_005_NEAR),
+        Some(helpers::EXACT_STORAGE_DEPOSIT),
     )
     .await?
     .assert_success();

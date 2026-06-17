@@ -47,7 +47,7 @@ export interface ContractInfo {
   mpc_contract_id: string;
 }
 
-/** Default attached deposit for first-time `register_agent` when `deposit` is omitted: the exact storage cost the contract requires (0.00486 NEAR, yocto string). The contract requires this exact amount and never refunds, so attaching more would be rejected. */
+/** Default attached deposit for first-time `register_agent` when `deposit` is omitted: the exact storage cost the contract requires (0.00486 NEAR, yocto string). The contract requires this exact amount and never refunds, so attaching more would be rejected. Must stay in sync with the contract's STORAGE_BYTES_TO_REGISTER (shade-contract-template/src/lib.rs); if the contract's per-agent storage cost changes, update this default. */
 const DEFAULT_REGISTER_DEPOSIT_YOCTO = "4860000000000000000000";
 
 /**

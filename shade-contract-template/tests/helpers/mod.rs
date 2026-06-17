@@ -10,8 +10,10 @@ use std::sync::Arc;
 use tokio::time::{Duration, sleep};
 
 // Deposit constants for integration tests
+// Exact storage cost for a first-time registration: 486 bytes * 1e19 yocto/byte = 0.00486 NEAR
 #[allow(dead_code)]
-pub const DEPOSIT_005_NEAR: NearToken = NearToken::from_yoctonear(5_000_000_000_000_000_000_000); // 0.005 NEAR
+pub const EXACT_STORAGE_DEPOSIT: NearToken =
+    NearToken::from_yoctonear(4_860_000_000_000_000_000_000);
 
 #[allow(dead_code)]
 pub const CONTRACT_WASM_PATH: &str = concat!(

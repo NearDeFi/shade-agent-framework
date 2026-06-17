@@ -89,7 +89,7 @@ export default async function testDifferentAccountId(
       args: {
         attestation: contractAttestation,
       },
-      deposit: NEAR.toUnits(0.005),
+      deposit: NEAR.toUnits("0.00486"), // exact storage cost; the contract requires an exact deposit
       gas: BigInt("300000000000000"), // 300 TGas
     });
     registrationError =

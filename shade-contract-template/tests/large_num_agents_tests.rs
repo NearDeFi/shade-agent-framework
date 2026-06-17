@@ -44,7 +44,7 @@ async fn test_large_dataset_pagination_real_contract()
         .await?
         .assert_success();
 
-        // Register agent with 0.005 NEAR deposit
+        // Register agent with the exact 0.00486 NEAR storage deposit
         let _ = call_transaction(
             &contract_id,
             "register_agent",
@@ -54,7 +54,7 @@ async fn test_large_dataset_pagination_real_contract()
             &agent_id,
             &agent_signer,
             &network_config,
-            Some(helpers::DEPOSIT_005_NEAR),
+            Some(helpers::EXACT_STORAGE_DEPOSIT),
         )
         .await?
         .assert_success();

@@ -106,7 +106,7 @@ await agent.register();
 
 await agent.register({
   deposit: "4860000000000000000000", // optional; must exactly match the contract's storage cost
-  forceDeposit: true, // optional; see below
+  forceDeposit: true, // optional; first-time registration only — see below
 });
 ```
 
@@ -124,7 +124,7 @@ All fields are optional. Omit the argument entirely (`register()`) or pass an em
 | `forceDeposit` | Behavior |
 |----------------|----------|
 | *Omitted* or `undefined` | The client calls **`get_agent`** for the agent’s account ID. If the agent **is not** registered (`null`), it attaches **`deposit` or the default** (0.00486 NEAR in yocto). If the agent **is** already registered (re-registration / refresh), it attaches **no** deposit (`0`), because the contract does not charge extra storage for an existing key — and the default contract requires re-registration to attach exactly `0`. |
-| `true` | **Skips** `get_agent`. Always attaches **`deposit` or the default** (0.00486 NEAR yocto). Use when you know the contract expects a storage stake regardless of prior state. |
+| `true` | **Skips** `get_agent`. Always attaches **`deposit` or the default** (0.00486 NEAR yocto). Only safe for a **first-time** registration: because it always attaches a non-zero deposit, using it on an already-registered agent **fails** against the default contract (which requires exactly `0` to re-register). For re-registration use auto mode (omit `forceDeposit`) or `forceDeposit: false`. |
 | `false` | **Skips** `get_agent`. Always attaches **0**. Use when you know the contract will not require a deposit for this call (e.g. re-register after the contract was updated to waive deposit for existing agents). If the contract still requires a stake, the transaction will fail. |
 
 **TEE vs local (attestation):**

@@ -177,7 +177,7 @@ pub fn register_agent(&mut self, attestation: DstackAttestation) -> bool {
     require!(
         env::attached_deposit() == required_deposit,
         &format!(
-            "Attached deposit must be exactly the storage cost {}",
+            "Attached deposit must be exactly {}",
             required_deposit.exact_amount_display()
         )
     );

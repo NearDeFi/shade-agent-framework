@@ -404,7 +404,7 @@ fn test_register_agent_not_whitelisted() {
 
 // First-time registration requires the exact storage stake: zero attached deposit must fail
 #[test]
-#[should_panic(expected = "Attached deposit must be exactly the storage cost")]
+#[should_panic(expected = "Attached deposit must be exactly")]
 fn test_register_agent_errors_when_storage_deposit_required_but_zero_attached() {
     let mut contract = setup_contract();
     let agent = accounts(2);
@@ -420,7 +420,7 @@ fn test_register_agent_errors_when_storage_deposit_required_but_zero_attached() 
 
 // First-time registration: attached deposit below storage cost must fail
 #[test]
-#[should_panic(expected = "Attached deposit must be exactly the storage cost")]
+#[should_panic(expected = "Attached deposit must be exactly")]
 fn test_register_agent_errors_when_storage_deposit_insufficient() {
     let mut contract = setup_contract();
     let agent = accounts(2);
@@ -436,7 +436,7 @@ fn test_register_agent_errors_when_storage_deposit_insufficient() {
 
 // First-time registration: attached deposit above storage cost must fail (no overpayment, no refund)
 #[test]
-#[should_panic(expected = "Attached deposit must be exactly the storage cost")]
+#[should_panic(expected = "Attached deposit must be exactly")]
 fn test_register_agent_errors_when_storage_deposit_exceeds_cost() {
     let mut contract = setup_contract();
     let agent = accounts(2);
@@ -452,7 +452,7 @@ fn test_register_agent_errors_when_storage_deposit_exceeds_cost() {
 
 // Re-registration must attach exactly zero: any deposit on an already-registered agent must fail
 #[test]
-#[should_panic(expected = "Attached deposit must be exactly the storage cost")]
+#[should_panic(expected = "Attached deposit must be exactly")]
 fn test_register_agent_errors_when_reregister_attaches_deposit() {
     let mut contract = setup_contract();
     let agent = accounts(2);
