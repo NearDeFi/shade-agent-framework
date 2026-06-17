@@ -56,8 +56,9 @@ pub enum StorageKey {
     WhitelistedAgentsForLocal,
 }
 
-// register_agent requires this exact storage cost. The shade-agent-js client hardcodes the
-// matching default deposit (DEFAULT_REGISTER_DEPOSIT_YOCTO); changing this value must be mirrored there.
+// A first-time register_agent must attach exactly this storage cost; re-registration attaches 0.
+// The shade-agent-js client hardcodes the matching default deposit (DEFAULT_REGISTER_DEPOSIT_YOCTO);
+// changing this value must be mirrored there.
 const STORAGE_BYTES_TO_REGISTER: u128 = 486;
 
 #[near]
