@@ -89,7 +89,7 @@ Draft: {yes|no}
 
 **Decide the mode:**
 
-1. **Claude or Copilot review missing or stale** → STOP. Tell the user which reviewer is missing and how to trigger it: Claude — comment `/claude-review` on the PR; Copilot — it reviews automatically on PR open and on each push via the repo's ruleset, so push a commit (or re-request it from the PR's Reviewers panel) if its review is missing or stale. Then re-run this command. Do not proceed.
+1. **Claude or Copilot review missing or stale** → STOP. Tell the user which reviewer is missing and how to trigger it: Claude — comment `/claude-review` on the PR; Copilot — it is **not** auto-requested, so re-request it explicitly with `gh api --method POST repos/{REPO}/pulls/{number}/requested_reviewers -f "reviewers[]=copilot-pull-request-reviewer[bot]"` (or the ↻ next to Copilot in the PR's Reviewers panel). Then re-run this command. Do not proceed.
 2. **Unresolved review comments exist** → Phase 2 (address them).
 3. **CI failing, no unresolved comments** → Phase 6 (jump to CI fix).
 4. **Both reviewed + CI passing + nothing unresolved** (no comments needing action, or all already resolved) → Phase 7 (clean path).
@@ -178,10 +178,11 @@ Read `.claude/commands/utils/check-and-fix-ci.md` and follow it for PR #{number}
 
 Two paths with different end states — report each honestly. Do not print a success card claiming the AI reviewers are satisfied unless their reviews actually cover the current head commit.
 
-**If this run pushed any commits** (review fixes from Phase 5 and/or CI fixes from Phase 6): the fixes are new code the reviewers have not seen — their earlier reviews are now stale, and whether they are happy with the result is unknown. The push already triggered Copilot's re-review (its ruleset reviews new pushes), so only Claude needs a comment:
+**If this run pushed any commits** (review fixes from Phase 5 and/or CI fixes from Phase 6): the fixes are new code the reviewers have not seen — their earlier reviews are now stale, and whether they are happy with the result is unknown. Both reviewers must be explicitly re-requested against the new head — Claude via a comment, Copilot via the API (it reviews the current head; needs Copilot access + premium-request quota):
 
 ```
 gh pr comment {number} --repo {REPO} --body "/claude-review"
+gh api --method POST repos/{REPO}/pulls/{number}/requested_reviewers -f "reviewers[]=copilot-pull-request-reviewer[bot]"
 ```
 
 Then report:
@@ -192,7 +193,7 @@ CI: ✅ PASS (on the new head)
 Findings fixed: {N}    Comments addressed: {N}    Commits added: {N}
 ```
 
-In prose, list which comments were addressed and what was pushed, note that Claude was re-requested and Copilot re-reviews the push automatically, and remind the user to re-run `/resolve-pr-reviews` after the new reviews land. Do **NOT** post "Reviews passed!" on this path.
+In prose, list which comments were addressed and what was pushed, note that both Claude and Copilot were re-requested against the new head, and remind the user to re-run `/resolve-pr-reviews` after the new reviews land. Do **NOT** post "Reviews passed!" on this path.
 
 **If this run started clean** (mode 4 — both reviewed the current head, CI passing, nothing to resolve, no commits pushed): post exactly one comment:
 
