@@ -34,6 +34,12 @@ Changes to a package are not done until every downstream artefact has been updat
 - Treat it as a breaking change to `shade-contract-template` — verify the contract still builds and that approved-measurements / PPID gating semantics are preserved.
 - Run the **`tests-in-tee/`** scenarios that exercise registration end-to-end.
 
+## Versioning and releases
+
+**Never bump a package version in a PR into `main`.** Version bumps for the published packages (`@neardefi/shade-agent-js`, `@neardefi/shade-agent-cli`, the `shade-attestation` crate) are handled separately once changes are on `main`, via dedicated `chore(release): <package>-vX.Y.Z` commits. Leave `package.json` / `Cargo.toml` versions untouched in feature, fix, and chore PRs.
+
+**State the release impact in the PR description.** When a PR changes a published package's behaviour or public surface, the PR description must say which package(s) it affects and whether it will need a **major**, **minor**, or **patch** bump when released — unless the description already says so. Use semver: **major** = a breaking change to the public API or to behaviour consumers depend on; **minor** = backward-compatible new behaviour or feature; **patch** = backward-compatible fix. A PR that touches no published package can say "no release impact".
+
 ## Tests
 
 `tests-in-tee/` is the integration-test suite that proves an end-to-end change actually works under attestation — the only place that does. It deploys to a **real Phala CVM** with **real TEE attestations** (not a simulation): the test script runs *outside* the TEE, deploys the contract and test image, configures measurements/PPIDs, then calls the running app and checks results. It needs a `PHALA_API_KEY` and a funded testnet NEAR account (see the root README). Update or add scenarios there whenever a change touches:
