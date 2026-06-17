@@ -393,19 +393,24 @@ async function deployToPhala() {
 
 // Delete the Phala CVM to avoid leaking a paid TEE instance. Idempotent: a 404
 // (already deleted) counts as success. Uses the SDK's safeDeleteCvm, which
-// returns a { success, error } result instead of throwing, so this file never
-// throws during teardown.
+// returns a { success, error } result instead of throwing. The whole body is
+// also wrapped in try/catch so an unexpected throw (SDK or fs.rmSync) can never
+// escape — teardown runs in a finally and must never mask the real failure.
 async function deletePhalaApp(appId) {
   if (!appId) return;
   console.log(`\nTearing down Phala CVM ${appId}...`);
-  const { success, error } = await phalaClient.safeDeleteCvm({ uuid: appId });
-  if (success || error?.status === 404) {
-    console.log(`✓ Phala CVM ${appId} torn down`);
-    fs.rmSync(resolve(__dirname, ".cvm-id"), { force: true });
-  } else {
-    console.error(
-      `⚠ Failed to tear down Phala CVM ${appId}: ${error?.message ?? "unknown error"}`,
-    );
+  try {
+    const { success, error } = await phalaClient.safeDeleteCvm({ uuid: appId });
+    if (success || error?.status === 404) {
+      console.log(`✓ Phala CVM ${appId} torn down`);
+      fs.rmSync(resolve(__dirname, ".cvm-id"), { force: true });
+    } else {
+      console.error(
+        `⚠ Failed to tear down Phala CVM ${appId}: ${error?.message ?? "unknown error"}`,
+      );
+    }
+  } catch (e) {
+    console.error(`⚠ Error tearing down Phala CVM ${appId}: ${e.message}`);
   }
 }
 
