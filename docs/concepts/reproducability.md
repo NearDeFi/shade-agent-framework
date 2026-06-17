@@ -308,7 +308,7 @@ If you don't trust the published Shade Agent CLI, you can clone the [shade-agent
 ```bash
 git clone https://github.com/neardefi/shade-agent-cli.git
 cd shade-agent-cli
-npm install
+npm ci
 cd ..
 node shade-agent-cli/src/cli.js reproduce
 ```

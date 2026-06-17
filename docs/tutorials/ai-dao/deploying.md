@@ -47,7 +47,7 @@ open -a Docker
 - Install dependencies
 
   ```bash
-  npm i
+  npm ci
   ```
 
 ---
@@ -140,6 +140,6 @@ docker run --rm -v "$(pwd)":/workspace pivortex/near-builder:latest cargo near b
 
     ```bash
     cd frontend
-    npm i
+    npm ci
     npm run dev
     ```

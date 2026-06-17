@@ -43,7 +43,7 @@ cargo add shade-attestation
 
 - Before testing, install dependencies and build libraries
 
-  We use `npm ci` so installs strictly match the committed lockfiles. In the shade-agent-framework root run: 
+  We use `npm ci` so installs strictly match the committed lockfiles. If you changed a `package.json`, run `npm i <package>` for that dependency and commit the updated lockfile. In the shade-agent-framework root run: 
 
   ```bash
   cd shade-agent-cli

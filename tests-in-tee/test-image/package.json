@@ -4,6 +4,9 @@
   "description": "Test image that runs inside TEE for integration tests",
   "license": "Apache-2.0",
   "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",

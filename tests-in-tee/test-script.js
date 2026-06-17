@@ -27,7 +27,7 @@ import {
 } from "../shade-agent-cli/src/utils/measurements.js";
 import { getPpids } from "../shade-agent-cli/src/utils/ppids.js";
 import { tgasToGas } from "../shade-agent-cli/src/utils/near.js";
-import { deployToPhala as deployToPhalaSdk } from "../shade-agent-cli/src/utils/phala-deploy.js";
+import { deployToPhala as deployToPhalaSdk, createClient } from "../shade-agent-cli/src/utils/phala-deploy.js";
 import { wipeContractState } from "../shade-agent-cli/src/utils/state-cleanup.js";
 
 const __filename = fileURLToPath(import.meta.url);
@@ -49,6 +49,9 @@ if (!TESTNET_ACCOUNT_ID || !TESTNET_PRIVATE_KEY || !PHALA_API_KEY) {
   console.error("  PHALA_API_KEY");
   process.exit(1);
 }
+
+// Phala Cloud SDK client (same SDK the CLI deploy path uses)
+const phalaClient = createClient({ apiKey: PHALA_API_KEY });
 
 // Generate contract ID as subaccount of TESTNET_ACCOUNT_ID
 const AGENT_CONTRACT_ID = `shade-test-contract.${TESTNET_ACCOUNT_ID}`;
@@ -386,6 +389,29 @@ async function deployToPhala() {
   }
 
   return deployResult.vm_uuid;
+}
+
+// Delete the Phala CVM to avoid leaking a paid TEE instance. Idempotent: a 404
+// (already deleted) counts as success. Uses the SDK's safeDeleteCvm, which
+// returns a { success, error } result instead of throwing. The whole body is
+// also wrapped in try/catch so an unexpected throw (SDK or fs.rmSync) can never
+// escape — teardown runs in a finally and must never mask the real failure.
+async function deletePhalaApp(appId) {
+  if (!appId) return;
+  console.log(`\nTearing down Phala CVM ${appId}...`);
+  try {
+    const { success, error } = await phalaClient.safeDeleteCvm({ uuid: appId });
+    if (success || error?.status === 404) {
+      console.log(`✓ Phala CVM ${appId} torn down`);
+      fs.rmSync(resolve(__dirname, ".cvm-id"), { force: true });
+    } else {
+      console.error(
+        `⚠ Failed to tear down Phala CVM ${appId}: ${error?.message ?? "unknown error"}`,
+      );
+    }
+  } catch (e) {
+    console.error(`⚠ Error tearing down Phala CVM ${appId}: ${e.message}`);
+  }
 }
 
 // Get app URL from Phala (matches CLI implementation)
@@ -1256,64 +1282,80 @@ async function main() {
     );
   }
 
-  // Deploy to Phala or use provided endpoint
+  // Deploy to Phala (or use a provided endpoint) and run the tests. The whole
+  // block is wrapped so the `finally` always tears down the CVM we provisioned,
+  // on success or failure, to avoid leaking a paid Phala TEE instance.
   let appUrl;
-  if (SKIP_PHALA_DEPLOYMENT) {
-    console.log("⚠ Skipping Phala deployment (TEST_APP_URL provided)");
-    appUrl = TEST_APP_URL.trim();
-    console.log(`✓ Using provided app URL: ${appUrl}`);
-  } else {
-    // Build, push, and update docker-compose.yaml with the test image
-    console.log("\nBuilding and pushing test image...");
-    await buildAndPushTestImage();
-    console.log("✓ Test image built and pushed\n");
+  let appId = null;
+  try {
+    if (SKIP_PHALA_DEPLOYMENT) {
+      console.log("⚠ Skipping Phala deployment (TEST_APP_URL provided)");
+      appUrl = TEST_APP_URL.trim();
+      console.log(`✓ Using provided app URL: ${appUrl}`);
+    } else {
+      // Build, push, and update docker-compose.yaml with the test image
+      console.log("\nBuilding and pushing test image...");
+      await buildAndPushTestImage();
+      console.log("✓ Test image built and pushed\n");
 
-    console.log("Deploying test image to Phala...");
-    const appId = await deployToPhala();
-    const appUrls = await getAppUrl(appId);
-    if (!appUrls || appUrls.length === 0) {
-      throw new Error("Failed to get app URL from Phala");
-    }
-    appUrl = appUrls[0].app;
-    console.log(`✓ App deployed at: ${appUrl}`);
-  }
-
-  // Wait for the app to be ready using heartbeat
-  await waitForAppReady(appUrl);
-
-  const tests = [
-    { name: "Test 1: Successful registration", fn: test1 },
-    { name: "Test 2: Wrong measurements (RTMR2)", fn: test2 },
-    { name: "Test 3: Wrong key provider", fn: test3 },
-    { name: "Test 4: Wrong app compose", fn: test4 },
-    { name: "Test 5: Wrong PPID", fn: test5 },
-    { name: "Test 6: Different account ID", fn: test6 },
-    { name: "Test 7: Measurements removed", fn: test7 },
-    { name: "Test 8: PPID removed", fn: test8 },
-    { name: "Test 9: Unique keys across agent instances", fn: test9 },
-    { name: "Test 10: Attestation expiration", fn: test10 },
-    {
-      name: "Test 11: Full operations with errors + leak detection",
-      fn: test11,
-    },
-  ];
-
-  for (let i = 0; i < tests.length; i++) {
-    const test = tests[i];
-    try {
-      await test.fn(appUrl);
-
-      // Add 1 second delay between tests (except after the last one)
-      if (i < tests.length - 1) {
-        await new Promise((res) => setTimeout(res, 1000));
+      console.log("Deploying test image to Phala...");
+      appId = await deployToPhala();
+      // Persist the CVM id so a CI teardown step can delete it even if this
+      // process is killed before the `finally` below runs.
+      try {
+        fs.writeFileSync(resolve(__dirname, ".cvm-id"), String(appId));
+      } catch (e) {
+        console.error(`⚠ Could not write .cvm-id: ${e.message}`);
       }
-    } catch (error) {
-      console.error(`\n✗ ${test.name} FAILED: ${error.message}`);
-      throw error;
+      const appUrls = await getAppUrl(appId);
+      if (!appUrls || appUrls.length === 0) {
+        throw new Error("Failed to get app URL from Phala");
+      }
+      appUrl = appUrls[0].app;
+      console.log(`✓ App deployed at: ${appUrl}`);
     }
-  }
 
-  console.log("\n✓ All tests passed!");
+    // Wait for the app to be ready using heartbeat
+    await waitForAppReady(appUrl);
+
+    const tests = [
+      { name: "Test 1: Successful registration", fn: test1 },
+      { name: "Test 2: Wrong measurements (RTMR2)", fn: test2 },
+      { name: "Test 3: Wrong key provider", fn: test3 },
+      { name: "Test 4: Wrong app compose", fn: test4 },
+      { name: "Test 5: Wrong PPID", fn: test5 },
+      { name: "Test 6: Different account ID", fn: test6 },
+      { name: "Test 7: Measurements removed", fn: test7 },
+      { name: "Test 8: PPID removed", fn: test8 },
+      { name: "Test 9: Unique keys across agent instances", fn: test9 },
+      { name: "Test 10: Attestation expiration", fn: test10 },
+      {
+        name: "Test 11: Full operations with errors + leak detection",
+        fn: test11,
+      },
+    ];
+
+    for (let i = 0; i < tests.length; i++) {
+      const test = tests[i];
+      try {
+        await test.fn(appUrl);
+
+        // Add 1 second delay between tests (except after the last one)
+        if (i < tests.length - 1) {
+          await new Promise((res) => setTimeout(res, 1000));
+        }
+      } catch (error) {
+        console.error(`\n✗ ${test.name} FAILED: ${error.message}`);
+        throw error;
+      }
+    }
+
+    console.log("\n✓ All tests passed!");
+  } finally {
+    // Tear down the CVM we provisioned (no-op when a provided endpoint was
+    // reused, i.e. appId is null). deletePhalaApp never throws.
+    await deletePhalaApp(appId);
+  }
 }
 
 main().catch((error) => {

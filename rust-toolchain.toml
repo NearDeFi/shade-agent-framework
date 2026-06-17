@@ -1,0 +1,6 @@
+[toolchain]
+# Pinned to match the contract's reproducible-build image (sourcescan/cargo-near:0.19.0-rust-1.86.0)
+# and contract-builder/Dockerfile. Edition 2024 requires >= 1.85.
+channel = "1.86.0"
+components = ["rustfmt", "clippy"]
+targets = ["wasm32-unknown-unknown"]

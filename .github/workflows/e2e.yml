@@ -1,0 +1,233 @@
+name: E2E (manual gate)
+
+# Heavy end-to-end suite (contract sandbox integration tests + tests-in-tee
+# against a real Phala TDX CVM) for main->stable promotion PRs.
+#
+# It does NOT run automatically on PR open / new commits. A maintainer comments
+# `/run-e2e` on the PR; this workflow runs the suite and reports a required
+# `e2e/required` commit status on the PR head commit. So a promotion stays
+# blocked until the suite has been manually run and passed on the *current*
+# commit (a new commit clears the status and requires re-running).
+#
+# NOTE: issue_comment workflows always use the workflow file from the default
+# branch, so edits here only take effect once merged to main.
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  statuses: write
+  pull-requests: write
+  issues: write
+
+concurrency:
+  # Serialize per-PR; never cancel a tee run mid-flight or we orphan a paid CVM.
+  group: e2e-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  guard:
+    # Lock the heavy e2e suite to PiVortex (a NearDeFi org member) only, via
+    # `/run-e2e` on a PR in this repo — mirrors the claude-review trigger gate.
+    # The base-branch (must be stable) and not-a-fork checks run in `resolve`
+    # below, since they need the PR API that an `if:` expression can't call.
+    if: >-
+      github.repository == 'NearDeFi/shade-agent-framework' &&
+      github.event.comment.user.login == 'PiVortex' &&
+      github.event.comment.author_association == 'MEMBER' &&
+      contains(github.event.comment.body, '/run-e2e') &&
+      github.event.issue.pull_request
+    runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.resolve.outputs.proceed }}
+      head_sha: ${{ steps.resolve.outputs.head_sha }}
+      head_ref: ${{ steps.resolve.outputs.head_ref }}
+    steps:
+      - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        id: resolve
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const prNumber = context.issue.number;
+            const pr = await github.rest.pulls.get({ owner, repo, pull_number: prNumber });
+            const baseRef = pr.data.base.ref;
+            const headSha = pr.data.head.sha;
+            const headRef = pr.data.head.ref;
+            const isFork = pr.data.head.repo.fork;
+
+            // Only gate promotions into stable.
+            if (baseRef !== 'stable') {
+              core.notice(`/run-e2e ignored: base branch is '${baseRef}', not 'stable'.`);
+              core.setOutput('proceed', 'false');
+              return;
+            }
+            // Forks don't get secrets, so the tee suite can't run.
+            if (isFork) {
+              core.warning('/run-e2e cannot run from a fork PR (secrets are unavailable).');
+              core.setOutput('proceed', 'false');
+              return;
+            }
+            // Trigger access (PiVortex, org MEMBER) is enforced by the job-level
+            // `if:` above, so no runtime permission lookup is needed here.
+
+            core.setOutput('proceed', 'true');
+            core.setOutput('head_sha', headSha);
+            core.setOutput('head_ref', headRef);
+
+            // Acknowledge and mark the required check pending on the PR head commit.
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            await github.rest.reactions.createForIssueComment({
+              owner, repo, comment_id: context.payload.comment.id, content: 'eyes',
+            });
+            await github.rest.repos.createCommitStatus({
+              owner, repo, sha: headSha,
+              state: 'pending', context: 'e2e/required',
+              description: 'Running e2e suite…', target_url: runUrl,
+            });
+            await github.rest.issues.createComment({
+              owner, repo, issue_number: prNumber,
+              body: `Running the e2e suite (contract integration + tests-in-tee): ${runUrl}`,
+            });
+
+  # Build the contract wasm once and share it as an artifact, so both the
+  # integration tests and tests-in-tee reuse it (no rebuild).
+  build-wasm:
+    needs: guard
+    if: ${{ needs.guard.outputs.proceed == 'true' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: shade-contract-template
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ needs.guard.outputs.head_sha }}
+      - run: rustup show
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          workspaces: shade-contract-template
+      - name: Install cargo-near
+        run: |
+          curl --proto '=https' --tlsv1.2 -LsSf \
+            https://github.com/near/cargo-near/releases/download/cargo-near-v0.19.0/cargo-near-installer.sh | sh
+      - name: Build contract wasm
+        run: cargo near build non-reproducible-wasm --no-abi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: contract-wasm
+          path: shade-contract-template/target/near/shade_contract_template.wasm
+          if-no-files-found: error
+
+  # Full sandbox integration tests. Downloads the prebuilt wasm into the path
+  # the tests read at runtime (tests/helpers/mod.rs CONTRACT_WASM_PATH); cargo
+  # test reads it without rebuilding (cargo-near not needed here).
+  contract-integration:
+    needs: [guard, build-wasm]
+    if: ${{ needs.guard.outputs.proceed == 'true' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: shade-contract-template
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ needs.guard.outputs.head_sha }}
+      - run: rustup show
+      - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
+        with:
+          workspaces: shade-contract-template
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: contract-wasm
+          path: shade-contract-template/target/near
+      - run: cargo test
+
+  # End-to-end suite against a real Phala TDX CVM. Reuses the prebuilt wasm,
+  # which test-script.js deploys to testnet.
+  tests-in-tee:
+    needs: [guard, build-wasm]
+    if: ${{ needs.guard.outputs.proceed == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          ref: ${{ needs.guard.outputs.head_sha }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: |
+            shade-agent-cli/package-lock.json
+            shade-agent-js/package-lock.json
+            tests-in-tee/package-lock.json
+            tests-in-tee/test-image/package-lock.json
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: contract-wasm
+          path: shade-contract-template/target/near
+      - name: Install dependencies and build libraries
+        run: |
+          (cd shade-agent-cli && npm ci)
+          (cd shade-agent-js && npm ci && npm run build)
+          (cd tests-in-tee && npm ci)
+          (cd tests-in-tee/test-image && npm ci)
+      # test-script.js shells out to `sudo docker build/push` on Linux, so the
+      # push reads root's docker config — log in under sudo so the creds exist.
+      - name: Log in to Docker Hub (for sudo docker push)
+        env:
+          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+        run: echo "$DOCKERHUB_TOKEN" | sudo docker login -u "$DOCKERHUB_USERNAME" --password-stdin
+      - name: Run tests-in-tee
+        working-directory: tests-in-tee
+        env:
+          TESTNET_ACCOUNT_ID: ${{ secrets.TESTNET_ACCOUNT_ID }}
+          TESTNET_PRIVATE_KEY: ${{ secrets.TESTNET_PRIVATE_KEY }}
+          PHALA_API_KEY: ${{ secrets.PHALA_API_KEY }}
+          SPONSOR_ACCOUNT_ID: ${{ secrets.SPONSOR_ACCOUNT_ID }}
+          SPONSOR_PRIVATE_KEY: ${{ secrets.SPONSOR_PRIVATE_KEY }}
+        run: npm run test
+      # Backstop: test-script.js tears the CVM down in a finally, but if this
+      # runner was killed first, delete it here using the persisted id.
+      - name: Tear down leftover CVM
+        if: always()
+        env:
+          PHALA_API_KEY: ${{ secrets.PHALA_API_KEY }}
+        run: |
+          if [ -f tests-in-tee/.cvm-id ]; then
+            cvm="$(cat tests-in-tee/.cvm-id)"
+            echo "Tearing down leftover CVM $cvm"
+            curl -sS -X DELETE -H "X-API-Key: $PHALA_API_KEY" \
+              "https://cloud-api.phala.network/api/v1/cvms/$cvm" || true
+          else
+            echo "No .cvm-id file; nothing to tear down."
+          fi
+
+  # Post the final required status on the PR head commit.
+  report:
+    needs: [guard, build-wasm, contract-integration, tests-in-tee]
+    if: ${{ always() && needs.guard.outputs.proceed == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        env:
+          HEAD_SHA: ${{ needs.guard.outputs.head_sha }}
+          R_WASM: ${{ needs.build-wasm.result }}
+          R_INT: ${{ needs.contract-integration.result }}
+          R_TEE: ${{ needs.tests-in-tee.result }}
+        with:
+          script: |
+            const ok = [process.env.R_WASM, process.env.R_INT, process.env.R_TEE]
+              .every((r) => r === 'success');
+            const { owner, repo } = context.repo;
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            await github.rest.repos.createCommitStatus({
+              owner, repo, sha: process.env.HEAD_SHA,
+              state: ok ? 'success' : 'failure',
+              context: 'e2e/required',
+              description: ok ? 'e2e suite passed' : 'e2e suite failed',
+              target_url: runUrl,
+            });
