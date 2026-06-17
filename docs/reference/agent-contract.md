@@ -160,6 +160,9 @@ Agents register by calling `register_agent`. The method checks that the agent ha
 
 For a first-time registration an agent must attach **exactly** 0.00486 NEAR to cover its own storage cost in the contract. The deposit must match the storage cost exactly — the contract never refunds an overpayment, so attaching more is rejected. Re-registering an already-registered agent uses no new storage, so it must attach exactly `0`. If you change how much data is stored per agent, update the `STORAGE_BYTES_TO_REGISTER` constant accordingly.
 
+> [!IMPORTANT]
+> Because the deposit must match exactly, the contract and its clients must be upgraded together. A client attaching the old default deposit (0.005 NEAR) — or any amount other than the exact cost — **fails** a first-time registration here, even though a contract using the older `>=` check would have accepted it. When you deploy a contract with this exact-deposit check, deploy agents on a `shade-agent-js` version whose default register deposit matches (0.00486 NEAR).
+
 ```rust
 // Register an agent, this needs to be called by the agent itself
 #[payable]
