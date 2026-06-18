@@ -158,22 +158,29 @@ pub fn remove_agent_from_whitelist_for_local(&mut self, account_id: AccountId) {
 
 Agents register by calling `register_agent`. The method checks that the agent has a valid attestation via `verify_attestation`; if it passes, the agent is stored with its measurements, PPID, and validity period (determined by `attestation_expiration_time_ms`).
 
-An agent must attach 0.00486 NEAR to cover its own storage cost in the contract. If you change how much data is stored per agent, update the `STORAGE_BYTES_TO_REGISTER` constant accordingly.
+A first-time registration must attach at least 0.00486 NEAR to cover the agent's storage cost; the contract refunds any excess, so attaching more is safe. Re-registering an already-registered agent uses no new storage, so it requires no deposit (any attached amount is refunded). If you change how much data is stored per agent, update the `STORAGE_BYTES_TO_REGISTER` constant accordingly.
 
 ```rust
 // Register an agent, this needs to be called by the agent itself
 #[payable]
 pub fn register_agent(&mut self, attestation: DstackAttestation) -> bool {
-    // Require the agent to pay for the storage cost
-    // You should update the STORAGE_BYTES_TO_REGISTER const if you store more data
-    let storage_cost = env::storage_byte_cost()
-        .checked_mul(STORAGE_BYTES_TO_REGISTER)
-        .unwrap();
+    let predecessor = env::predecessor_account_id();
+    let already_registered = self.agents.get(&predecessor).is_some();
+
+    // New agents cover storage; re-registration reuses the existing slot. Excess is refunded.
+    let required_deposit = if already_registered {
+        NearToken::from_yoctonear(0)
+    } else {
+        env::storage_byte_cost()
+            .checked_mul(STORAGE_BYTES_TO_REGISTER)
+            .unwrap()
+    };
+    let attached = env::attached_deposit();
     require!(
-        env::attached_deposit() >= storage_cost,
+        attached >= required_deposit,
         &format!(
-            "Attached deposit must be greater than storage cost {:?}",
-            storage_cost.exact_amount_display()
+            "Attached deposit must be at least the storage cost {}",
+            required_deposit.exact_amount_display()
         )
     );
 
@@ -185,7 +192,7 @@ pub fn register_agent(&mut self, attestation: DstackAttestation) -> bool {
         internal::events::summarize_advisory_ids(&advisory_ids);
 
     Event::AgentRegistered {
-        account_id: &env::predecessor_account_id(),
+        account_id: &predecessor,
         measurements: &measurements,
         ppid: &ppid,
         advisory_ids_truncated,
@@ -197,13 +204,19 @@ pub fn register_agent(&mut self, attestation: DstackAttestation) -> bool {
 
     // Register the agent
     self.agents.insert(
-        env::predecessor_account_id(),
+        predecessor.clone(),
         Agent {
             measurements,
             ppid,
             valid_until_ms,
         },
     );
+
+    // Refund any deposit beyond the storage cost
+    let refund = attached.checked_sub(required_deposit).unwrap();
+    if refund > NearToken::from_yoctonear(0) {
+        Promise::new(predecessor).transfer(refund).detach();
+    }
 
     true
 }
