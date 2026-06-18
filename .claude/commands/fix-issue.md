@@ -110,6 +110,7 @@ After the plan is approved:
      - What changed and why (2-4 sentences, root cause for bugs)
      - Files changed with brief per-file notes
      - Tests added and what they cover
+     - A `## Design decisions / Accepted tradeoffs` section if the change makes a deliberate, debatable tradeoff (e.g. a breaking-but-intended choice) — so reviewers treat it as settled rather than re-flagging it each round
      - Any follow-up work, open questions, or coverage a maintainer must run manually (e.g. suites the quality gate is not allowed to run)
      
 ## Step 8: CI monitor & fix loop

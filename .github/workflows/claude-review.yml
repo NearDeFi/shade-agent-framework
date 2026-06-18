@@ -154,8 +154,16 @@ jobs:
                - Resource cleanup and timeouts for TEE/deploy operations.
 
             4. Consolidate all agent findings and post exactly one comment on PR #${{ env.PR_NUMBER }}
-               using `gh pr comment ${{ env.PR_NUMBER }}`. If no issues were found, post
-               "No issues found." instead.
+               using `gh pr comment ${{ env.PR_NUMBER }}`.
+
+               Before listing anything, read the PR description — especially any "Design decisions" /
+               "Accepted tradeoffs" section — and the maintainer's replies on earlier review comments.
+               Anything adjudicated there is a settled decision: do NOT re-raise it. "Found N issues"
+               counts only NEW, actionable findings introduced by this PR (defects, missing tests,
+               doc/spec errors) — never by-design tradeoffs or already-accepted items. If a settled
+               tradeoff is still worth surfacing, mention it once under a trailing "### Design notes"
+               heading, not in the issue list or count. If there are no actionable findings, post
+               "No issues found." (a "### Design notes" section may still follow it).
 
             ### Code review
 
@@ -164,6 +172,10 @@ jobs:
             1. [SEVERITY:CONFIDENCE] <brief description>
 
             <permalink to file:line using full SHA, eg https://github.com/owner/repo/blob/abc123def/shade-agent-js/src/index.ts#L10-L15>
+
+            ### Design notes (optional)
+
+            - <a by-design tradeoff or already-accepted item worth noting once — excluded from the "Found N" count>
 
             IMPORTANT rules:
             - Only YOU (the main process) may call `gh pr comment`. Agents must return
@@ -174,3 +186,6 @@ jobs:
             - Do NOT build or test the code.
             - Ignore pre-existing issues not introduced by this PR.
             - Ignore issues a linter/compiler would catch.
+            - Do NOT re-raise an issue the PR description's "Design decisions" / "Accepted tradeoffs"
+              section, or a maintainer reply on a prior review round, already documents as intentional.
+              Surface it (if at all) once under "### Design notes", never in "Found N issues".
