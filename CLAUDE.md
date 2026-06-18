@@ -49,3 +49,9 @@ Changes to a package are not done until every downstream artefact has been updat
 - Key derivation / rotation
 - The CLI deploy pipeline
 
+## Comments and documentation style
+
+- **Don't narrate changes with comments.** Adding or changing code is not, by itself, a reason to add a comment. Comment only when the *why* is non-obvious or the code is genuinely hard to follow — and keep it short. Rationale for a change belongs in the commit message / PR description, not inline. (Auto-generated comments tend to be long and redundant; prefer none over noise.)
+- **Match the surrounding style.** New code and docs should read like what's already there — same comment density, naming, and tone.
+- **Keep docs succinct.** When editing docs, follow the existing page's style and length; don't over-explain a new change or pad it with detail the rest of the page wouldn't carry.
+
