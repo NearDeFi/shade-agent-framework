@@ -7,7 +7,7 @@ Run this before committing and opening a PR into `main`. Work through it top to 
 ## Hard rules (read first)
 
 1. **Only run the checks for the area(s) your diff actually touched.** This is a monorepo; a docs-only or single-package change does not need every gate.
-2. **Never run the end-to-end / sandbox-integration suites in this gate.** `tests-in-tee/` and the heavy `shade-contract-template` sandbox integration tests (`cargo test`, not `--lib`) need live testnet NEAR accounts, a funded sponsor account, and a `PHALA_API_KEY` — real infrastructure, credentials, and cost. They run on the `main → stable` promotion via the manual `/run-e2e` gate (`.github/workflows/e2e.yml`). Flag them in the PR for a maintainer to run; do not run them here.
+2. **Never run the end-to-end / sandbox-integration suites in this gate.** `tests-in-tee/` and the heavy `shade-contract-template` sandbox integration tests (`cargo test`, not `--lib`) need live testnet NEAR accounts, a funded sponsor account, and a `PHALA_API_KEY` — real infrastructure, credentials, and cost. They run via the manual, non-blocking `/run-e2e` suite (`.github/workflows/e2e.yml`), which a maintainer can trigger on a `main` or `stable` PR. Flag them in the PR for a maintainer to run; do not run them here.
 3. **Rebuild `shade-agent-js` before building anything that consumes it.** `shade-agent-template` (and `tests-in-tee`) import `@neardefi/shade-agent-js` via `file:../shade-agent-js`, whose `dist/` (including the `.d.cts` types) is gitignored and has no `prepare` script — so `npm run build` the library first or `tsc` cannot resolve the import.
 4. **A change to `shade-attestation` is a breaking change to `shade-contract-template`.** Run the contract gate whenever you touch the attestation crate.
 5. Use `npm i` (not only `npm ci`) when you changed a `package.json`, so the lockfile is reconciled.
@@ -91,7 +91,7 @@ cd shade-contract-template
 cargo fmt
 cargo clippy --all-targets
 cargo test --lib      # unit tests only — fast. The full `cargo test` (sandbox integration)
-                      # and the wasm build run in the /run-e2e gate on main->stable — NOT here.
+                      # and the wasm build run in the manual /run-e2e suite — NOT here.
 cd ..
 ```
 
@@ -110,7 +110,7 @@ cargo clippy --all-targets   # CI runs the same; clippy is lenient (no -D warnin
                              # still fix every warning your change introduces
 ```
 
-These are the **fixing** flavor — they rewrite files and surface problems so you fix them here, before pushing. CI (`.github/workflows/ci.yml`) runs the **check** counterpart (`cargo fmt --check`, `cargo clippy --all-targets`, the same `npm run build`/`npm test`) on every PR into `main` and fails on anything left unaddressed, so a clean run here is what makes CI green. **CI is the authority** — its per-area path filtering and the heavier `main → stable` `/run-e2e` gate (`.github/workflows/e2e.yml`) define the full enforcement set; this gate is the local superset that keeps it green.
+These are the **fixing** flavor — they rewrite files and surface problems so you fix them here, before pushing. CI (`.github/workflows/ci.yml`) runs the **check** counterpart (`cargo fmt --check`, `cargo clippy --all-targets`, the same `npm run build`/`npm test`) on every PR into `main` and fails on anything left unaddressed, so a clean run here is what makes CI green. **CI is the authority** — its per-area path filtering defines the required `ci-passed` check on every PR into `main`; the heavier `/run-e2e` suite (`.github/workflows/e2e.yml`) is a separate, manually-triggered, **non-blocking** suite. This local gate is the superset that keeps `ci-passed` green.
 
 ---
 

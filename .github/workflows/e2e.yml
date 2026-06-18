@@ -1,16 +1,13 @@
-name: E2E (manual gate)
+name: E2E (manual)
 
 # Heavy end-to-end suite (contract sandbox integration tests + tests-in-tee
-# against a real Phala TDX CVM). Runnable on PRs into `stable` and `main`.
+# against a real Phala TDX CVM). Runnable on demand on PRs into `main` or `stable`.
 #
-# It does NOT run automatically on PR open / new commits. A maintainer comments
-# `/run-e2e` on the PR; this workflow runs the suite and reports a commit status
-# on the PR head commit:
-#   - base `stable`: `e2e/required` — a REQUIRED check, so a main->stable
-#     promotion stays blocked until the suite has been run and passed on the
-#     *current* commit (a new commit clears the status and requires re-running).
-#   - base `main`: `e2e/optional` — informational only; `main`'s ruleset does not
-#     require it, so it never blocks merge. Lets you run e2e on a main PR on demand.
+# It does NOT run automatically on PR open / new commits, and it is NON-BLOCKING:
+# a maintainer comments `/run-e2e` on the PR; this workflow runs the suite and
+# reports an informational `e2e` commit status on the PR head commit. Neither the
+# `main` nor `stable` ruleset requires that status, so it never gates merge — it
+# just surfaces the result (re-run after a new commit to refresh it).
 #
 # NOTE: issue_comment workflows always use the workflow file from the default
 # branch, so edits here only take effect once merged to main.
@@ -34,8 +31,8 @@ jobs:
   guard:
     # Lock the heavy e2e suite to PiVortex (a NearDeFi org member) only, via
     # `/run-e2e` on a PR in this repo — mirrors the claude-review trigger gate.
-    # The base-branch (must be stable) and not-a-fork checks run in `resolve`
-    # below, since they need the PR API that an `if:` expression can't call.
+    # The base-branch (must be main or stable) and not-a-fork checks run in
+    # `resolve` below, since they need the PR API that an `if:` expression can't call.
     if: >-
       github.repository == 'NearDeFi/shade-agent-framework' &&
       github.event.comment.user.login == 'PiVortex' &&
@@ -47,7 +44,6 @@ jobs:
       proceed: ${{ steps.resolve.outputs.proceed }}
       head_sha: ${{ steps.resolve.outputs.head_sha }}
       head_ref: ${{ steps.resolve.outputs.head_ref }}
-      status_context: ${{ steps.resolve.outputs.status_context }}
     steps:
       - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         id: resolve
@@ -76,23 +72,18 @@ jobs:
             // Trigger access (PiVortex, org MEMBER) is enforced by the job-level
             // `if:` above, so no runtime permission lookup is needed here.
 
-            // stable promotions report the REQUIRED `e2e/required` check (blocks merge);
-            // main PRs report an informational `e2e/optional` check that does not gate merge.
-            const statusContext = baseRef === 'stable' ? 'e2e/required' : 'e2e/optional';
-
             core.setOutput('proceed', 'true');
             core.setOutput('head_sha', headSha);
             core.setOutput('head_ref', headRef);
-            core.setOutput('status_context', statusContext);
 
-            // Acknowledge and mark the check pending on the PR head commit.
+            // Acknowledge and post the (informational, non-blocking) `e2e` status pending.
             const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
             await github.rest.reactions.createForIssueComment({
               owner, repo, comment_id: context.payload.comment.id, content: 'eyes',
             });
             await github.rest.repos.createCommitStatus({
               owner, repo, sha: headSha,
-              state: 'pending', context: statusContext,
+              state: 'pending', context: 'e2e',
               description: 'Running e2e suite…', target_url: runUrl,
             });
             await github.rest.issues.createComment({
@@ -215,7 +206,7 @@ jobs:
             echo "No .cvm-id file; nothing to tear down."
           fi
 
-  # Post the final required status on the PR head commit.
+  # Post the final (informational) e2e status on the PR head commit.
   report:
     needs: [guard, build-wasm, contract-integration, tests-in-tee]
     if: ${{ always() && needs.guard.outputs.proceed == 'true' }}
@@ -224,7 +215,6 @@ jobs:
       - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         env:
           HEAD_SHA: ${{ needs.guard.outputs.head_sha }}
-          STATUS_CONTEXT: ${{ needs.guard.outputs.status_context }}
           R_WASM: ${{ needs.build-wasm.result }}
           R_INT: ${{ needs.contract-integration.result }}
           R_TEE: ${{ needs.tests-in-tee.result }}
@@ -237,7 +227,7 @@ jobs:
             await github.rest.repos.createCommitStatus({
               owner, repo, sha: process.env.HEAD_SHA,
               state: ok ? 'success' : 'failure',
-              context: process.env.STATUS_CONTEXT,
+              context: 'e2e',
               description: ok ? 'e2e suite passed' : 'e2e suite failed',
               target_url: runUrl,
             });
