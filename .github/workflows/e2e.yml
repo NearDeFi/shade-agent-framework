@@ -1,13 +1,16 @@
 name: E2E (manual gate)
 
 # Heavy end-to-end suite (contract sandbox integration tests + tests-in-tee
-# against a real Phala TDX CVM) for main->stable promotion PRs.
+# against a real Phala TDX CVM). Runnable on PRs into `stable` and `main`.
 #
 # It does NOT run automatically on PR open / new commits. A maintainer comments
-# `/run-e2e` on the PR; this workflow runs the suite and reports a required
-# `e2e/required` commit status on the PR head commit. So a promotion stays
-# blocked until the suite has been manually run and passed on the *current*
-# commit (a new commit clears the status and requires re-running).
+# `/run-e2e` on the PR; this workflow runs the suite and reports a commit status
+# on the PR head commit:
+#   - base `stable`: `e2e/required` — a REQUIRED check, so a main->stable
+#     promotion stays blocked until the suite has been run and passed on the
+#     *current* commit (a new commit clears the status and requires re-running).
+#   - base `main`: `e2e/optional` — informational only; `main`'s ruleset does not
+#     require it, so it never blocks merge. Lets you run e2e on a main PR on demand.
 #
 # NOTE: issue_comment workflows always use the workflow file from the default
 # branch, so edits here only take effect once merged to main.
@@ -44,6 +47,7 @@ jobs:
       proceed: ${{ steps.resolve.outputs.proceed }}
       head_sha: ${{ steps.resolve.outputs.head_sha }}
       head_ref: ${{ steps.resolve.outputs.head_ref }}
+      status_context: ${{ steps.resolve.outputs.status_context }}
     steps:
       - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         id: resolve
@@ -57,9 +61,9 @@ jobs:
             const headRef = pr.data.head.ref;
             const isFork = pr.data.head.repo.fork;
 
-            // Only gate promotions into stable.
-            if (baseRef !== 'stable') {
-              core.notice(`/run-e2e ignored: base branch is '${baseRef}', not 'stable'.`);
+            // Runnable on stable promotions and on main PRs; anything else is ignored.
+            if (baseRef !== 'stable' && baseRef !== 'main') {
+              core.notice(`/run-e2e ignored: base branch is '${baseRef}', not 'stable' or 'main'.`);
               core.setOutput('proceed', 'false');
               return;
             }
@@ -72,18 +76,23 @@ jobs:
             // Trigger access (PiVortex, org MEMBER) is enforced by the job-level
             // `if:` above, so no runtime permission lookup is needed here.
 
+            // stable promotions report the REQUIRED `e2e/required` check (blocks merge);
+            // main PRs report an informational `e2e/optional` check that does not gate merge.
+            const statusContext = baseRef === 'stable' ? 'e2e/required' : 'e2e/optional';
+
             core.setOutput('proceed', 'true');
             core.setOutput('head_sha', headSha);
             core.setOutput('head_ref', headRef);
+            core.setOutput('status_context', statusContext);
 
-            // Acknowledge and mark the required check pending on the PR head commit.
+            // Acknowledge and mark the check pending on the PR head commit.
             const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
             await github.rest.reactions.createForIssueComment({
               owner, repo, comment_id: context.payload.comment.id, content: 'eyes',
             });
             await github.rest.repos.createCommitStatus({
               owner, repo, sha: headSha,
-              state: 'pending', context: 'e2e/required',
+              state: 'pending', context: statusContext,
               description: 'Running e2e suite…', target_url: runUrl,
             });
             await github.rest.issues.createComment({
@@ -215,6 +224,7 @@ jobs:
       - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         env:
           HEAD_SHA: ${{ needs.guard.outputs.head_sha }}
+          STATUS_CONTEXT: ${{ needs.guard.outputs.status_context }}
           R_WASM: ${{ needs.build-wasm.result }}
           R_INT: ${{ needs.contract-integration.result }}
           R_TEE: ${{ needs.tests-in-tee.result }}
@@ -227,7 +237,7 @@ jobs:
             await github.rest.repos.createCommitStatus({
               owner, repo, sha: process.env.HEAD_SHA,
               state: ok ? 'success' : 'failure',
-              context: 'e2e/required',
+              context: process.env.STATUS_CONTEXT,
               description: ok ? 'e2e suite passed' : 'e2e suite failed',
               target_url: runUrl,
             });
