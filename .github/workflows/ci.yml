@@ -2,8 +2,8 @@ name: CI
 
 on:
   # Runs on PRs into main (the fast feedback loop) and also re-runs on
-  # main->stable promotion PRs, which are additionally gated by the manual
-  # /run-e2e heavy suite (see e2e.yml).
+  # main->stable promotion PRs. The heavy /run-e2e suite (see e2e.yml) can be
+  # run manually on main or stable PRs; it's non-blocking.
   pull_request:
     branches: [main, stable]
   push:
@@ -151,10 +151,10 @@ jobs:
       # clippy --all-targets still compiles the integration-test code, so test
       # compile breakage surfaces here; only the slow sandbox *runtime* (the
       # tests/*.rs integration tests) plus the wasm build move to the manual
-      # /run-e2e gate on main->stable PRs (see .github/workflows/e2e.yml).
+      # /run-e2e suite (see .github/workflows/e2e.yml).
       - run: cargo clippy --all-targets
       # Unit tests only — fast. The full `cargo test` (sandbox integration
-      # tests) runs in the /run-e2e gate.
+      # tests) runs in the /run-e2e suite.
       - run: cargo test --lib
 
   # Single required status check. Succeeds if every needed job either passed or

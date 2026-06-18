@@ -1,13 +1,13 @@
-name: E2E (manual gate)
+name: E2E (manual)
 
 # Heavy end-to-end suite (contract sandbox integration tests + tests-in-tee
-# against a real Phala TDX CVM) for main->stable promotion PRs.
+# against a real Phala TDX CVM). Runnable on demand on PRs into `main` or `stable`.
 #
-# It does NOT run automatically on PR open / new commits. A maintainer comments
-# `/run-e2e` on the PR; this workflow runs the suite and reports a required
-# `e2e/required` commit status on the PR head commit. So a promotion stays
-# blocked until the suite has been manually run and passed on the *current*
-# commit (a new commit clears the status and requires re-running).
+# It does NOT run automatically on PR open / new commits, and it is NON-BLOCKING:
+# a maintainer comments `/run-e2e` on the PR; this workflow runs the suite and
+# reports an informational `e2e` commit status on the PR head commit. Neither the
+# `main` nor `stable` ruleset requires that status, so it never gates merge — it
+# just surfaces the result (re-run after a new commit to refresh it).
 #
 # NOTE: issue_comment workflows always use the workflow file from the default
 # branch, so edits here only take effect once merged to main.
@@ -31,8 +31,8 @@ jobs:
   guard:
     # Lock the heavy e2e suite to PiVortex (a NearDeFi org member) only, via
     # `/run-e2e` on a PR in this repo — mirrors the claude-review trigger gate.
-    # The base-branch (must be stable) and not-a-fork checks run in `resolve`
-    # below, since they need the PR API that an `if:` expression can't call.
+    # The base-branch (must be main or stable) and not-a-fork checks run in
+    # `resolve` below, since they need the PR API that an `if:` expression can't call.
     if: >-
       github.repository == 'NearDeFi/shade-agent-framework' &&
       github.event.comment.user.login == 'PiVortex' &&
@@ -57,9 +57,9 @@ jobs:
             const headRef = pr.data.head.ref;
             const isFork = pr.data.head.repo.fork;
 
-            // Only gate promotions into stable.
-            if (baseRef !== 'stable') {
-              core.notice(`/run-e2e ignored: base branch is '${baseRef}', not 'stable'.`);
+            // Runnable on stable promotions and on main PRs; anything else is ignored.
+            if (baseRef !== 'stable' && baseRef !== 'main') {
+              core.notice(`/run-e2e ignored: base branch is '${baseRef}', not 'stable' or 'main'.`);
               core.setOutput('proceed', 'false');
               return;
             }
@@ -76,14 +76,14 @@ jobs:
             core.setOutput('head_sha', headSha);
             core.setOutput('head_ref', headRef);
 
-            // Acknowledge and mark the required check pending on the PR head commit.
+            // Acknowledge and post the (informational, non-blocking) `e2e` status pending.
             const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
             await github.rest.reactions.createForIssueComment({
               owner, repo, comment_id: context.payload.comment.id, content: 'eyes',
             });
             await github.rest.repos.createCommitStatus({
               owner, repo, sha: headSha,
-              state: 'pending', context: 'e2e/required',
+              state: 'pending', context: 'e2e',
               description: 'Running e2e suite…', target_url: runUrl,
             });
             await github.rest.issues.createComment({
@@ -206,7 +206,7 @@ jobs:
             echo "No .cvm-id file; nothing to tear down."
           fi
 
-  # Post the final required status on the PR head commit.
+  # Post the final (informational) e2e status on the PR head commit.
   report:
     needs: [guard, build-wasm, contract-integration, tests-in-tee]
     if: ${{ always() && needs.guard.outputs.proceed == 'true' }}
@@ -227,7 +227,7 @@ jobs:
             await github.rest.repos.createCommitStatus({
               owner, repo, sha: process.env.HEAD_SHA,
               state: ok ? 'success' : 'failure',
-              context: 'e2e/required',
+              context: 'e2e',
               description: ok ? 'e2e suite passed' : 'e2e suite failed',
               target_url: runUrl,
             });
