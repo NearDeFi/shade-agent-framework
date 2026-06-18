@@ -122,7 +122,7 @@ pub fn remove_agent(&mut self, account_id: AccountId) {
 ```
 
 > [!NOTE]
-> A removed agent can re-register by calling `register_agent` with a valid attestation. Removal does not refund the storage deposit, so a re-registration is treated as a first-time registration and must attach the storage cost again. The same applies when an agent is auto-removed for becoming invalid (e.g. an expired attestation).
+> A removed agent can re-register with a valid attestation. Because removal does not refund the storage deposit, re-registering an agent that was *actually removed from the map* is treated as a first-time registration and must attach the storage cost again. Removal is either manual (`remove_agent`) or lazy: an invalid agent (expired attestation, un-approved measurements/PPID) is evicted only when it next calls an agent-gated method — not by `register_agent` itself. An agent that is still in the map (e.g. its attestation expired but it hasn't been evicted yet) re-registers with a `0` deposit, since its slot already exists.
 
 ### Whitelist
 
