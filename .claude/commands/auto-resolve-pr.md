@@ -56,7 +56,7 @@ Gather state:
 gh api --paginate repos/{REPO}/issues/{number}/comments
 gh api --paginate repos/{REPO}/pulls/{number}/reviews
 gh pr view {number} --repo {REPO} --json reviewRequests
-gh pr checks {number} --repo {REPO} --json name,status,conclusion
+gh pr checks {number} --repo {REPO} --json name,bucket   # bucket: pending|pass|fail|skipping|cancel
 ```
 
 For **each** reviewer, decide what to do — **trigger only if neither a fresh review nor a pending request exists**. Mostly this fires only at cold start (pass 1): after any pass that pushed a fix, `resolve-pr-reviews` has already re-requested both reviewers, so this command finds them pending and just waits — it does not re-trigger.
@@ -77,7 +77,7 @@ If the Claude workflow doesn't start (it fires only when `claude-review.yml` is 
 **Poll until ready.** Re-check roughly every 30s (do **not** use `gh ... --watch` — it can hang; the `Monitor` tool with a poll-until-condition loop is the cleanest way to wait), until **both reviews are fresh AND CI is non-pending**, or **~15 minutes** have elapsed:
 
 1. Re-run the four queries above.
-2. Both reviews fresh (postdate the head commit) **AND** no CI check still `queued`/`in_progress` → exit the loop and go to Step C. (CI may be red — `resolve-pr-reviews` repairs that next.)
+2. Both reviews fresh (postdate the head commit) **AND** no CI check still in the `pending` bucket → exit the loop and go to Step C. (CI may be red — `bucket` `fail` — `resolve-pr-reviews` repairs that next.)
 3. Otherwise wait ~30s and repeat.
 
 On the 15-minute timeout, report which reviewer or check never landed and **STOP** with outcome `REVIEW_TIMEOUT`. Claude's review is the slow path (opus, xhigh, 4 parallel agents), so expect it to take several minutes.
@@ -90,12 +90,14 @@ This loop is **hands-off**, so never wait on an interactive prompt: if the deleg
 
 `resolve-pr-reviews` runs the repo's area-specific quality gate, which needs tools (`npm`, `cargo`, …) from **its own** allowlist — allowlists are per-command, so this command's allowlist doesn't extend to the delegated pass. If that pass can't run a required gate command (a tool-policy/permission stop), **STOP** with outcome `HARD_STOP` and report it as a command-config issue (a missing grant in `resolve-pr-reviews`), not a PR-specific failure.
 
+Before any **STOP** that exits from this step (the CI-timeout `REVIEW_TIMEOUT` or the gate `HARD_STOP`), first update the commit accounting — `resolve-pr-reviews` pushes its fix commits before the CI step, so a pass can push and then stop here: re-read the `commits` length as `commit_count_after` and add `commit_count_after - commit_count_before` to `total_commits_pushed`, so the Phase 3 report counts the push honestly.
+
 ### Step D — Decide (machine-checkable, not from prose)
 
 Re-read the head, CI, and **both** comment surfaces — the `resolve-pr-reviews` clean-path signal, `Reviews passed!`, is an **issue** comment, not a PR review comment, so you must fetch issue comments to detect convergence:
 ```
 gh pr view {number} --repo {REPO} --json headRefOid,commits
-gh pr checks {number} --repo {REPO} --json name,status,conclusion
+gh pr checks {number} --repo {REPO} --json name,bucket   # bucket: pending|pass|fail|skipping|cancel
 gh api --paginate repos/{REPO}/pulls/{number}/comments     # inline review comments
 gh api --paginate repos/{REPO}/issues/{number}/comments     # incl. any `Reviews passed!` newer than the head
 ```
