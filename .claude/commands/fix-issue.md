@@ -45,8 +45,8 @@ Create a fresh branch off the latest `main` branch. This project integrates PRs 
 1. Fetch latest: `git fetch origin`
 2. Confirm the base branch exists: `git branch -r --list origin/main`. If `origin/main` is not found, stop and tell the user (do not fall back to another branch).
 3. Create and switch to a new branch: `git checkout -b fix/{slug} origin/main`
-   - **Issue mode:** `{slug}` is `{number}-{short-slug}`, where `{short-slug}` is 3-5 words from the issue title, lowercase, hyphenated (e.g. `fix/42-idor-workspace-check`).
-   - **Ad-hoc mode:** `{slug}` is a 3-5 word, lowercase, hyphenated summary of the problem (e.g. `fix/login-redirect-loop`) — no issue number.
+   - **Issue mode:** `{slug}` is `{number}-{short-slug}`, where `{short-slug}` is 3-5 words from the issue title, lowercase, hyphenated — e.g. slug `42-idor-workspace-check` → branch `fix/42-idor-workspace-check`.
+   - **Ad-hoc mode:** `{slug}` is a 3-5 word, lowercase, hyphenated summary of the problem — e.g. slug `login-redirect-loop` → branch `fix/login-redirect-loop` — no issue number.
    - **Avoid collisions** (more likely in Ad-hoc mode, which has no issue number): if `git branch -a --list "*fix/{slug}"` finds `fix/{slug}` already exists locally or on the remote (after the Step 2 `git fetch`), adjust the slug (add a distinguishing word or short suffix) so `git checkout -b` doesn't fail.
 
 If the working tree has uncommitted changes, warn the user and stop. Do not stash or discard their work.
