@@ -1,7 +1,7 @@
 ---
 description: Loop the PR review→fix cycle to consensus — kick off the reviews if none are pending, wait for Claude+Copilot & CI, run resolve-pr-reviews (--fix), repeat up to 5×; never merges
 disable-model-invocation: true
-allowed-tools: Bash(gh pr view:*), Bash(gh pr diff:*), Bash(gh pr comment:*), Bash(gh pr checks:*), Bash(gh pr edit:*), Bash(gh pr list:*), Bash(gh pr checkout:*), Bash(gh api:*), Bash(gh repo view:*), Bash(gh run view:*), Bash(git diff:*), Bash(git log:*), Bash(git fetch:*), Bash(git checkout:*), Bash(git status:*), Bash(git branch:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(npm ci:*), Bash(npm install:*), Bash(npm i:*), Bash(npm run build:*), Bash(npm test:*), Bash(npm run test:*), Bash(cargo fmt:*), Bash(cargo clippy:*), Bash(cargo test:*), Bash(cargo check:*), Read, Edit, Write, Grep, Glob, Agent
+allowed-tools: Bash(gh pr view:*), Bash(gh pr diff:*), Bash(gh pr comment:*), Bash(gh pr checks:*), Bash(gh pr edit:*), Bash(gh pr list:*), Bash(gh pr checkout:*), Bash(gh api:*), Bash(gh repo view:*), Bash(gh run view:*), Bash(git diff:*), Bash(git log:*), Bash(git fetch:*), Bash(git checkout:*), Bash(git status:*), Bash(git branch:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(npm ci:*), Bash(npm install:*), Bash(npm i:*), Bash(npm run build:*), Bash(npm test:*), Bash(npm run test:*), Bash(cargo fmt:*), Bash(cargo clippy:*), Bash(cargo test:*), Bash(cargo check:*), Read, Edit, Write, Grep, Glob, Agent, Monitor
 argument-hint: "<pr-number or url>"
 ---
 
@@ -74,7 +74,7 @@ gh api --method POST repos/{REPO}/pulls/{number}/requested_reviewers -f "reviewe
 ```
 If the Claude workflow doesn't start (it fires only when `claude-review.yml` is on the default branch and the authenticated `gh` user is the configured trigger user), note it and **STOP** — don't spin. If the Copilot request errors (no Copilot access / quota), note it and **STOP**.
 
-**Poll until ready.** Repeat, with ~30s between iterations (do **not** use `gh ... --watch` — it can hang; wait with a backgrounded `sleep 30` re-check or the `Monitor` tool), until **both reviews are fresh AND CI is non-pending**, or **~15 minutes** have elapsed:
+**Poll until ready.** Re-check roughly every 30s (do **not** use `gh ... --watch` — it can hang; the `Monitor` tool with a poll-until-condition loop is the cleanest way to wait), until **both reviews are fresh AND CI is non-pending**, or **~15 minutes** have elapsed:
 
 1. Re-run the four queries above.
 2. Both reviews fresh (postdate the head commit) **AND** no CI check still `queued`/`in_progress` → exit the loop and go to Step C. (CI may be red — `resolve-pr-reviews` repairs that next.)
@@ -88,20 +88,21 @@ Read `.claude/commands/resolve-pr-reviews.md` and execute its full flow for PR #
 
 ### Step D — Decide (machine-checkable, not from prose)
 
-Re-read the head and recount the unresolved comments + CI:
+Re-read the head, CI, and **both** comment surfaces — the `resolve-pr-reviews` clean-path signal, `Reviews passed!`, is an **issue** comment, not a PR review comment, so you must fetch issue comments to detect convergence:
 ```
 gh pr view {number} --repo {REPO} --json headRefOid
-gh api --paginate repos/{REPO}/pulls/{number}/comments
 gh pr checks {number} --repo {REPO} --json name,status,conclusion
+gh api --paginate repos/{REPO}/pulls/{number}/comments     # inline review comments
+gh api --paginate repos/{REPO}/issues/{number}/comments     # incl. any `Reviews passed!` newer than the head
 ```
 Let `head_after` be the new `headRefOid`. If `head_after != head_before`, increment `total_commits_pushed` by the number of new commits.
 
-Classify the pass:
+Classify the pass **in this order — the first match wins**. Hard stop and Stall are checked *before* the head-changed test, because an unrecoverable pass can also have pushed commits (so a naive "head changed → Progress" would loop on a failing pass):
 
-- **Converged** ⇔ `head_after == head_before` **AND** CI green **AND** zero unresolved review comments **AND** both reviews fresh. This is exactly the `resolve-pr-reviews` clean path (it posted `Reviews passed!`). → **STOP — success.**
-- **Progress** ⇔ `head_after != head_before` (the pass pushed fixes; `resolve-pr-reviews` already re-requested both reviewers against the new head). → loop back to **Step A**. Step B will see the pending requests and just wait for the fresh reviews.
-- **Stall** ⇔ `head_after == head_before` **but not converged** (e.g. a finding it classified as a false positive that a reviewer keeps reopening, or something it couldn't fix). Re-running would reproduce an identical state. → **STOP — report.** This is also the infinite-loop guard.
-- **Hard stop** ⇔ `resolve-pr-reviews` stopped unrecoverably (CI `STILL_FAILING` after its 3 attempts, a finding it couldn't classify or fix, or a review trigger that never fired). → **STOP — report.**
+- **Hard stop** ⇔ `resolve-pr-reviews` stopped unrecoverably this pass (CI `STILL_FAILING` after its 3 attempts, a finding it couldn't classify or fix, or a review trigger that never fired). → **STOP — report** (outcome `STILL_FAILING` for the CI case, otherwise `HARD_STOP`).
+- **Converged** ⇔ `head_after == head_before` **AND** CI green **AND** `resolve-pr-reviews` took its clean path (a `Reviews passed!` issue comment newer than the head). → **STOP — success.**
+- **Progress** ⇔ `head_after != head_before` (the pass pushed fixes and `resolve-pr-reviews` already re-requested both reviewers against the new head). → loop back to **Step A**; Step B will see the pending requests and just wait for the fresh reviews.
+- **Stall** ⇔ `head_after == head_before` **but not converged** (e.g. a finding it classified as a false positive that a reviewer keeps reopening). Re-running would reproduce an identical state. → **STOP — report.** This is also the infinite-loop guard.
 
 ---
 
@@ -120,7 +121,7 @@ PR #{number}: {title}
 Passes run: {N}/5
 Commits pushed: {total_commits_pushed}
 CI: {PASS|FAIL|PENDING}
-Outcome: {CONVERGED | REVIEW_TIMEOUT | STILL_FAILING | STALL | CAP_REACHED}
+Outcome: {CONVERGED | REVIEW_TIMEOUT | STILL_FAILING | HARD_STOP | STALL | CAP_REACHED}
 ```
 
 In prose: per-pass summary (what each pass fixed / pushed), the final CI status, whether consensus was reached (`Reviews passed!` posted on the final clean pass) or which reviewer / finding / check still blocks it, and the stop reason if it didn't converge. Remind the user that this command **never merges** — that decision belongs to a human.
@@ -135,4 +136,4 @@ In prose: per-pass summary (what each pass fixed / pushed), the final CI status,
 - **Same freshness rule as `resolve-pr-reviews`.** A review counts only if it postdates the current head commit; stale reviews are treated as missing.
 - **Trigger only at cold start.** Kick off a review only when neither a fresh review nor a pending request exists. After a fix-pushing pass, `resolve-pr-reviews` has already re-requested both — just wait; never double-request across the handoff.
 - **Stop on stall and on hard failure.** Don't waste passes re-running an unchanged, unconverged state.
-- **No `--watch`; poll every ~30s** (backgrounded `sleep 30` re-check or the `Monitor` tool) with a ~15-minute timeout on the wait step.
+- **No `--watch`; poll every ~30s** (the `Monitor` tool with a poll-until-condition loop is cleanest) with a ~15-minute timeout on the wait step.
