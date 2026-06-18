@@ -88,6 +88,8 @@ Read `.claude/commands/resolve-pr-reviews.md` and execute its full flow for PR #
 
 This loop is **hands-off**, so never wait on an interactive prompt: if the delegated CI step (`check-and-fix-ci`) hits its ~10-minute pending timeout and would *"ask the user whether to keep waiting"*, do **not** block — treat it as the delegated pass not settling and **STOP** with outcome `REVIEW_TIMEOUT`, reporting that CI never settled.
 
+`resolve-pr-reviews` runs the repo's area-specific quality gate, which needs tools (`npm`, `cargo`, …) from **its own** allowlist — allowlists are per-command, so this command's allowlist doesn't extend to the delegated pass. If that pass can't run a required gate command (a tool-policy/permission stop), **STOP** with outcome `HARD_STOP` and report it as a command-config issue (a missing grant in `resolve-pr-reviews`), not a PR-specific failure.
+
 ### Step D — Decide (machine-checkable, not from prose)
 
 Re-read the head, CI, and **both** comment surfaces — the `resolve-pr-reviews` clean-path signal, `Reviews passed!`, is an **issue** comment, not a PR review comment, so you must fetch issue comments to detect convergence:

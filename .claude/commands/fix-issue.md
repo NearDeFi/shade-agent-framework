@@ -47,6 +47,7 @@ Create a fresh branch off the latest `main` branch. This project integrates PRs 
 3. Create and switch to a new branch: `git checkout -b fix/{slug} origin/main`
    - **Issue mode:** `{slug}` is `{number}-{short-slug}`, where `{short-slug}` is 3-5 words from the issue title, lowercase, hyphenated (e.g. `fix/42-idor-workspace-check`).
    - **Ad-hoc mode:** `{slug}` is a 3-5 word, lowercase, hyphenated summary of the problem (e.g. `fix/login-redirect-loop`) — no issue number.
+   - **Avoid collisions** (more likely in Ad-hoc mode, which has no issue number): if `fix/{slug}` already exists locally or on the remote — `git rev-parse --verify fix/{slug}` or `git branch -a --list "*fix/{slug}"` finds it — adjust the slug (add a distinguishing word or short suffix) so `git checkout -b` doesn't fail.
 
 If the working tree has uncommitted changes, warn the user and stop. Do not stash or discard their work.
 
