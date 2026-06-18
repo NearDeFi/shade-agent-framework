@@ -42,7 +42,7 @@ Repeat for `pass = 1 .. MAX_PASSES`. Announce the pass number at the start of ea
 gh pr view {number} --repo {REPO} --json headRefOid,commits
 ```
 
-Record `headRefOid` (call it `head_before`) and the last commit's `committedDate`. These define "current head" for the freshness checks in Step B and for detecting whether this pass pushed anything in Step D.
+Record `headRefOid` (call it `head_before`), the last commit's `committedDate`, and the commit count (`commit_count_before` = length of the `commits` array). These define "current head" for the freshness checks in Step B, and let Step D detect whether this pass pushed anything and how many commits it added.
 
 ### Step B — Ensure both reviews are fresh + CI complete (the wait)
 
@@ -86,16 +86,18 @@ On the 15-minute timeout, report which reviewer or check never landed and **STOP
 
 Read `.claude/commands/resolve-pr-reviews.md` and execute its full flow for PR #{number} **with the `--fix` flag** (fully autonomous — never block on the findings table). It will address comments, run the quality gate, push, run the CI fix loop, and at the end either post `Reviews passed!` (clean path) or re-request both reviewers (if it pushed commits).
 
+This loop is **hands-off**, so never wait on an interactive prompt: if the delegated CI step (`check-and-fix-ci`) hits its ~10-minute pending timeout and would *"ask the user whether to keep waiting"*, do **not** block — treat it as the delegated pass not settling and **STOP** with outcome `REVIEW_TIMEOUT`, reporting that CI never settled.
+
 ### Step D — Decide (machine-checkable, not from prose)
 
 Re-read the head, CI, and **both** comment surfaces — the `resolve-pr-reviews` clean-path signal, `Reviews passed!`, is an **issue** comment, not a PR review comment, so you must fetch issue comments to detect convergence:
 ```
-gh pr view {number} --repo {REPO} --json headRefOid
+gh pr view {number} --repo {REPO} --json headRefOid,commits
 gh pr checks {number} --repo {REPO} --json name,status,conclusion
 gh api --paginate repos/{REPO}/pulls/{number}/comments     # inline review comments
 gh api --paginate repos/{REPO}/issues/{number}/comments     # incl. any `Reviews passed!` newer than the head
 ```
-Let `head_after` be the new `headRefOid`. If `head_after != head_before`, increment `total_commits_pushed` by the number of new commits.
+Let `head_after` be the new `headRefOid` and `commit_count_after` the new `commits` length. If `head_after != head_before`, increment `total_commits_pushed` by `commit_count_after - commit_count_before` (the commits this pass added).
 
 Classify the pass **in this order — the first match wins**. Hard stop and Stall are checked *before* the head-changed test, because an unrecoverable pass can also have pushed commits (so a naive "head changed → Progress" would loop on a failing pass):
 

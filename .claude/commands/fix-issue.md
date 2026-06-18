@@ -32,7 +32,7 @@ Call it `{REPO}` and use it in every `gh` command below (via `--repo {REPO}`).
 
   If the issue is closed, warn the user and ask if they still want to proceed. The issue title + body is the **problem statement**.
 
-- **Ad-hoc mode** — anything else is a free-text problem description (e.g. `there is a problem with xyz, lets fix it`). There is no GitHub issue; the text itself is the **problem statement**. Do not run `gh issue view`. Optionally run `gh issue list --repo {REPO} --search "<keywords>"` to check whether an issue already tracks this — if an obvious match exists, mention it and ask whether to proceed against that issue (Issue mode) instead.
+- **Ad-hoc mode** — anything else is a free-text problem description (e.g. `there is a problem with xyz, let's fix it`). There is no GitHub issue; the text itself is the **problem statement**. Do not run `gh issue view`. Optionally run `gh issue list --repo {REPO} --search "<keywords>"` to check whether an issue already tracks this — if an obvious match exists, mention it and ask whether to proceed against that issue (Issue mode) instead.
 
 - **Empty** — if `$ARGUMENTS` is blank, stop and ask the user for an issue number or a problem description.
 
