@@ -163,6 +163,16 @@ git push origin {headRefName}
 
 **Reply to addressed review comments on GitHub.** For each comment that was fixed, reply with the commit SHA and a brief description of what was done. For false positives, reply explaining why no change was needed.
 
+**Update the PR description to match the new head.** If the fixes changed what the PR does, the files it touches, the tests it adds, or its release impact, edit the PR body so it stays accurate to the current head. Fetch it, amend the relevant sections, and set it back (never blind-overwrite):
+
+```bash
+gh pr view {number} --repo {REPO} --json body --jq .body > /tmp/pr-{number}-body.md
+# edit the What-changed / Files-changed / Tests sections (and the release-impact line) in /tmp/pr-{number}-body.md
+gh pr edit {number} --repo {REPO} --body-file /tmp/pr-{number}-body.md
+```
+
+Keep the description a current *summary*, not a per-commit changelog — the commit history and the review-thread replies already record each fix. Per the repo's versioning convention (root `CLAUDE.md`), make sure the release-impact line still names the correct package(s) and major/minor/patch level for the change as it now stands. If nothing material changed (e.g. a pure comment/doc tweak), leave the body as-is.
+
 ---
 
 ## Phase 6: CI Monitor & Fix Loop
