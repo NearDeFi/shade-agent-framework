@@ -94,6 +94,10 @@ Draft: {yes|no}
 3. **CI failing, no unresolved comments** → Phase 6 (jump to CI fix).
 4. **Both reviewed + CI passing + nothing unresolved** (no comments needing action, or all already resolved) → Phase 7 (clean path).
 
+**What counts as "unresolved":** only **new, actionable** findings — defects, missing tests, doc/spec errors, or anything CRITICAL/HIGH. A finding is **not** unresolved (does not block, does not need a new commit) if it is: (a) a previously-accepted, by-design tradeoff recorded in the PR's "Design decisions / Accepted tradeoffs" section; (b) an item Claude placed under a "### Design notes" heading; or (c) a LOW the maintainer already adjudicated in a reply. Those are consensus, not open work.
+
+**Convergence / stop condition.** AI reviews are stateless and re-surface accepted tradeoffs every round, so "zero findings" is not the goal and is not always reachable. Treat the PR as **converged → Phase 7 (clean path)** once both reviewers cover the current head, CI is green, and every remaining finding falls under (a)–(c) above (no new CRITICAL/HIGH, no new actionable MEDIUM). Do not push new commits just to silence by-design notes. **Hard cap: after 3 resolve cycles with no new actionable finding, declare consensus and stop** — report it and leave the merge to the human.
+
 ---
 
 ## Phase 2: Address Review Comments
@@ -106,6 +110,7 @@ For each unresolved review comment or review with CHANGES_REQUESTED — this cov
    - ✅ **Already fixed** — a later commit addressed it
    - ❌ **False positive** — explain why the code is correct
    - 🔧 **Nit** — optional improvement, not blocking
+   - 🟰 **Accepted / by-design** — a real but intentional tradeoff, not a defect (e.g. a deliberate design choice already made and documented). Record it (see below) so it isn't re-litigated; do not re-fix it on later rounds.
 
 3. **Deduplicate** — bots (Claude, Copilot, Gemini) and humans often post the same finding. Group by actual issue.
 
@@ -114,7 +119,7 @@ Present a table:
 | # | Source | File:Line | Issue | Status | Planned Fix |
 |---|--------|-----------|-------|--------|-------------|
 
-Wait for user confirmation (unless `--fix` flag set), then proceed to Phase 3.
+Wait for user confirmation (unless `--fix` flag set). Once confirmed, **record any 🟰 accepted / by-design findings** in a `## Design decisions / Accepted tradeoffs` section of the PR description: fetch the body (`gh pr view {number} --repo {REPO} --json body --jq .body`), append a one-line entry stating the decision and why, then set it back (`gh pr edit {number} --repo {REPO} --body-file ...`). The `claude-review` prompt reads that section and will not re-raise listed items — this is the main lever that converges the loop. Then proceed to Phase 3.
 
 ---
 
