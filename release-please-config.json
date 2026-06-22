@@ -1,0 +1,24 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "separate-pull-requests": true,
+  "include-component-in-tag": true,
+  "pull-request-title-pattern": "chore(release): ${component}-v${version}",
+  "packages": {
+    "shade-agent-js": {
+      "release-type": "node",
+      "component": "shade-agent-js",
+      "package-name": "@neardefi/shade-agent-js"
+    },
+    "shade-agent-cli": {
+      "release-type": "node",
+      "component": "shade-agent-cli",
+      "package-name": "@neardefi/shade-agent-cli"
+    },
+    "shade-attestation": {
+      "release-type": "rust",
+      "component": "shade-attestation",
+      "package-name": "shade-attestation",
+      "bump-minor-pre-major": true
+    }
+  }
+}

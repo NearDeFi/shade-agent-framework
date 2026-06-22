@@ -36,9 +36,13 @@ Changes to a package are not done until every downstream artefact has been updat
 
 ## Versioning and releases
 
-**Never bump a package version in a PR into `main`.** Version bumps for the published packages (`@neardefi/shade-agent-js`, `@neardefi/shade-agent-cli`, the `shade-attestation` crate) are handled separately once changes are on `main`, via dedicated `chore(release): <package>-vX.Y.Z` commits. Leave `package.json` / `Cargo.toml` versions untouched in feature, fix, and chore PRs.
+Releases are automated by **release-please** (`.github/workflows/release-please.yml`, config in `release-please-config.json`). It reads [Conventional Commits](https://www.conventionalcommits.org/) on `main` and keeps a per-package release PR (`chore(release): <package>-vX.Y.Z`) open that bumps the version + lockfile and writes the package's `CHANGELOG.md`; merging that PR tags the release and publishes `@neardefi/shade-agent-js`, `@neardefi/shade-agent-cli`, and the `shade-attestation` crate via CI.
 
-**State the release impact in the PR description.** When a PR changes a published package's behaviour or public surface, the PR description must say which package(s) it affects and whether it will need a **major**, **minor**, or **patch** bump when released — unless the description already says so. Use semver: **major** = a breaking change to the public API or to behaviour consumers depend on; **minor** = backward-compatible new behaviour or feature; **patch** = backward-compatible fix. A PR that touches no published package can say "no release impact".
+**Never bump a package version or write a `chore(release)` commit by hand.** Leave `package.json` / `Cargo.toml` versions untouched in feature, fix, and chore PRs — the release PR owns them.
+
+**The commit type drives the bump, so write it accurately.** `fix:` → patch, `feat:` → minor, `feat!:` or a `BREAKING CHANGE:` footer → major. `shade-attestation` is pre-1.0, so its breaking changes bump the minor (`0.x.0`). Commits scope to a package by the file path they touch. A PR of only `chore` / `docs` / `refactor` / `test` / `ci` commits produces no release. To pin an exact next version, add a `Release-As: X.Y.Z` footer to a commit.
+
+**State the release impact in the PR description.** When a PR changes a published package's behaviour or public surface, say which package(s) it affects and whether it's a **major**, **minor**, or **patch** — this is what reviewers check the commit types against. Use semver: **major** = a breaking change to the public API or to behaviour consumers depend on; **minor** = backward-compatible new behaviour or feature; **patch** = backward-compatible fix. A PR that touches no published package can say "no release impact".
 
 ## Tests
 
