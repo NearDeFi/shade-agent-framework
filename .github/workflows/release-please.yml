@@ -25,13 +25,18 @@ jobs:
       attestation_released: ${{ steps.rp.outputs['shade-attestation--release_created'] }}
       attestation_tag: ${{ steps.rp.outputs['shade-attestation--tag_name'] }}
     steps:
-      # Uses RELEASE_PLEASE_TOKEN (a PAT / App token), not the default
+      # Mint a short-lived token from the release GitHub App, not the default
       # GITHUB_TOKEN: PRs opened by GITHUB_TOKEN don't trigger ci.yml, so the
       # required ci-passed check would never run on the release PR.
+      - uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        id: app-token
+        with:
+          app-id: ${{ secrets.RELEASE_APP_ID }}
+          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
       - uses: googleapis/release-please-action@5c625bfb5d1ff62eadeeb3772007f7f66fdcf071 # v4.4.1
         id: rp
         with:
-          token: ${{ secrets.RELEASE_PLEASE_TOKEN }}
+          token: ${{ steps.app-token.outputs.token }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
 
