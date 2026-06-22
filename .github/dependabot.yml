@@ -4,49 +4,134 @@ updates:
   - package-ecosystem: npm
     directory: /shade-agent-cli
     schedule:
-      interval: monthly
+      interval: weekly
     versioning-strategy: increase
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     groups:
-      dev-dependencies:
-        dependency-type: development
+      patch:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+      minor:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
 
   - package-ecosystem: npm
     directory: /shade-agent-js
     schedule:
-      interval: monthly
+      interval: weekly
     versioning-strategy: increase
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
     groups:
-      dev-dependencies:
-        dependency-type: development
+      patch:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+      minor:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
 
   - package-ecosystem: npm
     directory: /shade-agent-template
     schedule:
-      interval: monthly
+      interval: weekly
     versioning-strategy: increase
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    groups:
+      patch:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+      minor:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
 
   # Rust crates
   - package-ecosystem: cargo
     directory: /shade-attestation
     schedule:
-      interval: monthly
+      interval: weekly
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    groups:
+      patch:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+      minor:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
 
   - package-ecosystem: cargo
     directory: /shade-contract-template
     schedule:
-      interval: monthly
+      interval: weekly
     open-pull-requests-limit: 5
+    cooldown:
+      default-days: 7
+    groups:
+      patch:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+      minor:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
 
   - package-ecosystem: docker
     directory: /
     schedule:
-      interval: monthly
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      patch:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+      minor:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
 
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: monthly
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      patch:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+      minor:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"

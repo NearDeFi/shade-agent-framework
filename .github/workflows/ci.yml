@@ -8,6 +8,8 @@ on:
     branches: [main, stable]
   push:
     branches: [main]
+  # Re-run against the merge queue's combined branch before it lands on main.
+  merge_group:
 
 concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
@@ -18,7 +20,8 @@ permissions:
 
 jobs:
   # Detect which areas changed so we only run the relevant jobs. The `all`
-  # filter (CI config / toolchain) forces every job to run.
+  # filter (CI config / toolchain) forces every job to run, as does a
+  # merge_group event — the queue validates the full suite before landing.
   changes:
     runs-on: ubuntu-latest
     outputs:
@@ -27,10 +30,11 @@ jobs:
       js_tmpl: ${{ steps.filter.outputs.js_tmpl }}
       attestation: ${{ steps.filter.outputs.attestation }}
       contract: ${{ steps.filter.outputs.contract }}
-      all: ${{ steps.filter.outputs.all }}
+      all: ${{ steps.filter.outputs.all == 'true' || github.event_name == 'merge_group' }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
       - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3.0.3
+        if: github.event_name != 'merge_group'
         id: filter
         with:
           filters: |
