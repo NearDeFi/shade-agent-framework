@@ -1,6 +1,7 @@
 version: 2
 updates:
-  # npm packages
+  # npm packages — cooldown is set above the .npmrc min-release-age (7d) so
+  # Dependabot only ever proposes versions npm will actually resolve.
   - package-ecosystem: npm
     directory: /shade-agent-cli
     schedule:
@@ -8,7 +9,7 @@ updates:
     versioning-strategy: increase
     open-pull-requests-limit: 5
     cooldown:
-      default-days: 7
+      default-days: 10
     groups:
       patch:
         patterns:
@@ -28,7 +29,7 @@ updates:
     versioning-strategy: increase
     open-pull-requests-limit: 5
     cooldown:
-      default-days: 7
+      default-days: 10
     groups:
       patch:
         patterns:
@@ -48,7 +49,7 @@ updates:
     versioning-strategy: increase
     open-pull-requests-limit: 5
     cooldown:
-      default-days: 7
+      default-days: 10
     groups:
       patch:
         patterns:
