@@ -34,6 +34,10 @@ Changes to a package are not done until every downstream artefact has been updat
 - Treat it as a breaking change to `shade-contract-template` — verify the contract still builds and that approved-measurements / PPID gating semantics are preserved.
 - Run the **`tests-in-tee/`** scenarios that exercise registration end-to-end.
 
+## Pull requests
+
+**Only open a pull request when explicitly asked for one.** By default, make the requested change in the working tree and stop there — don't create a branch, push, or run `gh pr create` unless the user specifically requests a PR.
+
 ## Versioning and releases
 
 Releases are automated by **release-please** (`.github/workflows/release-please.yml`, config in `release-please-config.json`). It reads [Conventional Commits](https://www.conventionalcommits.org/) on `main` and keeps a per-package release PR (`chore(release): <package>-vX.Y.Z`) open that bumps the version + lockfile and writes the package's `CHANGELOG.md`; merging that PR tags the release and publishes `@neardefi/shade-agent-js`, `@neardefi/shade-agent-cli`, and the `shade-attestation` crate via CI.
