@@ -4,5 +4,6 @@ target/
 dist/
 build/
 license-generator/
-# Transient CVM id written by tests-in-tee for teardown
+# Transient ids written by tests-in-tee for teardown
 .cvm-id
+.contract-id

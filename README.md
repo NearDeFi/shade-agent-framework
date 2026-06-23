@@ -93,7 +93,7 @@ cargo add shade-attestation
   PHALA_API_KEY=
   ```
 
-  TESTNET and SPONSOR can be the same; make sure the account has at least 20 testnet NEAR.
+  TESTNET and SPONSOR can be the same; make sure the account has at least 20 testnet NEAR. The tests-in-tee suite funds a per-run contract account with ~10 NEAR (refunded on teardown), so budget ~10 more per concurrent run.
 
 - Run all tests
 

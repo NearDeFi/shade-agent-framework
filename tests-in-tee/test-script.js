@@ -10,6 +10,7 @@
  */
 
 import { execSync } from "child_process";
+import { randomBytes } from "crypto";
 import { fileURLToPath } from "url";
 import path, { dirname, resolve } from "path";
 import fs from "fs";
@@ -29,6 +30,7 @@ import { getPpids } from "../shade-agent-cli/src/utils/ppids.js";
 import { tgasToGas } from "../shade-agent-cli/src/utils/near.js";
 import { deployToPhala as deployToPhalaSdk, createClient } from "../shade-agent-cli/src/utils/phala-deploy.js";
 import { wipeContractState } from "../shade-agent-cli/src/utils/state-cleanup.js";
+import { deleteContractAccount } from "./teardown-account.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -53,9 +55,13 @@ if (!TESTNET_ACCOUNT_ID || !TESTNET_PRIVATE_KEY || !PHALA_API_KEY) {
 // Phala Cloud SDK client (same SDK the CLI deploy path uses)
 const phalaClient = createClient({ apiKey: PHALA_API_KEY });
 
+// Random per-run slug so overlapping runs (e.g. on different PRs) don't collide
+// on the contract account or the Phala app name.
+const RUN_SLUG = randomBytes(4).toString("hex");
+
 // Generate contract ID as subaccount of TESTNET_ACCOUNT_ID
-const AGENT_CONTRACT_ID = `shade-test-contract.${TESTNET_ACCOUNT_ID}`;
-const TEST_APP_NAME = "shade-integration-tests";
+const AGENT_CONTRACT_ID = `shade-test-${RUN_SLUG}.${TESTNET_ACCOUNT_ID}`;
+const TEST_APP_NAME = `shade-integration-tests-${RUN_SLUG}`;
 
 // Toggle to skip redeploying account, contract, and initialization (useful for reusing existing deployment)
 const SKIP_CONTRACT_DEPLOYMENT = false;
@@ -135,6 +141,30 @@ const contractAccount = new Account(AGENT_CONTRACT_ID, provider, signer);
 // Sleep helper
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+// createAccount is the only transaction signed by the shared parent key — the
+// per-run contract account is its own owner, so every other owner/admin call
+// runs on that account's independent nonce. Concurrent runs can still race the
+// parent's nonce on this one tx, so retry on a nonce conflict (each attempt
+// re-queries the access key, picking up the new nonce). Jittered so two runs
+// don't retry in lockstep.
+async function createAccountWithNonceRetry(newAccountId, publicKey, amount) {
+  const maxAttempts = 5;
+  for (let attempt = 1; ; attempt++) {
+    try {
+      await account.createAccount(newAccountId, publicKey, amount);
+      return;
+    } catch (e) {
+      const msg = e?.message ?? String(e);
+      if (attempt < maxAttempts && /nonce/i.test(msg)) {
+        console.log(`Nonce conflict creating account, retrying (${attempt}/${maxAttempts - 1})`);
+        await sleep(300 + attempt * 400 + Math.floor(Math.random() * 400));
+        continue;
+      }
+      throw e;
+    }
+  }
+}
+
 // Create contract account (as subaccount of TESTNET_ACCOUNT_ID)
 async function createContractAccount() {
   console.log("Creating contract account...");
@@ -209,7 +239,7 @@ async function createContractAccount() {
   console.log("Contract account does not exist, creating it");
   try {
     const publicKey = await account.getSigner().getPublicKey();
-    await account.createAccount(
+    await createAccountWithNonceRetry(
       AGENT_CONTRACT_ID,
       publicKey,
       NEAR.toUnits(fundingAmount),
@@ -256,7 +286,9 @@ async function initializeContract() {
   const initArgs = {
     requires_tee: true,
     attestation_expiration_time_ms: "100000", // 100 seconds in milliseconds (as U64 string)
-    owner_id: TESTNET_ACCOUNT_ID,
+    // The contract owns itself so owner-gated calls are signed by the contract
+    // account (its own nonce), not the shared parent key — lets runs overlap.
+    owner_id: AGENT_CONTRACT_ID,
     mpc_contract_id: "v1.signer-prod.testnet", // testnet MPC contract
   };
 
@@ -467,7 +499,7 @@ async function getAppUrl(appId) {
 // Approve measurements
 async function approveMeasurements(measurements) {
   console.log("Approving measurements...");
-  await account.callFunction({
+  await contractAccount.callFunction({
     contractId: AGENT_CONTRACT_ID,
     methodName: "approve_measurements",
     args: { measurements },
@@ -478,7 +510,7 @@ async function approveMeasurements(measurements) {
 // Remove measurements
 async function removeMeasurements(measurements) {
   console.log("Removing measurements...");
-  await account.callFunction({
+  await contractAccount.callFunction({
     contractId: AGENT_CONTRACT_ID,
     methodName: "remove_measurements",
     args: { measurements },
@@ -489,7 +521,7 @@ async function removeMeasurements(measurements) {
 // Approve PPIDs
 async function approvePpids(ppids) {
   console.log("Approving PPIDs...");
-  await account.callFunction({
+  await contractAccount.callFunction({
     contractId: AGENT_CONTRACT_ID,
     methodName: "approve_ppids",
     args: { ppids },
@@ -500,7 +532,7 @@ async function approvePpids(ppids) {
 // Remove PPIDs
 async function removePpids(ppids) {
   console.log("Removing PPIDs...");
-  await account.callFunction({
+  await contractAccount.callFunction({
     contractId: AGENT_CONTRACT_ID,
     methodName: "remove_ppids",
     args: { ppids },
@@ -512,7 +544,7 @@ async function removePpids(ppids) {
 async function updateAttestationExpirationTime(ms) {
   const msStr = String(ms);
   console.log(`Updating attestation expiration to ${msStr} ms...`);
-  await account.callFunction({
+  await contractAccount.callFunction({
     contractId: AGENT_CONTRACT_ID,
     methodName: "update_attestation_expiration_time",
     args: { attestation_expiration_time_ms: msStr },
@@ -1269,25 +1301,35 @@ async function main() {
   // Update .env file with generated contract ID
   updateEnvFile();
 
-  // Deploy contract to testnet (skip if SKIP_CONTRACT_DEPLOYMENT is true)
-  if (!SKIP_CONTRACT_DEPLOYMENT) {
-    console.log("\nDeploying contract to testnet...");
-    await createContractAccount();
-    await deployContract();
-    await initializeContract();
-    console.log("✓ Contract deployment complete\n");
-  } else {
-    console.log(
-      "\n⚠ Skipping contract deployment (SKIP_CONTRACT_DEPLOYMENT=true)\n",
-    );
-  }
-
-  // Deploy to Phala (or use a provided endpoint) and run the tests. The whole
-  // block is wrapped so the `finally` always tears down the CVM we provisioned,
-  // on success or failure, to avoid leaking a paid Phala TEE instance.
+  // Deploy to Phala and run the tests. The whole block is wrapped so the
+  // `finally` always tears down the CVM and the contract account this run
+  // provisioned, on success or failure, so overlapping runs don't leak a paid
+  // Phala TEE instance or a funded testnet account.
   let appUrl;
   let appId = null;
+  let createdContract = false;
   try {
+    // Deploy contract to testnet (skip if SKIP_CONTRACT_DEPLOYMENT is true)
+    if (!SKIP_CONTRACT_DEPLOYMENT) {
+      console.log("\nDeploying contract to testnet...");
+      // Mark + persist the account id before creating it, so a CI teardown
+      // step can delete it even if this process is killed mid-create.
+      createdContract = true;
+      try {
+        fs.writeFileSync(resolve(__dirname, ".contract-id"), AGENT_CONTRACT_ID);
+      } catch (e) {
+        console.error(`⚠ Could not write .contract-id: ${e.message}`);
+      }
+      await createContractAccount();
+      await deployContract();
+      await initializeContract();
+      console.log("✓ Contract deployment complete\n");
+    } else {
+      console.log(
+        "\n⚠ Skipping contract deployment (SKIP_CONTRACT_DEPLOYMENT=true)\n",
+      );
+    }
+
     if (SKIP_PHALA_DEPLOYMENT) {
       console.log("⚠ Skipping Phala deployment (TEST_APP_URL provided)");
       appUrl = TEST_APP_URL.trim();
@@ -1353,8 +1395,16 @@ async function main() {
     console.log("\n✓ All tests passed!");
   } finally {
     // Tear down the CVM we provisioned (no-op when a provided endpoint was
-    // reused, i.e. appId is null). deletePhalaApp never throws.
+    // reused, i.e. appId is null), then delete the per-run contract account
+    // (refunding the parent). Neither teardown throws.
     await deletePhalaApp(appId);
+    if (createdContract) {
+      await deleteContractAccount(
+        contractAccount,
+        AGENT_CONTRACT_ID,
+        TESTNET_ACCOUNT_ID,
+      );
+    }
   }
 }
 
