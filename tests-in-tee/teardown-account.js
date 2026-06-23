@@ -72,6 +72,15 @@ if (invokedDirectly) {
     console.error("Missing TESTNET_ACCOUNT_ID / TESTNET_PRIVATE_KEY");
     process.exit(1);
   }
+  // The backstop runs with a privileged key on an id read from the workspace
+  // .contract-id file, so only ever delete a per-run test subaccount of
+  // TESTNET_ACCOUNT_ID — never the parent or an unrelated account.
+  if (!accountId.startsWith("shade-test-") || !accountId.endsWith(`.${beneficiaryId}`)) {
+    console.error(
+      `Refusing to delete "${accountId}": expected a shade-test-<slug>.${beneficiaryId} subaccount.`,
+    );
+    process.exit(1);
+  }
   const provider = new JsonRpcProvider(
     { url: "https://test.rpc.fastnear.com" },
     { retries: 3, backoff: 2, wait: 1000 },
