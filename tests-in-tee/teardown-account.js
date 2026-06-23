@@ -22,7 +22,8 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 // Idempotent (an already-gone account counts as success) and never throws —
 // teardown runs in a finally and must never mask the real failure. Removes the
 // persisted .contract-id on success so a backstop won't try again.
-export async function deleteContractAccount(account, accountId, beneficiaryId) {
+export async function deleteContractAccount(account, beneficiaryId) {
+  const accountId = account?.accountId;
   if (!accountId) return;
   console.log(`\nTearing down contract account ${accountId}...`);
   // Swallows its own error so deleteContractAccount keeps its no-throw contract.
@@ -77,5 +78,5 @@ if (invokedDirectly) {
   );
   const signer = KeyPairSigner.fromSecretKey(privateKey);
   const account = new Account(accountId, provider, signer);
-  await deleteContractAccount(account, accountId, beneficiaryId);
+  await deleteContractAccount(account, beneficiaryId);
 }

@@ -1400,11 +1400,7 @@ async function main() {
     // (refunding the parent). Neither teardown throws.
     await deletePhalaApp(appId);
     if (createdContract) {
-      await deleteContractAccount(
-        contractAccount,
-        AGENT_CONTRACT_ID,
-        TESTNET_ACCOUNT_ID,
-      );
+      await deleteContractAccount(contractAccount, TESTNET_ACCOUNT_ID);
     }
   }
 }
