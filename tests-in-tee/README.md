@@ -69,7 +69,7 @@ Integration tests that run inside a TEE (Phala). They test shade-agent-js, shade
 
 Each run uses a random per-run slug for the contract account
 (`shade-test-<slug>.<account>`) and the Phala app name, so independent runs
-(e.g. on different PRs) never collide.
+(e.g. on different PRs) are extremely unlikely to collide.
 
 `test-script.js` always tears down what it provisions when the run finishes — on
 success **or** failure — so a failed run no longer leaves a paid TEE instance or

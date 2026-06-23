@@ -55,9 +55,9 @@ if (!TESTNET_ACCOUNT_ID || !TESTNET_PRIVATE_KEY || !PHALA_API_KEY) {
 // Phala Cloud SDK client (same SDK the CLI deploy path uses)
 const phalaClient = createClient({ apiKey: PHALA_API_KEY });
 
-// Random per-run slug so overlapping runs (e.g. on different PRs) don't collide
-// on the contract account or the Phala app name.
-const RUN_SLUG = randomBytes(4).toString("hex");
+// Random per-run slug (8 bytes / 64-bit) so overlapping runs (e.g. on different
+// PRs) are extremely unlikely to collide on the contract account or Phala app name.
+const RUN_SLUG = randomBytes(8).toString("hex");
 
 // Generate contract ID as subaccount of TESTNET_ACCOUNT_ID
 const AGENT_CONTRACT_ID = `shade-test-${RUN_SLUG}.${TESTNET_ACCOUNT_ID}`;
@@ -143,11 +143,12 @@ const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // On the normal per-run path createAccount is the one transaction signed by the
 // shared parent key — the contract account is its own owner, so every owner/admin
-// call runs on that account's independent nonce (only the account-reuse branch's
-// transfer top-up is also parent-signed, and a fresh random slug makes that branch
-// unreachable). Concurrent runs can still race the parent's nonce on createAccount,
-// so retry on a nonce conflict (each attempt re-queries the access key, picking up
-// the new nonce). Jittered so two runs don't retry in lockstep.
+// call runs on that account's independent nonce. (The account-reuse branch's
+// transfer top-up is also parent-signed, but a fresh random slug means that branch
+// only runs in the rare case the subaccount already exists.) Concurrent runs can
+// still race the parent's nonce on createAccount, so retry on a nonce conflict (each
+// attempt re-queries the access key, picking up the new nonce). Jittered so two runs
+// don't retry in lockstep.
 async function createAccountWithNonceRetry(newAccountId, publicKey, amount) {
   const maxAttempts = 5;
   for (let attempt = 1; ; attempt++) {
