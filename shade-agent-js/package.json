@@ -34,16 +34,16 @@
     "@near-js/tokens": "2.5.1",
     "@near-js/transactions": "2.5.1",
     "@near-js/types": "2.5.1",
-    "@phala/dstack-sdk": "0.5.7",
+    "@phala/dstack-sdk": "0.5.8",
     "asn1.js": "4.10.1",
     "near-seed-phrase": "0.2.1"
   },
   "devDependencies": {
     "@types/node": "25.9.3",
-    "@vitest/coverage-v8": "4.1.5",
+    "@vitest/coverage-v8": "4.1.8",
     "tsup": "8.5.1",
     "typescript": "6.0.3",
-    "vitest": "4.1.5"
+    "vitest": "4.1.8"
   },
   "keywords": [
     "AI",
