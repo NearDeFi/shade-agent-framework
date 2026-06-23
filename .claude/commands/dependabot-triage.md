@@ -63,7 +63,7 @@ Then state, per failing PR: *which job failed → the actual error → likely ca
 
 1. **CI ❌** → `❌ Don't merge — see diagnosis below`
 2. **CI ⏳** → `⏳ Wait for CI`
-3. **security = yes** (CI ✅) → `🔴 Merge ASAP (security fix)`
+3. **security = yes** (CI ✅) → `🔴 Merge ASAP (security fix)` — but if also `⛔ measurements`, it still needs `/run-e2e` + measurement re-approval first (rule 4).
 4. **`⛔ measurements`** → `⛔ Don't routine-merge — needs measurement re-approval; /run-e2e on the PR first`
 5. **`🧹 superseded?`** → `🧹 Close (superseded by group) — verify first`
 6. **major** (incl. 0.x) → `🟠 Review migration; merge with the change or @dependabot ignore this major version`
@@ -98,7 +98,7 @@ For each CI-❌, major, `⛔`, `🧪`, security, or `🧹` PR, a short block:
 - **shade-agent-cli dep**: `gh pr checkout <n> --repo {REPO}` → `cd shade-agent-cli && npm ci && npm run build && npm test` → smoke: `node dist/src/cli.js --help` (+ a deploy dry-run for commander/inquirer changes).
 - **shade-agent-js dep**: `cd shade-agent-js && npm ci && npm run build && npm test`, then build the consumer: `cd ../shade-agent-template && npm ci && npm run build`.
 - **cargo (shade-attestation / shade-contract-template)**: `cargo fmt --check && cargo clippy --all-targets && cargo test` — for the contract run the **full** `cargo test` (the sandbox integration tests CI skips with `--lib`).
-- **docker base image / deploy-path** (`⛔`/`🧪`): unit CI is insufficient. Cover it by commenting **`/run-e2e`** on the PR (maintainer; non-blocking), or run `cd tests-in-tee && npm run test` locally (needs `PHALA_API_KEY` + funded testnet NEAR; see root README). A docker base-image bump also needs **measurement re-approval**.
+- **docker base image / deploy-path** (`⛔`/`🧪`): unit CI is insufficient. Cover it by commenting **`/run-e2e`** on the PR (maintainer; non-blocking), or run `cd tests-in-tee && npm ci && npm run test` locally (needs `PHALA_API_KEY` + funded testnet NEAR; see root README). A docker base-image bump also needs **measurement re-approval**.
 
 ### Summary
 - Counts by action bucket.
