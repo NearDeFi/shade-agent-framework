@@ -55,13 +55,24 @@ if (!TESTNET_ACCOUNT_ID || !TESTNET_PRIVATE_KEY || !PHALA_API_KEY) {
 // Phala Cloud SDK client (same SDK the CLI deploy path uses)
 const phalaClient = createClient({ apiKey: PHALA_API_KEY });
 
-// Random per-run slug (8 bytes / 64-bit) so overlapping runs (e.g. on different
-// PRs) are extremely unlikely to collide on the contract account or Phala app name.
-const RUN_SLUG = randomBytes(8).toString("hex");
+// Random per-run slug (6 bytes / 48-bit) so overlapping runs (e.g. on different
+// PRs) are extremely unlikely to collide on the contract account or Phala app name,
+// while keeping the derived account id well within NEAR's 64-char limit.
+const RUN_SLUG = randomBytes(6).toString("hex");
 
 // Generate contract ID as subaccount of TESTNET_ACCOUNT_ID
 const AGENT_CONTRACT_ID = `shade-test-${RUN_SLUG}.${TESTNET_ACCOUNT_ID}`;
 const TEST_APP_NAME = `shade-integration-tests-${RUN_SLUG}`;
+
+// Fail fast if TESTNET_ACCOUNT_ID is long enough to push the derived subaccount
+// past NEAR's 64-char account-id limit (otherwise createAccount fails later with
+// an opaque RPC error).
+if (AGENT_CONTRACT_ID.length > 64) {
+  console.error(
+    `Derived contract account id is ${AGENT_CONTRACT_ID.length} chars, over NEAR's 64-char limit:\n  ${AGENT_CONTRACT_ID}\nUse a shorter TESTNET_ACCOUNT_ID.`,
+  );
+  process.exit(1);
+}
 
 // Toggle to skip redeploying account, contract, and initialization (useful for reusing existing deployment)
 const SKIP_CONTRACT_DEPLOYMENT = false;
