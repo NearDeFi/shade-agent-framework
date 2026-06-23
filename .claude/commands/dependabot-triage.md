@@ -7,7 +7,7 @@ argument-hint: "[ecosystem filter: npm|cargo|github-actions|docker] (optional)"
 
 # Dependabot triage
 
-Classify every open Dependabot PR in this repo, print one table with a **suggested action** per PR, then give **enhanced, concrete guidance for every non-routine PR** (CI failures, majors, measurement-sensitive bumps, deploy/attestation-path deps, stale leftovers). This command is **read-only** — it never merges, closes, comments, approves, or edits. It produces a triage a human acts on.
+Classify every open Dependabot PR in this repo, print one table with a **suggested action** per PR, then give **enhanced, concrete guidance for every non-routine PR** (CI failures, majors, measurement-sensitive bumps, stale leftovers) — and for each major bump say whether CI covers it, it needs **`tests-in-tee`**, or it needs a **hands-on local run** of a specific package/path. This command is **read-only** — it never merges, closes, comments, approves, or edits. It produces a triage a human acts on.
 
 Optional `$ARGUMENTS`: if it names an ecosystem (`npm`, `cargo`, `github-actions`, `docker`), only show that ecosystem; otherwise show all.
 
@@ -36,9 +36,10 @@ Read PR bodies where the title isn't enough to enumerate grouped deps/versions: 
 - **Scope** — **dev** if title is `chore(deps-dev)…`; else **runtime** (may be mixed).
 - **Security?** — `security` label or a GHSA-/CVE- advisory block in the body.
 - **CI** — ✅ / ❌ / ⏳ / – from `statusCheckRollup`.
-- **Repo flags**:
+- **Repo flags** (drive the action + the verification tier in Phase 5):
   - `⛔ measurements` — docker base image (e.g. `node`): changing it moves the reproducible-build hash → approved measurements must be re-approved; attestation/registration can break.
-  - `🧪 e2e-gap` — deploy/attestation path (`@phala/cloud`; anything under `shade-attestation` / `shade-contract-template`; the contract). `ci-passed` (build + unit tests) does **not** exercise these.
+  - `🧪 tests-in-tee` — a surface CI runs only as *mocked* unit tests but `tests-in-tee` exercises for real: `@phala/dstack-sdk` (shade-agent-js TEE path), `@phala/cloud` (CLI deploy path), `near-sdk` / anything under `shade-contract-template` (on-chain behaviour — CI runs `cargo test --lib`, skipping the sandbox integration tests), `dcap-qvl` / `dstack-sdk-types` / anything under `shade-attestation` (real quote/collateral verification — CI tests fixtures only).
+  - `🔧 manual` — a surface covered by **neither** CI nor `tests-in-tee`, so a **major** bump needs a hands-on local run (Phase 5 table): `commander` (CLI arg parsing — `cli.js` is never driven by a test), `@napi-rs/keyring` (`shade-agent-cli/src/utils/keystore.js` — untested; e2e uses its own NEAR keys), `@inquirer/*` (CLI prompts — mocked in CI, never prompted in e2e), or any **shade-agent-template** runtime dep (`ethers`, `chainsig.js`, `hono`, `@hono/node-server`, `cors` — the template has no tests, CI runs only `tsc`, and e2e deploys `test-image/`, not the template).
   - `🧹 superseded?` — an *individual* npm/cargo **patch/minor** (non-major) PR is likely a pre-grouping leftover now covered by a group PR; verify before closing.
 
 Context for the actions: this repo runs a **merge queue on `main`** gating on `ci-passed` (use "Merge when ready"), and a **10-day cooldown + `min-release-age=7`**, so supply-chain-freshness risk is already handled — focus on *behavioral* breakage. The **`/run-e2e`** suite (real Phala TEE + deploy) **is runnable on Dependabot PRs**: a maintainer comments `/run-e2e` on the PR — it runs on `main`- and `stable`-base PRs, uses repo secrets (Dependabot branches are in-repo, not forks), and is **non-blocking** (not a required check, so it never gates the merge queue — you read its result). That's the way to cover the `🧪`/`⛔` gaps `ci-passed` skips; the alternative is running `tests-in-tee` locally.
@@ -70,7 +71,7 @@ Then state, per failing PR: *which job failed → the actual error → likely ca
 7. **minor group / minor** (CI ✅) → `🟡 Skim changelog, then merge`
 8. **patch group / patch**, or any **dev-scope** group (CI ✅) → `✅ Safe to merge`
 
-Append `· 🧪 /run-e2e to cover deploy path` to the action for any `🧪 e2e-gap` PR.
+Append `· 🧪 run tests-in-tee (/run-e2e)` for any `🧪 tests-in-tee` PR, and `· 🔧 manual run first` for any **major** `🔧 manual` PR.
 
 ## Phase 5 — Output
 
@@ -86,23 +87,40 @@ One markdown table, sorted safest-first:
 Keep package lists short ("headline +N more"). Nothing before the table but a one-line header.
 
 ### Enhanced guidance (only for non-routine PRs — skip pure `✅ Safe to merge`)
-For each CI-❌, major, `⛔`, `🧪`, security, or `🧹` PR, a short block:
+For each CI-❌, major, `⛔`, `🧪`, `🔧`, security, or `🧹` PR, a short block:
 
 > **#N — `<pkg>` <bump>**
 > - **Why flagged**: one line.
 > - **What to check**: for CI ❌ → the Phase 3 diagnosis (job → error → cause → fix). For changelog cases → *what to read*: open the PR body's release notes and scan for **Breaking Changes / Removed / Deprecated / changed defaults / new peer or engine (Node, MSRV) requirements**, plus the dep-specific risk (e.g. asn1.js→DER/ASN.1 parsing, commander→arg parsing, @phala/cloud→deploy API surface).
-> - **Verify locally / via e2e** (runtime/major/`🧪`/`⛔`): the ecosystem recipe below, and/or comment `/run-e2e` on the PR for deploy/attestation coverage.
+> - **Verify** by coverage tier (Phase 5): `🧪`/`⛔` → `tests-in-tee` (`/run-e2e`); **major** `🔧` → the manual check for that package/path; anything CI already covers → trust it, no local re-run.
 > - **Decision**: merge / close / `@dependabot ignore this major version` / `/run-e2e` + measurement re-approval.
 
-### Local verification recipes (include the ones relevant to flagged PRs)
-- **shade-agent-cli dep**: `gh pr checkout <n> --repo {REPO}` → `cd shade-agent-cli && npm ci && npm run build && npm test` → smoke: `node dist/src/cli.js --help` (+ a deploy dry-run for commander/inquirer changes).
-- **shade-agent-js dep**: `cd shade-agent-js && npm ci && npm run build && npm test`, then build the consumer: `cd ../shade-agent-template && npm ci && npm run build`.
-- **cargo (shade-attestation / shade-contract-template)**: `cargo fmt --check && cargo clippy --all-targets && cargo test` — for the contract run the **full** `cargo test` (the sandbox integration tests CI skips with `--lib`).
-- **docker base image / deploy-path** (`⛔`/`🧪`): unit CI is insufficient. Cover it by commenting **`/run-e2e`** on the PR (maintainer; non-blocking), or run `cd tests-in-tee && npm ci && npm run test` locally (needs `PHALA_API_KEY` + funded testnet NEAR; see root README). A docker base-image bump also needs **measurement re-approval**.
+### Verification by coverage tier (only for flagged PRs)
+`ci-passed` runs per-package **build + mocked unit tests on ubuntu**. Treat anything it covers as done — an ubuntu pass stands in for other platforms, so never ask for a local re-run of what CI already runs. Route only the gaps:
+
+**🧪 Run `tests-in-tee` (real Phala TEE + chain + deploy).** Always flag these — `ci-passed` only mocks them. Comment **`/run-e2e`** on the PR (maintainer; non-blocking; `main`/`stable` base, in-repo secrets), or locally `cd tests-in-tee && npm ci && npm run test` (needs `PHALA_API_KEY` + funded testnet NEAR; see root README).
+
+| Dep / change | Why only tests-in-tee covers it |
+|---|---|
+| `@phala/dstack-sdk` (shade-agent-js) | real CVM quote + key derivation (`tee.ts` is mocked in CI) |
+| `@phala/cloud` (shade-agent-cli) | `tests-in-tee` runs the real `phala-deploy.js` deploy (CI mocks the SDK) |
+| `near-sdk` / `shade-contract-template/**` | on-chain register / owner-gating / upgrade — CI runs `cargo test --lib`, skipping the sandbox integration tests |
+| `dcap-qvl` / `dstack-sdk-types` / `shade-attestation/**` | verification against live collateral (CI's `cargo test` uses fixtures) |
+| docker base image (`node`) `⛔` | new image → new measurement; **also re-approve measurements** |
+
+**🔧 Run it by hand (covered by NEITHER CI nor tests-in-tee).** A **major** bump here has no automated gate. `gh pr checkout <n> --repo {REPO}` first.
+
+| Package · location | Trigger dep | Manual check |
+|---|---|---|
+| `shade-agent-cli/src/cli.js` — arg parsing | `commander` | `cd shade-agent-cli && node src/cli.js --help`, then run a real subcommand with its flags |
+| `shade-agent-cli/src/utils/keystore.js` + `src/commands/auth/*` — OS keychain | `@napi-rs/keyring` | a real auth round-trip: store creds → read back → delete |
+| `shade-agent-cli` prompts — `src/commands/auth/prompts.js`, `src/utils/destructive-redeploy.js`, `src/utils/error-handler.js`, `src/commands/whitelist/index.js` | `@inquirer/*` | run a command that prompts (auth login, a destructive-redeploy confirm, `whitelist`) |
+| `shade-agent-template/**` — whole app (no tests; CI = `tsc` only; e2e deploys `test-image/`, not this) | `ethers`, `chainsig.js` | `cd shade-agent-template && npm run dev`, then exercise the chain-signature / EVM path |
+| `shade-agent-template` — web layer | `hono`, `@hono/node-server`, `cors` | run the agent and hit its endpoints |
 
 ### Summary
 - Counts by action bucket.
-- **Merge order**: safe patch/dev groups → minor groups (after a skim) → majors one at a time → `⛔`/`🧪` after `/run-e2e` (or local e2e) + any measurement re-approval.
+- **Merge order**: safe patch/dev groups → minor groups (after a skim) → majors one at a time → `🔧` majors after a manual run → `⛔`/`🧪` after `tests-in-tee` + any measurement re-approval.
 - Flags legend — only for flags that appeared.
 
 Then **stop**. Take no action — the human decides what to merge/close.
