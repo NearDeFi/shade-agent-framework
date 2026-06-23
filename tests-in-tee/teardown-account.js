@@ -25,15 +25,29 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 export async function deleteContractAccount(account, accountId, beneficiaryId) {
   if (!accountId) return;
   console.log(`\nTearing down contract account ${accountId}...`);
-  const clearSentinel = () =>
-    fs.rmSync(resolve(__dirname, ".contract-id"), { force: true });
+  // Swallows its own error so deleteContractAccount keeps its no-throw contract.
+  const clearSentinel = () => {
+    try {
+      fs.rmSync(resolve(__dirname, ".contract-id"), { force: true });
+    } catch (e) {
+      console.error(`⚠ Could not remove .contract-id: ${e.message}`);
+    }
+  };
   try {
     await account.deleteAccount(beneficiaryId);
     console.log(`✓ Contract account ${accountId} torn down`);
     clearSentinel();
   } catch (e) {
+    // Only a genuinely-missing account counts as already-gone — match the
+    // structured error type first (as createContractAccount does), then the RPC
+    // message variants. AccessKeyDoesNotExist is deliberately excluded: the
+    // account may still exist (with funds) while this signer just lacks its key,
+    // and clearing the sentinel would strand the cleanup.
     const msg = e?.message ?? String(e);
-    if (/(does ?n[o']t exist|AccountDoesNotExist|UnknownAccount|AccessKeyDoesNotExist)/i.test(msg)) {
+    const gone =
+      e?.type === "AccountDoesNotExist" ||
+      /AccountDoesNotExist|does ?n[o']t exist|UnknownAccount/i.test(msg);
+    if (gone) {
       console.log(`✓ Contract account ${accountId} already gone`);
       clearSentinel();
     } else {
@@ -57,7 +71,10 @@ if (invokedDirectly) {
     console.error("Missing TESTNET_ACCOUNT_ID / TESTNET_PRIVATE_KEY");
     process.exit(1);
   }
-  const provider = new JsonRpcProvider({ url: "https://test.rpc.fastnear.com" });
+  const provider = new JsonRpcProvider(
+    { url: "https://test.rpc.fastnear.com" },
+    { retries: 3, backoff: 2, wait: 1000 },
+  );
   const signer = KeyPairSigner.fromSecretKey(privateKey);
   const account = new Account(accountId, provider, signer);
   await deleteContractAccount(account, accountId, beneficiaryId);

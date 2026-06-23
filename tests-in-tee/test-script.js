@@ -141,12 +141,13 @@ const contractAccount = new Account(AGENT_CONTRACT_ID, provider, signer);
 // Sleep helper
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// createAccount is the only transaction signed by the shared parent key — the
-// per-run contract account is its own owner, so every other owner/admin call
-// runs on that account's independent nonce. Concurrent runs can still race the
-// parent's nonce on this one tx, so retry on a nonce conflict (each attempt
-// re-queries the access key, picking up the new nonce). Jittered so two runs
-// don't retry in lockstep.
+// On the normal per-run path createAccount is the one transaction signed by the
+// shared parent key — the contract account is its own owner, so every owner/admin
+// call runs on that account's independent nonce (only the account-reuse branch's
+// transfer top-up is also parent-signed, and a fresh random slug makes that branch
+// unreachable). Concurrent runs can still race the parent's nonce on createAccount,
+// so retry on a nonce conflict (each attempt re-queries the access key, picking up
+// the new nonce). Jittered so two runs don't retry in lockstep.
 async function createAccountWithNonceRetry(newAccountId, publicKey, amount) {
   const maxAttempts = 5;
   for (let attempt = 1; ; attempt++) {
@@ -156,7 +157,7 @@ async function createAccountWithNonceRetry(newAccountId, publicKey, amount) {
     } catch (e) {
       const msg = e?.message ?? String(e);
       if (attempt < maxAttempts && /nonce/i.test(msg)) {
-        console.log(`Nonce conflict creating account, retrying (${attempt}/${maxAttempts - 1})`);
+        console.log(`Nonce conflict creating account (attempt ${attempt} of ${maxAttempts}), retrying`);
         await sleep(300 + attempt * 400 + Math.floor(Math.random() * 400));
         continue;
       }
