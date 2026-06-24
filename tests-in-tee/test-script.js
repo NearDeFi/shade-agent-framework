@@ -339,7 +339,13 @@ function isNonceConflict(e) {
   return e?.type === "InvalidNonce" || /nonce/i.test(e?.message ?? "");
 }
 
-async function withNonceRetry(fn, label, maxAttempts = 5) {
+// `category` lets the caller label an exhausted/non-nonce failure by phase:
+// setup-path callers pass SETUP; the in-test owner/admin calls keep NEAR.
+async function withNonceRetry(
+  fn,
+  label,
+  { category = ErrorCategory.NEAR, maxAttempts = 5 } = {},
+) {
   for (let attempt = 1; ; attempt++) {
     try {
       return await fn();
@@ -351,7 +357,7 @@ async function withNonceRetry(fn, label, maxAttempts = 5) {
         await sleep(300 + attempt * 400 + Math.floor(Math.random() * 2000));
         continue;
       }
-      throw tagError(e, ErrorCategory.NEAR, { step: label });
+      throw tagError(e, category, { step: label });
     }
   }
 }
@@ -455,6 +461,7 @@ async function createContractAccount() {
       await withNonceRetry(
         () => wipeContractState(contractAccount),
         "wipe-contract-state",
+        { category: ErrorCategory.SETUP },
       );
       await sleep(2000);
     } catch (e) {
@@ -485,6 +492,7 @@ async function createContractAccount() {
               amount: NEAR.toUnits(topUp.toString()),
             }),
           "topup-contract-account",
+          { category: ErrorCategory.SETUP },
         );
         await sleep(2000);
       } catch (e) {
@@ -508,6 +516,7 @@ async function createContractAccount() {
           NEAR.toUnits(fundingAmount),
         ),
       "create-account",
+      { category: ErrorCategory.SETUP },
     );
     await sleep(2000);
     console.log(`✓ Contract account created: ${AGENT_CONTRACT_ID}`);
@@ -543,6 +552,7 @@ async function deployContract() {
     await withNonceRetry(
       () => contractAccount.deployContract(new Uint8Array(wasmBytes)),
       "deploy-contract",
+      { category: ErrorCategory.SETUP },
     );
     await sleep(2000);
     console.log("✓ Contract deployed");
@@ -574,6 +584,7 @@ async function initializeContract() {
           gas: tgasToGas(30),
         }),
       "initialize-contract",
+      { category: ErrorCategory.SETUP },
     );
     await sleep(2000);
     console.log("✓ Contract initialized");
