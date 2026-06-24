@@ -241,7 +241,13 @@ async function fetchWithRetry(
         await sleep(delay);
         continue;
       }
-      throw tagError(e, ErrorCategory.CONNECTION, { ...ctx, attempt });
+      // Only a genuine connection error is CONNECTION; a programmer TypeError
+      // (bad URL/options, no .cause) is not a transport problem.
+      throw tagError(
+        e,
+        isConnectionError(e) ? ErrorCategory.CONNECTION : ErrorCategory.UNKNOWN,
+        { ...ctx, attempt },
+      );
     } finally {
       clearTimeout(timeoutId);
     }
@@ -253,7 +259,7 @@ async function fetchWithRetry(
           `PRIVATE KEY LEAK DETECTED: response from ${url} contains private key patterns`,
         ),
         ErrorCategory.ASSERTION,
-        { ...ctx, status: response.status },
+        { ...ctx, status: response.status, attempt },
       );
     }
 
@@ -264,7 +270,7 @@ async function fetchWithRetry(
         throw tagError(
           new Error(`Could not parse 200 response from ${url}: ${text}`),
           ErrorCategory.APP,
-          { ...ctx, status: response.status },
+          { ...ctx, status: response.status, attempt },
         );
       }
     }
@@ -282,7 +288,7 @@ async function fetchWithRetry(
       throw tagError(
         new Error(body.error || "Test app handler error"),
         ErrorCategory.APP,
-        { ...ctx, status: response.status, remoteStack: body.stack },
+        { ...ctx, status: response.status, remoteStack: body.stack, attempt },
       );
     }
 
@@ -297,7 +303,7 @@ async function fetchWithRetry(
       throw tagError(
         new Error(body.error || `HTTP 400: ${text}`),
         ErrorCategory.APP,
-        { ...ctx, status: 400 },
+        { ...ctx, status: 400, attempt },
       );
     }
 
@@ -309,9 +315,17 @@ async function fetchWithRetry(
     throw tagError(
       new Error(`HTTP ${response.status}: ${text}`),
       ErrorCategory.APP,
-      { ...ctx, status: response.status },
+      { ...ctx, status: response.status, attempt },
     );
   }
+
+  // Unreachable — the final attempt always returns or throws. Guardrail so a
+  // future edit to a retry guard can't silently resolve to undefined.
+  throw tagError(
+    new Error(`fetchWithRetry exhausted ${maxAttempts} attempts for ${url}`),
+    ErrorCategory.UNKNOWN,
+    { ...ctx, attempt: maxAttempts },
+  );
 }
 
 // A nonce conflict is RPC read-after-write lag: sequential calls signed by the
@@ -414,16 +428,24 @@ async function createContractAccount() {
     }
   } catch (e) {
     if (e.type !== "AccountDoesNotExist") {
-      throw new Error(`Error checking contract account: ${e.message}`);
+      throw tagError(
+        new Error(`Error checking contract account: ${e.message}`),
+        ErrorCategory.SETUP,
+        { step: "check-contract-account" },
+      );
     }
   }
 
   const totalBalance = masterBalanceDecimal + contractBalanceDecimal;
 
   if (totalBalance < requiredBalance) {
-    throw new Error(
-      `Insufficient balance. Master account has ${totalBalance} NEAR but needs ${requiredBalance} NEAR ` +
-        `(${fundingAmount} NEAR for contract + ${FEE_BUFFER} NEAR extra for transaction fees and wipe gas)`,
+    throw tagError(
+      new Error(
+        `Insufficient balance. Master account has ${totalBalance} NEAR but needs ${requiredBalance} NEAR ` +
+          `(${fundingAmount} NEAR for contract + ${FEE_BUFFER} NEAR extra for transaction fees and wipe gas)`,
+      ),
+      ErrorCategory.SETUP,
+      { step: "fund-check" },
     );
   }
 
@@ -437,12 +459,16 @@ async function createContractAccount() {
       await sleep(2000);
     } catch (e) {
       if (e.type === "AccessKeyDoesNotExist") {
-        throw new Error(
-          "Cannot wipe contract account state - access key mismatch. " +
-            "The contract account was created with a different master account.",
+        throw tagError(
+          new Error(
+            "Cannot wipe contract account state - access key mismatch. " +
+              "The contract account was created with a different master account.",
+          ),
+          ErrorCategory.SETUP,
+          { step: "wipe-contract-state" },
         );
       }
-      throw new Error(`Failed to wipe contract account state: ${e.message}`);
+      throw tagError(e, ErrorCategory.SETUP, { step: "wipe-contract-state" });
     }
 
     // Re-fetch the post-wipe balance — cleanup gas burned some of it.
@@ -462,7 +488,9 @@ async function createContractAccount() {
         );
         await sleep(2000);
       } catch (e) {
-        throw new Error(`Failed to top up contract account: ${e.message}`);
+        throw tagError(e, ErrorCategory.SETUP, {
+          step: "topup-contract-account",
+        });
       }
     }
     console.log(`✓ Contract account state wiped: ${AGENT_CONTRACT_ID}`);
@@ -484,7 +512,7 @@ async function createContractAccount() {
     await sleep(2000);
     console.log(`✓ Contract account created: ${AGENT_CONTRACT_ID}`);
   } catch (e) {
-    throw new Error(`Failed to create contract account: ${e.message}`);
+    throw tagError(e, ErrorCategory.SETUP, { step: "create-account" });
   }
 }
 
@@ -501,8 +529,12 @@ async function deployContract() {
   );
 
   if (!fs.existsSync(wasmPath)) {
-    throw new Error(
-      `WASM file not found at ${wasmPath}. Please build the contract first.`,
+    throw tagError(
+      new Error(
+        `WASM file not found at ${wasmPath}. Please build the contract first.`,
+      ),
+      ErrorCategory.SETUP,
+      { step: "deploy-contract" },
     );
   }
 
@@ -515,7 +547,7 @@ async function deployContract() {
     await sleep(2000);
     console.log("✓ Contract deployed");
   } catch (e) {
-    throw new Error(`Failed to deploy contract: ${e.message}`);
+    throw tagError(e, ErrorCategory.SETUP, { step: "deploy-contract" });
   }
 }
 
@@ -546,7 +578,7 @@ async function initializeContract() {
     await sleep(2000);
     console.log("✓ Contract initialized");
   } catch (e) {
-    throw new Error(`Failed to initialize contract: ${e.message}`);
+    throw tagError(e, ErrorCategory.SETUP, { step: "initialize-contract" });
   }
 }
 
@@ -1249,6 +1281,7 @@ async function test7(appUrl) {
   console.log(`Running test: measurements-removed`);
   console.log("=".repeat(70));
 
+  let result;
   try {
     // Step 1: Approve measurements and PPIDs
     await approveMeasurements(correctMeasurements);
@@ -1282,7 +1315,7 @@ async function test7(appUrl) {
     await new Promise((res) => setTimeout(res, 2000));
 
     // Step 4: Try to make a call (should fail because measurements were removed)
-    const result = await callTestEndpoint(appUrl, "measurements-removed");
+    result = await callTestEndpoint(appUrl, "measurements-removed");
 
     // Verify error contains InvalidMeasurements reason (from AgentRemovalReason)
     const errorMsg = result.callError || "";
@@ -1309,6 +1342,7 @@ async function test7(appUrl) {
   } catch (error) {
     throw tagError(error, ErrorCategory.ASSERTION, {
       test: "measurements-removed",
+      result,
     });
   }
 }
@@ -1322,6 +1356,7 @@ async function test8(appUrl) {
   console.log(`Running test: ppid-removed`);
   console.log("=".repeat(70));
 
+  let result;
   try {
     // Step 1: Approve measurements and PPIDs
     await approveMeasurements(correctMeasurements);
@@ -1355,7 +1390,7 @@ async function test8(appUrl) {
     await new Promise((res) => setTimeout(res, 2000));
 
     // Step 4: Try to make a call (should fail because PPID was removed)
-    const result = await callTestEndpoint(appUrl, "ppid-removed");
+    result = await callTestEndpoint(appUrl, "ppid-removed");
 
     // Verify error contains InvalidPpid reason (from AgentRemovalReason)
     const errorMsg = result.callError || "";
@@ -1380,7 +1415,10 @@ async function test8(appUrl) {
     console.log(`✓ Test ppid-removed passed`);
     return true;
   } catch (error) {
-    throw tagError(error, ErrorCategory.ASSERTION, { test: "ppid-removed" });
+    throw tagError(error, ErrorCategory.ASSERTION, {
+      test: "ppid-removed",
+      result,
+    });
   }
 }
 
@@ -1393,6 +1431,7 @@ async function test10(appUrl) {
   console.log(`Running test: attestation-expired`);
   console.log("=".repeat(70));
 
+  let result;
   try {
     // Step 1: Update attestation expiration to 10 seconds (10000 ms)
     await updateAttestationExpirationTime(10000);
@@ -1404,7 +1443,7 @@ async function test10(appUrl) {
     await new Promise((res) => setTimeout(res, 2000));
 
     // Step 3: Call attestation-expired - TEE registers, waits 12s, then attempts request_signature (call takes ~12+ sec)
-    const result = await callTestEndpoint(appUrl, "attestation-expired");
+    result = await callTestEndpoint(appUrl, "attestation-expired");
 
     if (result.registrationError) {
       throw new Error(
@@ -1439,6 +1478,7 @@ async function test10(appUrl) {
   } catch (error) {
     throw tagError(error, ErrorCategory.ASSERTION, {
       test: "attestation-expired",
+      result,
     });
   }
 }
