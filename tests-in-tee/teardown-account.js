@@ -39,11 +39,7 @@ export async function deleteContractAccount(account, beneficiaryId) {
     console.log(`✓ Contract account ${accountId} torn down`);
     clearSentinel();
   } catch (e) {
-    // Only a genuinely-missing account counts as already-gone — match the
-    // structured error type first (as createContractAccount does), then the RPC
-    // message variants. AccessKeyDoesNotExist is deliberately excluded: the
-    // account may still exist (with funds) while this signer just lacks its key,
-    // and clearing the sentinel would strand the cleanup.
+    // Only a genuinely-missing account counts as already-gone 
     const msg = e?.message ?? String(e);
     const gone =
       e?.type === "AccountDoesNotExist" ||

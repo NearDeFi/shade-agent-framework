@@ -56,7 +56,7 @@ if (!TESTNET_ACCOUNT_ID || !TESTNET_PRIVATE_KEY || !PHALA_API_KEY) {
 const phalaClient = createClient({ apiKey: PHALA_API_KEY });
 
 // Random per-run slug (6 bytes / 48-bit) so overlapping runs (e.g. on different
-// PRs) are extremely unlikely to collide on the contract account or Phala app name,
+// PRs) don't collide on the contract account or Phala app name,
 // while keeping the derived account id well within NEAR's 64-char limit.
 const RUN_SLUG = randomBytes(6).toString("hex");
 
@@ -65,21 +65,13 @@ const AGENT_CONTRACT_ID = `shade-test-${RUN_SLUG}.${TESTNET_ACCOUNT_ID}`;
 const TEST_APP_NAME = `shade-integration-tests-${RUN_SLUG}`;
 
 // Fail fast if TESTNET_ACCOUNT_ID is long enough to push the derived subaccount
-// past NEAR's 64-char account-id limit (otherwise createAccount fails later with
-// an opaque RPC error).
+// past NEAR's 64-char account-id limit .
 if (AGENT_CONTRACT_ID.length > 64) {
   console.error(
     `Derived contract account id is ${AGENT_CONTRACT_ID.length} chars, over NEAR's 64-char limit:\n  ${AGENT_CONTRACT_ID}\nUse a shorter TESTNET_ACCOUNT_ID.`,
   );
   process.exit(1);
 }
-
-// Toggle to skip redeploying account, contract, and initialization (useful for reusing existing deployment)
-const SKIP_CONTRACT_DEPLOYMENT = false;
-
-// Toggle to skip Phala deployment - ON if TEST_APP_URL is specified, OFF if empty
-// const TEST_APP_URL = "https://45034fea45a406a829feea099c77bbe6cf26faed-3000.dstack-pha-prod7.phala.network";
-const SKIP_PHALA_DEPLOYMENT = false;
 
 // Write AGENT_CONTRACT_ID to .env file for docker-compose
 function updateEnvFile() {
@@ -170,7 +162,7 @@ async function createAccountWithNonceRetry(newAccountId, publicKey, amount) {
       const msg = e?.message ?? String(e);
       if (attempt < maxAttempts && /nonce/i.test(msg)) {
         console.log(`Nonce conflict creating account (attempt ${attempt} of ${maxAttempts}), retrying`);
-        await sleep(300 + attempt * 400 + Math.floor(Math.random() * 400));
+        await sleep(300 + attempt * 400 + Math.floor(Math.random() * 2000));
         continue;
       }
       throw e;
@@ -1320,55 +1312,41 @@ async function main() {
   // Phala TEE instance or a funded testnet account.
   let appUrl;
   let appId = null;
-  let createdContract = false;
   try {
-    // Deploy contract to testnet (skip if SKIP_CONTRACT_DEPLOYMENT is true)
-    if (!SKIP_CONTRACT_DEPLOYMENT) {
-      console.log("\nDeploying contract to testnet...");
-      // Mark + persist the account id before creating it, so a CI teardown
-      // step can delete it even if this process is killed mid-create.
-      createdContract = true;
-      try {
-        fs.writeFileSync(resolve(__dirname, ".contract-id"), AGENT_CONTRACT_ID);
-      } catch (e) {
-        console.error(`⚠ Could not write .contract-id: ${e.message}`);
-      }
-      await createContractAccount();
-      await deployContract();
-      await initializeContract();
-      console.log("✓ Contract deployment complete\n");
-    } else {
-      console.log(
-        "\n⚠ Skipping contract deployment (SKIP_CONTRACT_DEPLOYMENT=true)\n",
-      );
+    // Deploy contract to testnet.
+    console.log("\nDeploying contract to testnet...");
+    // Persist the account id before creating it, so a CI teardown step can
+    // delete it even if this process is killed mid-create.
+    try {
+      fs.writeFileSync(resolve(__dirname, ".contract-id"), AGENT_CONTRACT_ID);
+    } catch (e) {
+      console.error(`⚠ Could not write .contract-id: ${e.message}`);
     }
+    await createContractAccount();
+    await deployContract();
+    await initializeContract();
+    console.log("✓ Contract deployment complete\n");
 
-    if (SKIP_PHALA_DEPLOYMENT) {
-      console.log("⚠ Skipping Phala deployment (TEST_APP_URL provided)");
-      appUrl = TEST_APP_URL.trim();
-      console.log(`✓ Using provided app URL: ${appUrl}`);
-    } else {
-      // Build, push, and update docker-compose.yaml with the test image
-      console.log("\nBuilding and pushing test image...");
-      await buildAndPushTestImage();
-      console.log("✓ Test image built and pushed\n");
+    // Build, push, and update docker-compose.yaml with the test image
+    console.log("\nBuilding and pushing test image...");
+    await buildAndPushTestImage();
+    console.log("✓ Test image built and pushed\n");
 
-      console.log("Deploying test image to Phala...");
-      appId = await deployToPhala();
-      // Persist the CVM id so a CI teardown step can delete it even if this
-      // process is killed before the `finally` below runs.
-      try {
-        fs.writeFileSync(resolve(__dirname, ".cvm-id"), String(appId));
-      } catch (e) {
-        console.error(`⚠ Could not write .cvm-id: ${e.message}`);
-      }
-      const appUrls = await getAppUrl(appId);
-      if (!appUrls || appUrls.length === 0) {
-        throw new Error("Failed to get app URL from Phala");
-      }
-      appUrl = appUrls[0].app;
-      console.log(`✓ App deployed at: ${appUrl}`);
+    console.log("Deploying test image to Phala...");
+    appId = await deployToPhala();
+    // Persist the CVM id so a CI teardown step can delete it even if this
+    // process is killed before the `finally` below runs.
+    try {
+      fs.writeFileSync(resolve(__dirname, ".cvm-id"), String(appId));
+    } catch (e) {
+      console.error(`⚠ Could not write .cvm-id: ${e.message}`);
     }
+    const appUrls = await getAppUrl(appId);
+    if (!appUrls || appUrls.length === 0) {
+      throw new Error("Failed to get app URL from Phala");
+    }
+    appUrl = appUrls[0].app;
+    console.log(`✓ App deployed at: ${appUrl}`);
 
     // Wait for the app to be ready using heartbeat
     await waitForAppReady(appUrl);
@@ -1407,13 +1385,12 @@ async function main() {
 
     console.log("\n✓ All tests passed!");
   } finally {
-    // Tear down the CVM we provisioned (no-op when a provided endpoint was
-    // reused, i.e. appId is null), then delete the per-run contract account
-    // (refunding the parent). Neither teardown throws.
+    // Tear down what this run provisioned: the Phala CVM, then the per-run
+    // contract account (refunding the parent). Both are idempotent and neither
+    // throws, so this is safe even if an early failure left them half-created
+    // (appId stays null until the CVM exists, making deletePhalaApp a no-op).
     await deletePhalaApp(appId);
-    if (createdContract) {
-      await deleteContractAccount(contractAccount, TESTNET_ACCOUNT_ID);
-    }
+    await deleteContractAccount(contractAccount, TESTNET_ACCOUNT_ID);
   }
 }
 

@@ -69,10 +69,10 @@ Integration tests that run inside a TEE (Phala). They test shade-agent-js, shade
 
 Each run uses a random per-run slug for the contract account
 (`shade-test-<slug>.<account>`) and the Phala app name, so independent runs
-(e.g. on different PRs) are extremely unlikely to collide.
+(e.g. on different PRs) don't collide.
 
 `test-script.js` always tears down what it provisions when the run finishes — on
-success **or** failure — so a failed run no longer leaves a paid TEE instance or
+success **or** failure — so a failed run doesn't leave a paid TEE instance or
 a funded account behind: the Phala CVM is deleted, and the per-run contract
 account is deleted with its balance refunded to the parent. Both ids are written
 to `tests-in-tee/.cvm-id` and `tests-in-tee/.contract-id` so CI can clean them up
