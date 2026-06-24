@@ -397,23 +397,26 @@ function formatError(error) {
   if (ctx.status !== undefined) lines.push(`HTTP status: ${ctx.status}`);
   if (ctx.attempt !== undefined) lines.push(`Attempts: ${ctx.attempt}`);
 
-  if (category === ErrorCategory.CONNECTION) {
-    const code = error?.code ?? error?.cause?.code;
-    if (code) lines.push(`Error code: ${code}`);
-    if (error?.cause?.message) {
-      lines.push(`Underlying cause: ${error.cause.message}`);
-    }
+  // Gate these detail lines on the field, not the category — a SETUP/NEAR/
+  // UNKNOWN error can also carry a code/cause/type worth surfacing.
+  const code = error?.code ?? error?.cause?.code;
+  if (code) lines.push(`Error code: ${code}`);
+  if (error?.cause?.message) {
+    lines.push(`Underlying cause: ${error.cause.message}`);
   }
-
-  // A NEAR error carries .type even when the phase tags it SETUP, so gate on
-  // the field, not the category.
   if (error?.type) {
     lines.push(`Error type: ${error.type}`);
   }
 
   if (ctx.result !== undefined) {
     lines.push("Result object:");
-    lines.push(JSON.stringify(ctx.result, null, 2));
+    // Guard the stringify so a non-JSON result can't turn the one report this
+    // change exists to produce into an unhandled rejection.
+    try {
+      lines.push(JSON.stringify(ctx.result, null, 2));
+    } catch {
+      lines.push(String(ctx.result));
+    }
   }
 
   if (ctx.remoteStack) {
