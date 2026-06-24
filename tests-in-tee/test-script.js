@@ -144,30 +144,251 @@ const contractAccount = new Account(AGENT_CONTRACT_ID, provider, signer);
 // Sleep helper
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// On the normal per-run path createAccount is the one transaction signed by the
-// shared parent key — the contract account is its own owner, so every owner/admin
-// call runs on that account's independent nonce. (The account-reuse branch's
-// transfer top-up is also parent-signed, but a fresh random slug means that branch
-// only runs in the rare case the subaccount already exists.) Concurrent runs can
-// still race the parent's nonce on createAccount, so retry on a nonce conflict (each
-// attempt re-queries the access key, picking up the new nonce). Jittered so two runs
-// don't retry in lockstep.
-async function createAccountWithNonceRetry(newAccountId, publicKey, amount) {
-  const maxAttempts = 5;
+// ===========================================================================
+// Error classification & retry
+// ===========================================================================
+// Failures carry a category + context so the top-level reporter can say what
+// actually went wrong — a failed assertion, an unreachable app, an app-side
+// crash, or a contract error — instead of an opaque message. Retries are
+// deliberately narrow: connection errors on the app's HTTP calls (NEAR RPC has
+// its own retry inside JsonRpcProvider) and a fresh-nonce retry on NEAR
+// mutating calls.
+
+const ErrorCategory = {
+  CONNECTION: "CONNECTION",
+  APP: "APP",
+  ASSERTION: "ASSERTION",
+  NEAR: "NEAR",
+  SETUP: "SETUP",
+  UNKNOWN: "UNKNOWN",
+};
+
+// Attach a category (first tag wins, so a deep ASSERTION/APP/NEAR throw keeps
+// its category when an outer catch re-tags) and merge context for the reporter.
+function tagError(error, category, context = {}) {
+  const err = error instanceof Error ? error : new Error(String(error));
+  if (!err.category) err.category = category;
+  err.context = { ...(err.context || {}), ...context };
+  return err;
+}
+
+// Connection errors are worth retrying. undici surfaces "fetch failed" as a
+// TypeError with the socket error on .cause; an aborted request (our timeout)
+// is an AbortError; socket failures carry a code on the error or its .cause. A
+// plain TypeError with no .cause is a programmer error, not a network blip.
+const CONNECTION_CODES = new Set([
+  "ECONNREFUSED",
+  "ETIMEDOUT",
+  "ENOTFOUND",
+  "ECONNRESET",
+  "EAI_AGAIN",
+  "EPIPE",
+]);
+
+function isConnectionError(e) {
+  if (e instanceof TypeError) return e.cause !== undefined;
+  if (e?.name === "AbortError") return true;
+  const code = e?.code ?? e?.cause?.code;
+  if (typeof code === "string") {
+    return CONNECTION_CODES.has(code) || code.startsWith("UND_ERR_");
+  }
+  return false;
+}
+
+// Transient HTTP statuses worth retrying: 404 while the app/proxy is warming
+// up, 408/429 backpressure, and 5xx. A 5xx carrying the app's structured crash
+// envelope is intercepted before this is consulted.
+function isTransientHttpStatus(status) {
+  return (
+    status === 404 ||
+    status === 408 ||
+    status === 429 ||
+    (status >= 500 && status <= 599)
+  );
+}
+
+// Call a test-app endpoint with connection-only retries and a per-request
+// timeout. Resolves to the parsed JSON body — a success result, or a structured
+// failure result the caller is meant to inspect (e.g. a registrationError).
+// Throws a tagged CONNECTION error when the app is unreachable, or a tagged APP
+// error for an app-side crash / deterministic 4xx (neither is retried).
+async function fetchWithRetry(
+  url,
+  fetchOptions = {},
+  {
+    test,
+    step,
+    timeoutMs = 60000,
+    maxAttempts = 5,
+    delay = 2000,
+    checkForPrivateKeyLeak = false,
+  } = {},
+) {
+  const ctx = { url, test, step };
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    let response;
+    let text;
+    try {
+      response = await fetch(url, { ...fetchOptions, signal: controller.signal });
+      text = await response.text();
+    } catch (e) {
+      if (isConnectionError(e) && attempt < maxAttempts) {
+        console.log(
+          `Connection error calling ${url} (attempt ${attempt} of ${maxAttempts}), retrying`,
+        );
+        await sleep(delay);
+        continue;
+      }
+      throw tagError(e, ErrorCategory.CONNECTION, { ...ctx, attempt });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    // Definitive: a private key in any response body is a leak, never retried.
+    if (checkForPrivateKeyLeak && containsPrivateKey(text)) {
+      throw tagError(
+        new Error(
+          `PRIVATE KEY LEAK DETECTED: response from ${url} contains private key patterns`,
+        ),
+        ErrorCategory.ASSERTION,
+        { ...ctx, status: response.status },
+      );
+    }
+
+    if (response.ok) {
+      try {
+        return JSON.parse(text);
+      } catch {
+        throw tagError(
+          new Error(`Could not parse 200 response from ${url}: ${text}`),
+          ErrorCategory.APP,
+          { ...ctx, status: response.status },
+        );
+      }
+    }
+
+    let body;
+    try {
+      body = JSON.parse(text);
+    } catch {
+      body = undefined;
+    }
+
+    // App handler crashed (its catch envelope carries a stack) — deterministic,
+    // report the remote stack, never retry even on a 5xx.
+    if (body?.success === false && typeof body.stack === "string") {
+      throw tagError(
+        new Error(body.error || "Test app handler error"),
+        ErrorCategory.APP,
+        { ...ctx, status: response.status, remoteStack: body.stack },
+      );
+    }
+
+    // Structured registration result (no stack) — a result the caller's
+    // assertion inspects, not a transport failure.
+    if (body?.success === false && body.registrationError !== undefined) {
+      return body;
+    }
+
+    // Deterministic "agent not found" ordering error.
+    if (response.status === 400 && body?.success === false) {
+      throw tagError(
+        new Error(body.error || `HTTP 400: ${text}`),
+        ErrorCategory.APP,
+        { ...ctx, status: 400 },
+      );
+    }
+
+    if (isTransientHttpStatus(response.status) && attempt < maxAttempts) {
+      await sleep(delay);
+      continue;
+    }
+
+    throw tagError(
+      new Error(`HTTP ${response.status}: ${text}`),
+      ErrorCategory.APP,
+      { ...ctx, status: response.status },
+    );
+  }
+}
+
+// A nonce conflict is RPC read-after-write lag: sequential calls signed by the
+// same access key can hit a node that returns a stale nonce, so the next tx is
+// built with a nonce the chain already consumed (InvalidNonce, ak_nonce ===
+// tx_nonce). (Contract owner calls run on the contract account's own nonce, so
+// overlapping runs don't contend — but a single run's rapid-fire owner calls
+// still race the lag.) Re-invoking re-queries the nonce; jittered backoff lets
+// the node catch up and keeps overlapping runs out of lockstep.
+function isNonceConflict(e) {
+  return e?.type === "InvalidNonce" || /nonce/i.test(e?.message ?? "");
+}
+
+async function withNonceRetry(fn, label, maxAttempts = 5) {
   for (let attempt = 1; ; attempt++) {
     try {
-      await account.createAccount(newAccountId, publicKey, amount);
-      return;
+      return await fn();
     } catch (e) {
-      const msg = e?.message ?? String(e);
-      if (attempt < maxAttempts && /nonce/i.test(msg)) {
-        console.log(`Nonce conflict creating account (attempt ${attempt} of ${maxAttempts}), retrying`);
+      if (attempt < maxAttempts && isNonceConflict(e)) {
+        console.log(
+          `Nonce conflict on ${label} (attempt ${attempt} of ${maxAttempts}), retrying`,
+        );
         await sleep(300 + attempt * 400 + Math.floor(Math.random() * 2000));
         continue;
       }
-      throw e;
+      throw tagError(e, ErrorCategory.NEAR, { step: label });
     }
   }
+}
+
+// Build an in-depth, categorized failure report for the top-level handler.
+function formatError(error) {
+  const rule = "=".repeat(70);
+  const category = error?.category ?? ErrorCategory.UNKNOWN;
+  const ctx = error?.context ?? {};
+  const lines = [rule];
+  lines.push(
+    `✗ FAILURE [${category}]` +
+      (ctx.test ? `  test=${ctx.test}` : "") +
+      (ctx.step ? `  step=${ctx.step}` : ""),
+  );
+  lines.push(rule);
+  lines.push(`Reason: ${error?.message ?? String(error)}`);
+
+  if (ctx.url) lines.push(`URL: ${ctx.url}`);
+  if (ctx.status !== undefined) lines.push(`HTTP status: ${ctx.status}`);
+  if (ctx.attempt !== undefined) lines.push(`Attempts: ${ctx.attempt}`);
+
+  if (category === ErrorCategory.CONNECTION) {
+    const code = error?.code ?? error?.cause?.code;
+    if (code) lines.push(`Error code: ${code}`);
+    if (error?.cause?.message) {
+      lines.push(`Underlying cause: ${error.cause.message}`);
+    }
+  }
+
+  if (category === ErrorCategory.NEAR && error?.type) {
+    lines.push(`NEAR error type: ${error.type}`);
+  }
+
+  if (ctx.result !== undefined) {
+    lines.push("Result object:");
+    lines.push(JSON.stringify(ctx.result, null, 2));
+  }
+
+  if (ctx.remoteStack) {
+    lines.push("Remote stack (inside TEE):");
+    lines.push(ctx.remoteStack);
+  }
+
+  if (error?.stack) {
+    lines.push("Local stack:");
+    lines.push(error.stack);
+  }
+
+  lines.push(rule);
+  return lines.join("\n");
 }
 
 // Create contract account (as subaccount of TESTNET_ACCOUNT_ID)
@@ -209,7 +430,10 @@ async function createContractAccount() {
   if (contractAccountExists) {
     // Wipe contract state instead of deleting (account + balance preserved).
     try {
-      await wipeContractState(contractAccount);
+      await withNonceRetry(
+        () => wipeContractState(contractAccount),
+        "wipe-contract-state",
+      );
       await sleep(2000);
     } catch (e) {
       if (e.type === "AccessKeyDoesNotExist") {
@@ -228,10 +452,14 @@ async function createContractAccount() {
     if (topUp > 0) {
       console.log(`Topping up contract account with ${topUp} NEAR...`);
       try {
-        await account.transfer({
-          receiverId: AGENT_CONTRACT_ID,
-          amount: NEAR.toUnits(topUp.toString()),
-        });
+        await withNonceRetry(
+          () =>
+            account.transfer({
+              receiverId: AGENT_CONTRACT_ID,
+              amount: NEAR.toUnits(topUp.toString()),
+            }),
+          "topup-contract-account",
+        );
         await sleep(2000);
       } catch (e) {
         throw new Error(`Failed to top up contract account: ${e.message}`);
@@ -244,10 +472,14 @@ async function createContractAccount() {
   console.log("Contract account does not exist, creating it");
   try {
     const publicKey = await account.getSigner().getPublicKey();
-    await createAccountWithNonceRetry(
-      AGENT_CONTRACT_ID,
-      publicKey,
-      NEAR.toUnits(fundingAmount),
+    await withNonceRetry(
+      () =>
+        account.createAccount(
+          AGENT_CONTRACT_ID,
+          publicKey,
+          NEAR.toUnits(fundingAmount),
+        ),
+      "create-account",
     );
     await sleep(2000);
     console.log(`✓ Contract account created: ${AGENT_CONTRACT_ID}`);
@@ -276,7 +508,10 @@ async function deployContract() {
 
   try {
     const wasmBytes = fs.readFileSync(wasmPath);
-    await contractAccount.deployContract(new Uint8Array(wasmBytes));
+    await withNonceRetry(
+      () => contractAccount.deployContract(new Uint8Array(wasmBytes)),
+      "deploy-contract",
+    );
     await sleep(2000);
     console.log("✓ Contract deployed");
   } catch (e) {
@@ -298,12 +533,16 @@ async function initializeContract() {
   };
 
   try {
-    await contractAccount.callFunction({
-      contractId: AGENT_CONTRACT_ID,
-      methodName: "new",
-      args: initArgs,
-      gas: tgasToGas(30),
-    });
+    await withNonceRetry(
+      () =>
+        contractAccount.callFunction({
+          contractId: AGENT_CONTRACT_ID,
+          methodName: "new",
+          args: initArgs,
+          gas: tgasToGas(30),
+        }),
+      "initialize-contract",
+    );
     await sleep(2000);
     console.log("✓ Contract initialized");
   } catch (e) {
@@ -504,57 +743,77 @@ async function getAppUrl(appId) {
 // Approve measurements
 async function approveMeasurements(measurements) {
   console.log("Approving measurements...");
-  await contractAccount.callFunction({
-    contractId: AGENT_CONTRACT_ID,
-    methodName: "approve_measurements",
-    args: { measurements },
-    gas: tgasToGas(30),
-  });
+  await withNonceRetry(
+    () =>
+      contractAccount.callFunction({
+        contractId: AGENT_CONTRACT_ID,
+        methodName: "approve_measurements",
+        args: { measurements },
+        gas: tgasToGas(30),
+      }),
+    "approve_measurements",
+  );
 }
 
 // Remove measurements
 async function removeMeasurements(measurements) {
   console.log("Removing measurements...");
-  await contractAccount.callFunction({
-    contractId: AGENT_CONTRACT_ID,
-    methodName: "remove_measurements",
-    args: { measurements },
-    gas: tgasToGas(30),
-  });
+  await withNonceRetry(
+    () =>
+      contractAccount.callFunction({
+        contractId: AGENT_CONTRACT_ID,
+        methodName: "remove_measurements",
+        args: { measurements },
+        gas: tgasToGas(30),
+      }),
+    "remove_measurements",
+  );
 }
 
 // Approve PPIDs
 async function approvePpids(ppids) {
   console.log("Approving PPIDs...");
-  await contractAccount.callFunction({
-    contractId: AGENT_CONTRACT_ID,
-    methodName: "approve_ppids",
-    args: { ppids },
-    gas: tgasToGas(30),
-  });
+  await withNonceRetry(
+    () =>
+      contractAccount.callFunction({
+        contractId: AGENT_CONTRACT_ID,
+        methodName: "approve_ppids",
+        args: { ppids },
+        gas: tgasToGas(30),
+      }),
+    "approve_ppids",
+  );
 }
 
 // Remove PPIDs
 async function removePpids(ppids) {
   console.log("Removing PPIDs...");
-  await contractAccount.callFunction({
-    contractId: AGENT_CONTRACT_ID,
-    methodName: "remove_ppids",
-    args: { ppids },
-    gas: tgasToGas(30),
-  });
+  await withNonceRetry(
+    () =>
+      contractAccount.callFunction({
+        contractId: AGENT_CONTRACT_ID,
+        methodName: "remove_ppids",
+        args: { ppids },
+        gas: tgasToGas(30),
+      }),
+    "remove_ppids",
+  );
 }
 
 // Update attestation expiration time (owner only). Pass ms as number or string.
 async function updateAttestationExpirationTime(ms) {
   const msStr = String(ms);
   console.log(`Updating attestation expiration to ${msStr} ms...`);
-  await contractAccount.callFunction({
-    contractId: AGENT_CONTRACT_ID,
-    methodName: "update_attestation_expiration_time",
-    args: { attestation_expiration_time_ms: msStr },
-    gas: tgasToGas(30),
-  });
+  await withNonceRetry(
+    () =>
+      contractAccount.callFunction({
+        contractId: AGENT_CONTRACT_ID,
+        methodName: "update_attestation_expiration_time",
+        args: { attestation_expiration_time_ms: msStr },
+        gas: tgasToGas(30),
+      }),
+    "update_attestation_expiration_time",
+  );
 }
 
 // Check if agent is registered
@@ -618,42 +877,11 @@ async function callTestEndpoint(baseUrl, testName, options = {}) {
   const url = `${baseUrl}/test/${testName}`;
   console.log(`Calling test endpoint: ${url}`);
 
-  const maxAttempts = 5;
-  const delay = 2000;
-
-  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    try {
-      const response = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-      });
-
-      const responseText = await response.text();
-
-      if (checkForPrivateKeyLeak && containsPrivateKey(responseText)) {
-        throw new Error(
-          `PRIVATE KEY LEAK DETECTED: Response from ${testName} contains private key patterns`,
-        );
-      }
-
-      if (response.ok) {
-        return JSON.parse(responseText);
-      }
-
-      if (response.status === 404 && attempt < maxAttempts) {
-        // Endpoint not ready yet, retry
-        await new Promise((res) => setTimeout(res, delay));
-        continue;
-      }
-
-      throw new Error(`HTTP ${response.status}: ${responseText}`);
-    } catch (e) {
-      if (attempt === maxAttempts) {
-        throw e;
-      }
-      await new Promise((res) => setTimeout(res, delay));
-    }
-  }
+  return fetchWithRetry(
+    url,
+    { method: "POST", headers: { "Content-Type": "application/json" } },
+    { test: testName, step: "call-test-endpoint", checkForPrivateKeyLeak },
+  );
 }
 
 // Get correct measurements
@@ -724,6 +952,7 @@ async function runTest(appUrl, testName, setupFn, verifyFn, options = {}) {
   console.log(`Running test: ${testName}`);
   console.log("=".repeat(70));
 
+  let result;
   try {
     // Setup
     if (setupFn) {
@@ -733,7 +962,7 @@ async function runTest(appUrl, testName, setupFn, verifyFn, options = {}) {
     }
 
     // Call test endpoint
-    const result = await callTestEndpoint(appUrl, testName, options);
+    result = await callTestEndpoint(appUrl, testName, options);
 
     // Verify (script does all error checking)
     if (verifyFn) {
@@ -743,8 +972,9 @@ async function runTest(appUrl, testName, setupFn, verifyFn, options = {}) {
     console.log(`✓ Test ${testName} passed`);
     return true;
   } catch (error) {
-    console.error(`✗ Test ${testName} failed: ${error.message}`);
-    throw error;
+    // First tag wins: a CONNECTION/APP/NEAR throw keeps its category; a bare
+    // verify-fn assertion becomes ASSERTION and carries the result object.
+    throw tagError(error, ErrorCategory.ASSERTION, { test: testName, result });
   }
 }
 
@@ -1028,22 +1258,22 @@ async function test7(appUrl) {
     // Step 2: Register the agent (should succeed)
     const registerUrl = `${appUrl}/test/register-agent/measurements-removed`;
     console.log(`Registering agent: ${registerUrl}`);
-    const registerResponse = await fetch(registerUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-    });
-
-    if (!registerResponse.ok) {
-      const errorText = await registerResponse.text();
-      throw new Error(
-        `Failed to register agent: HTTP ${registerResponse.status}: ${errorText}`,
-      );
-    }
-
-    const registerResult = await registerResponse.json();
+    const registerResult = await fetchWithRetry(
+      registerUrl,
+      { method: "POST", headers: { "Content-Type": "application/json" } },
+      { test: "measurements-removed", step: "register-agent" },
+    );
     if (!registerResult.success || registerResult.registrationError) {
-      throw new Error(
-        `Registration should have succeeded, got error: ${registerResult.registrationError || "Unknown error"}`,
+      throw tagError(
+        new Error(
+          `Registration should have succeeded, got error: ${registerResult.registrationError || "Unknown error"}`,
+        ),
+        ErrorCategory.ASSERTION,
+        {
+          test: "measurements-removed",
+          step: "register-agent",
+          result: registerResult,
+        },
       );
     }
 
@@ -1077,8 +1307,9 @@ async function test7(appUrl) {
     console.log(`✓ Test measurements-removed passed`);
     return true;
   } catch (error) {
-    console.error(`✗ Test measurements-removed failed: ${error.message}`);
-    throw error;
+    throw tagError(error, ErrorCategory.ASSERTION, {
+      test: "measurements-removed",
+    });
   }
 }
 
@@ -1100,22 +1331,22 @@ async function test8(appUrl) {
     // Step 2: Register the agent (should succeed)
     const registerUrl = `${appUrl}/test/register-agent/ppid-removed`;
     console.log(`Registering agent: ${registerUrl}`);
-    const registerResponse = await fetch(registerUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-    });
-
-    if (!registerResponse.ok) {
-      const errorText = await registerResponse.text();
-      throw new Error(
-        `Failed to register agent: HTTP ${registerResponse.status}: ${errorText}`,
-      );
-    }
-
-    const registerResult = await registerResponse.json();
+    const registerResult = await fetchWithRetry(
+      registerUrl,
+      { method: "POST", headers: { "Content-Type": "application/json" } },
+      { test: "ppid-removed", step: "register-agent" },
+    );
     if (!registerResult.success || registerResult.registrationError) {
-      throw new Error(
-        `Registration should have succeeded, got error: ${registerResult.registrationError || "Unknown error"}`,
+      throw tagError(
+        new Error(
+          `Registration should have succeeded, got error: ${registerResult.registrationError || "Unknown error"}`,
+        ),
+        ErrorCategory.ASSERTION,
+        {
+          test: "ppid-removed",
+          step: "register-agent",
+          result: registerResult,
+        },
       );
     }
 
@@ -1149,8 +1380,7 @@ async function test8(appUrl) {
     console.log(`✓ Test ppid-removed passed`);
     return true;
   } catch (error) {
-    console.error(`✗ Test ppid-removed failed: ${error.message}`);
-    throw error;
+    throw tagError(error, ErrorCategory.ASSERTION, { test: "ppid-removed" });
   }
 }
 
@@ -1207,8 +1437,9 @@ async function test10(appUrl) {
     console.log(`✓ Test attestation-expired passed`);
     return true;
   } catch (error) {
-    console.error(`✗ Test attestation-expired failed: ${error.message}`);
-    throw error;
+    throw tagError(error, ErrorCategory.ASSERTION, {
+      test: "attestation-expired",
+    });
   }
 }
 
@@ -1369,17 +1600,13 @@ async function main() {
     ];
 
     for (let i = 0; i < tests.length; i++) {
-      const test = tests[i];
-      try {
-        await test.fn(appUrl);
+      // Failures propagate to main().catch, which prints one categorized
+      // report after the finally tears the run down.
+      await tests[i].fn(appUrl);
 
-        // Add 1 second delay between tests (except after the last one)
-        if (i < tests.length - 1) {
-          await new Promise((res) => setTimeout(res, 1000));
-        }
-      } catch (error) {
-        console.error(`\n✗ ${test.name} FAILED: ${error.message}`);
-        throw error;
+      // Add 1 second delay between tests (except after the last one)
+      if (i < tests.length - 1) {
+        await new Promise((res) => setTimeout(res, 1000));
       }
     }
 
@@ -1395,6 +1622,6 @@ async function main() {
 }
 
 main().catch((error) => {
-  console.error("Fatal error:", error);
+  console.error(formatError(error));
   process.exit(1);
 });
