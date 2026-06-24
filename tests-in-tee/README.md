@@ -54,7 +54,7 @@ Integration tests that run inside a TEE (Phala). They test shade-agent-js, shade
   PHALA_API_KEY=
   ```
 
-  TESTNET and SPONSOR can be the same; make sure the account has at least 20 testnet NEAR.
+  TESTNET and SPONSOR can be the same; make sure the account has at least 20 testnet NEAR. Each run funds its own per-run contract account with ~10 NEAR (refunded on teardown), so budget ~10 more per concurrent run.
 
 - Run the tests
 
@@ -67,10 +67,17 @@ Integration tests that run inside a TEE (Phala). They test shade-agent-js, shade
 
 ## Cleanup
 
-`test-script.js` always tears down the Phala CVM it provisions when the run
-finishes — on success **or** failure — so a failed run no longer leaves a paid
-TEE instance running. The CVM id is also written to `tests-in-tee/.cvm-id` so
-CI can delete it as a backstop if the process is killed before cleanup runs.
+Each run uses a random per-run slug for the contract account
+(`shade-test-<slug>.<account>`) and the Phala app name, so independent runs
+(e.g. on different PRs) don't collide.
+
+`test-script.js` always tears down what it provisions when the run finishes — on
+success **or** failure — so a failed run doesn't leave a paid TEE instance or
+a funded account behind: the Phala CVM is deleted, and the per-run contract
+account is deleted with its balance refunded to the parent. Both ids are written
+to `tests-in-tee/.cvm-id` and `tests-in-tee/.contract-id` so CI can clean them up
+as a backstop (the account via `teardown-account.js`) if the process is killed
+before cleanup runs.
 
 ## Running in CI
 

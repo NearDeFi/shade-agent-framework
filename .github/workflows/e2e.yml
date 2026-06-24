@@ -205,6 +205,20 @@ jobs:
           else
             echo "No .cvm-id file; nothing to tear down."
           fi
+      # Backstop for the per-run contract account (deleting it needs a signed
+      # NEAR tx, so it goes through teardown-account.js rather than curl).
+      - name: Tear down leftover contract account
+        if: always()
+        working-directory: tests-in-tee
+        env:
+          TESTNET_ACCOUNT_ID: ${{ secrets.TESTNET_ACCOUNT_ID }}
+          TESTNET_PRIVATE_KEY: ${{ secrets.TESTNET_PRIVATE_KEY }}
+        run: |
+          if [ -f .contract-id ]; then
+            node teardown-account.js "$(cat .contract-id)" || true
+          else
+            echo "No .contract-id file; nothing to tear down."
+          fi
 
   # Post the final (informational) e2e status on the PR head commit.
   report:
