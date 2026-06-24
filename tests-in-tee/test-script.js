@@ -364,7 +364,7 @@ async function withNonceRetry(
         await sleep(300 + attempt * 400 + Math.floor(Math.random() * 2000));
         continue;
       }
-      throw tagError(e, category, { step: label });
+      throw tagError(e, category, { step: label, attempt });
     }
   }
 }
