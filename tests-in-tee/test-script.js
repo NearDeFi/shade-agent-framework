@@ -168,7 +168,14 @@ const ErrorCategory = {
 function tagError(error, category, context = {}) {
   const err = error instanceof Error ? error : new Error(String(error));
   if (!err.category) err.category = category;
-  err.context = { ...(err.context || {}), ...context };
+  // Merge context, but never let an undefined value clobber an existing one —
+  // e.g. an outer catch re-tagging with result:undefined must not wipe a result
+  // an inner throw already attached.
+  const merged = { ...(err.context || {}) };
+  for (const [k, v] of Object.entries(context)) {
+    if (v !== undefined) merged[k] = v;
+  }
+  err.context = merged;
   return err;
 }
 
@@ -362,6 +369,16 @@ async function withNonceRetry(
   }
 }
 
+// Redact NEAR private-key-shaped substrings so a dumped result body or remote
+// stack can't reach the log — e.g. test9's unique-keys result legitimately
+// holds raw derived keys, and it runs without the leak scan.
+function redactSecrets(text) {
+  return PRIVATE_KEY_PATTERNS.reduce(
+    (s, re) => s.replace(new RegExp(re.source, "g"), "[REDACTED KEY]"),
+    text,
+  );
+}
+
 // Build an in-depth, categorized failure report for the top-level handler.
 function formatError(error) {
   const rule = "=".repeat(70);
@@ -388,8 +405,10 @@ function formatError(error) {
     }
   }
 
-  if (category === ErrorCategory.NEAR && error?.type) {
-    lines.push(`NEAR error type: ${error.type}`);
+  // A NEAR error carries .type even when the phase tags it SETUP, so gate on
+  // the field, not the category.
+  if (error?.type) {
+    lines.push(`Error type: ${error.type}`);
   }
 
   if (ctx.result !== undefined) {
@@ -408,7 +427,7 @@ function formatError(error) {
   }
 
   lines.push(rule);
-  return lines.join("\n");
+  return redactSecrets(lines.join("\n"));
 }
 
 // Create contract account (as subaccount of TESTNET_ACCOUNT_ID)
@@ -1594,6 +1613,7 @@ async function main() {
   // Phala TEE instance or a funded testnet account.
   let appUrl;
   let appId = null;
+  let setupDone = false;
   try {
     // Deploy contract to testnet.
     console.log("\nDeploying contract to testnet...");
@@ -1632,6 +1652,10 @@ async function main() {
 
     // Wait for the app to be ready using heartbeat
     await waitForAppReady(appUrl);
+    // Everything above is setup/infra; the catch below labels an untagged
+    // failure here SETUP (inner wrappers that already tagged NEAR/SETUP keep
+    // their category + step — first tag wins).
+    setupDone = true;
 
     const tests = [
       { name: "Test 1: Successful registration", fn: test1 },
@@ -1662,6 +1686,11 @@ async function main() {
     }
 
     console.log("\n✓ All tests passed!");
+  } catch (e) {
+    // Test-phase failures are already tagged; an untagged failure during setup
+    // (Docker build/push, Phala deploy, RPC reads, readiness) lands here
+    // unlabelled — tag it SETUP.
+    throw setupDone ? e : tagError(e, ErrorCategory.SETUP, {});
   } finally {
     // Tear down what this run provisioned: the Phala CVM, then the per-run
     // contract account (refunding the parent). Both are idempotent and neither
