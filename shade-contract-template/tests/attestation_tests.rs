@@ -1039,6 +1039,81 @@ async fn test_register_agent_new_agent_requires_storage_deposit_integration()
     Ok(())
 }
 
+/// Over-depositing on registration refunds the excess on-chain: the agent should spend only
+/// ~the storage cost + gas, not the full attached deposit.
+#[tokio::test]
+async fn test_register_agent_refunds_excess_deposit_integration()
+-> Result<(), Box<dyn std::error::Error + Send + Sync>> {
+    let sandbox = near_sandbox::Sandbox::start_sandbox().await?;
+    let network_config = create_network_config(&sandbox);
+    let (genesis_account_id, genesis_signer) = setup_genesis_account().await;
+
+    let contract_id =
+        deploy_contract_default(&network_config, &genesis_account_id, &genesis_signer).await?;
+
+    sleep(Duration::from_millis(200)).await;
+
+    let (agent_id, agent_signer) = create_user_account(
+        &network_config,
+        &genesis_account_id,
+        &genesis_signer,
+        "refund_agent",
+    )
+    .await?;
+
+    let _ = call_transaction(
+        &contract_id,
+        "whitelist_agent_for_local",
+        json!({ "account_id": agent_id }),
+        &genesis_account_id,
+        &genesis_signer,
+        &network_config,
+        None,
+    )
+    .await?
+    .assert_success();
+
+    let balance_before = near_api::Tokens::account(agent_id.clone())
+        .near_balance()
+        .fetch_from(&network_config)
+        .await?
+        .total;
+
+    // Attach 1 NEAR — far more than the ~0.00486 storage cost; the excess must be refunded.
+    let _ = call_transaction(
+        &contract_id,
+        "register_agent",
+        json!({
+            "attestation": serde_json::to_value(create_mock_dstack_attestation()).unwrap()
+        }),
+        &agent_id,
+        &agent_signer,
+        &network_config,
+        Some(near_api::NearToken::from_near(1)),
+    )
+    .await?
+    .assert_success();
+
+    sleep(Duration::from_millis(200)).await;
+
+    let balance_after = near_api::Tokens::account(agent_id.clone())
+        .near_balance()
+        .fetch_from(&network_config)
+        .await?
+        .total;
+
+    // With the excess refunded the agent spends only storage + gas (well under 0.1 NEAR). If the
+    // deposit were kept, the balance would drop by ~1 NEAR.
+    let spent = balance_before.saturating_sub(balance_after);
+    assert!(
+        spent < near_api::NearToken::from_millinear(100),
+        "Expected the 1 NEAR over-deposit to be refunded (only storage + gas spent), but balance dropped by {}",
+        spent.exact_amount_display()
+    );
+
+    Ok(())
+}
+
 #[tokio::test]
 async fn test_register_agent_reregister_without_storage_deposit_integration()
 -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
