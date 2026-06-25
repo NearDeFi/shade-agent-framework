@@ -345,8 +345,9 @@ async function withNonceRetry(
   }
 }
 
-// Redact NEAR key-shaped substrings so a dumped result body or remote stack
-// can't reach the log (test9's unique-keys result holds raw derived keys).
+// Backstop: no test returns keys, but redact NEAR key-shaped substrings so the
+// sponsor/agent key can't reach the (public) CI log via a remote crash stack or
+// error message — the SUT-sourced paths we don't control.
 function redactSecrets(text) {
   return PRIVATE_KEY_PATTERNS.reduce(
     (s, re) => s.replace(new RegExp(re.source, "g"), "[REDACTED KEY]"),
@@ -1553,16 +1554,16 @@ async function test9(appUrl) {
         );
       }
 
-      // Verify each agent has 3 keys
-      if (!result.agent1Keys || result.agent1Keys.length !== 3) {
+      // Verify each agent has 3 keys (the TEE returns counts, never the keys)
+      if (result.agent1KeyCount !== 3) {
         throw new Error(
-          `Agent 1 should have 3 keys, got ${result.agent1Keys?.length || 0}`,
+          `Agent 1 should have 3 keys, got ${result.agent1KeyCount ?? 0}`,
         );
       }
 
-      if (!result.agent2Keys || result.agent2Keys.length !== 3) {
+      if (result.agent2KeyCount !== 3) {
         throw new Error(
-          `Agent 2 should have 3 keys, got ${result.agent2Keys?.length || 0}`,
+          `Agent 2 should have 3 keys, got ${result.agent2KeyCount ?? 0}`,
         );
       }
 
