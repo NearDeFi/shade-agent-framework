@@ -345,16 +345,6 @@ async function withNonceRetry(
   }
 }
 
-// Backstop: no test returns keys, but redact NEAR key-shaped substrings so the
-// sponsor/agent key can't reach the (public) CI log via a remote crash stack or
-// error message — the SUT-sourced paths we don't control.
-function redactSecrets(text) {
-  return PRIVATE_KEY_PATTERNS.reduce(
-    (s, re) => s.replace(new RegExp(re.source, "g"), "[REDACTED KEY]"),
-    text,
-  );
-}
-
 // Build an in-depth, categorized failure report for the top-level handler.
 function formatError(error) {
   const rule = "=".repeat(70);
@@ -404,7 +394,7 @@ function formatError(error) {
   }
 
   lines.push(rule);
-  return redactSecrets(lines.join("\n"));
+  return lines.join("\n");
 }
 
 // Create contract account (as subaccount of TESTNET_ACCOUNT_ID)
