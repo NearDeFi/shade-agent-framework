@@ -144,16 +144,8 @@ const contractAccount = new Account(AGENT_CONTRACT_ID, provider, signer);
 // Sleep helper
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// ===========================================================================
-// Error classification & retry
-// ===========================================================================
-// Failures carry a category + context so the top-level reporter can say what
-// actually went wrong — a failed assertion, an unreachable app, an app-side
-// crash, or a contract error — instead of an opaque message. Retries are
-// deliberately narrow: connection errors on the app's HTTP calls (NEAR RPC has
-// its own retry inside JsonRpcProvider) and a fresh-nonce retry on NEAR
-// mutating calls.
-
+// Failures are tagged with a category + context so the reporter can name what
+// went wrong. Retries stay narrow: connection errors and NEAR nonce conflicts.
 const ErrorCategory = {
   CONNECTION: "CONNECTION",
   APP: "APP",
@@ -168,9 +160,7 @@ const ErrorCategory = {
 function tagError(error, category, context = {}) {
   const err = error instanceof Error ? error : new Error(String(error));
   if (!err.category) err.category = category;
-  // Merge context, but never let an undefined value clobber an existing one —
-  // e.g. an outer catch re-tagging with result:undefined must not wipe a result
-  // an inner throw already attached.
+  // Don't let an undefined value clobber a key an inner throw already set.
   const merged = { ...(err.context || {}) };
   for (const [k, v] of Object.entries(context)) {
     if (v !== undefined) merged[k] = v;
@@ -179,10 +169,8 @@ function tagError(error, category, context = {}) {
   return err;
 }
 
-// Connection errors are worth retrying. undici surfaces "fetch failed" as a
-// TypeError with the socket error on .cause; an aborted request (our timeout)
-// is an AbortError; socket failures carry a code on the error or its .cause. A
-// plain TypeError with no .cause is a programmer error, not a network blip.
+// Retryable: undici "fetch failed" (TypeError with .cause), an AbortError from
+// our timeout, or a socket error code. A bare TypeError is a programmer error.
 const CONNECTION_CODES = new Set([
   "ECONNREFUSED",
   "ETIMEDOUT",
@@ -202,9 +190,8 @@ function isConnectionError(e) {
   return false;
 }
 
-// Transient HTTP statuses worth retrying: 404 while the app/proxy is warming
-// up, 408/429 backpressure, and 5xx. A 5xx carrying the app's structured crash
-// envelope is intercepted before this is consulted.
+// Retry 404 (warmup), 408/429, and 5xx. The app's crash-envelope 5xx is caught
+// before this is consulted.
 function isTransientHttpStatus(status) {
   return (
     status === 404 ||
@@ -214,11 +201,8 @@ function isTransientHttpStatus(status) {
   );
 }
 
-// Call a test-app endpoint with connection-only retries and a per-request
-// timeout. Resolves to the parsed JSON body — a success result, or a structured
-// failure result the caller is meant to inspect (e.g. a registrationError).
-// Throws a tagged CONNECTION error when the app is unreachable, or a tagged APP
-// error for an app-side crash / deterministic 4xx (neither is retried).
+// Call a test-app endpoint with connection-only retries + a per-request timeout.
+// Returns the parsed body; throws a tagged CONNECTION/APP error.
 async function fetchWithRetry(
   url,
   fetchOptions = {},
@@ -248,8 +232,7 @@ async function fetchWithRetry(
         await sleep(delay);
         continue;
       }
-      // Only a genuine connection error is CONNECTION; a programmer TypeError
-      // (bad URL/options, no .cause) is not a transport problem.
+      // A non-connection fetch throw (bad URL, programmer TypeError) isn't transport.
       throw tagError(
         e,
         isConnectionError(e) ? ErrorCategory.CONNECTION : ErrorCategory.UNKNOWN,
@@ -289,8 +272,7 @@ async function fetchWithRetry(
       body = undefined;
     }
 
-    // App handler crashed (its catch envelope carries a stack) — deterministic,
-    // report the remote stack, never retry even on a 5xx.
+    // App handler crash (carries a stack) — report it, never retry even on 5xx.
     if (body?.success === false && typeof body.stack === "string") {
       throw tagError(
         new Error(body.error || "Test app handler error"),
@@ -299,8 +281,7 @@ async function fetchWithRetry(
       );
     }
 
-    // Structured registration result (no stack) — a result the caller's
-    // assertion inspects, not a transport failure.
+    // Structured registration result (no stack) — a body the caller inspects.
     if (body?.success === false && body.registrationError !== undefined) {
       return body;
     }
@@ -326,8 +307,7 @@ async function fetchWithRetry(
     );
   }
 
-  // Unreachable — the final attempt always returns or throws. Guardrail so a
-  // future edit to a retry guard can't silently resolve to undefined.
+  // Unreachable guardrail — every attempt returns or throws.
   throw tagError(
     new Error(`fetchWithRetry exhausted ${maxAttempts} attempts for ${url}`),
     ErrorCategory.UNKNOWN,
@@ -335,13 +315,9 @@ async function fetchWithRetry(
   );
 }
 
-// A nonce conflict is RPC read-after-write lag: sequential calls signed by the
-// same access key can hit a node that returns a stale nonce, so the next tx is
-// built with a nonce the chain already consumed (InvalidNonce, ak_nonce ===
-// tx_nonce). (Contract owner calls run on the contract account's own nonce, so
-// overlapping runs don't contend — but a single run's rapid-fire owner calls
-// still race the lag.) Re-invoking re-queries the nonce; jittered backoff lets
-// the node catch up and keeps overlapping runs out of lockstep.
+// A nonce conflict is RPC read-after-write lag: a node returns a stale
+// access-key nonce, so the next tx reuses one the chain already consumed.
+// Re-invoking re-queries it; jittered backoff lets the node catch up.
 function isNonceConflict(e) {
   return e?.type === "InvalidNonce" || /nonce/i.test(e?.message ?? "");
 }
@@ -369,9 +345,8 @@ async function withNonceRetry(
   }
 }
 
-// Redact NEAR private-key-shaped substrings so a dumped result body or remote
-// stack can't reach the log — e.g. test9's unique-keys result legitimately
-// holds raw derived keys, and it runs without the leak scan.
+// Redact NEAR key-shaped substrings so a dumped result body or remote stack
+// can't reach the log (test9's unique-keys result holds raw derived keys).
 function redactSecrets(text) {
   return PRIVATE_KEY_PATTERNS.reduce(
     (s, re) => s.replace(new RegExp(re.source, "g"), "[REDACTED KEY]"),
@@ -397,8 +372,7 @@ function formatError(error) {
   if (ctx.status !== undefined) lines.push(`HTTP status: ${ctx.status}`);
   if (ctx.attempt !== undefined) lines.push(`Attempts: ${ctx.attempt}`);
 
-  // Gate these detail lines on the field, not the category — a SETUP/NEAR/
-  // UNKNOWN error can also carry a code/cause/type worth surfacing.
+  // Gate on the field, not the category — a SETUP/NEAR error can carry these too.
   const code = error?.code ?? error?.cause?.code;
   if (code) lines.push(`Error code: ${code}`);
   if (error?.cause?.message) {
@@ -410,8 +384,7 @@ function formatError(error) {
 
   if (ctx.result !== undefined) {
     lines.push("Result object:");
-    // Guard the stringify so a non-JSON result can't turn the one report this
-    // change exists to produce into an unhandled rejection.
+    // Guard the stringify so a non-JSON result can't crash the report itself.
     try {
       lines.push(JSON.stringify(ctx.result, null, 2));
     } catch {
@@ -1037,8 +1010,7 @@ async function runTest(appUrl, testName, setupFn, verifyFn, options = {}) {
     console.log(`✓ Test ${testName} passed`);
     return true;
   } catch (error) {
-    // First tag wins: a CONNECTION/APP/NEAR throw keeps its category; a bare
-    // verify-fn assertion becomes ASSERTION and carries the result object.
+    // First tag wins; a bare verify-fn assertion becomes ASSERTION + result.
     throw tagError(error, ErrorCategory.ASSERTION, { test: testName, result });
   }
 }
@@ -1655,9 +1627,7 @@ async function main() {
 
     // Wait for the app to be ready using heartbeat
     await waitForAppReady(appUrl);
-    // Everything above is setup/infra; the catch below labels an untagged
-    // failure here SETUP (inner wrappers that already tagged NEAR/SETUP keep
-    // their category + step — first tag wins).
+    // Past here is the test phase; the catch below tags only setup failures.
     setupDone = true;
 
     const tests = [
@@ -1678,8 +1648,6 @@ async function main() {
     ];
 
     for (let i = 0; i < tests.length; i++) {
-      // Failures propagate to main().catch, which prints one categorized
-      // report after the finally tears the run down.
       await tests[i].fn(appUrl);
 
       // Add 1 second delay between tests (except after the last one)
@@ -1690,9 +1658,7 @@ async function main() {
 
     console.log("\n✓ All tests passed!");
   } catch (e) {
-    // Test-phase failures are already tagged; an untagged failure during setup
-    // (Docker build/push, Phala deploy, RPC reads, readiness) lands here
-    // unlabelled — tag it SETUP.
+    // Untagged failures before readiness are setup/infra — tag them SETUP.
     throw setupDone ? e : tagError(e, ErrorCategory.SETUP, {});
   } finally {
     // Tear down what this run provisioned: the Phala CVM, then the per-run
