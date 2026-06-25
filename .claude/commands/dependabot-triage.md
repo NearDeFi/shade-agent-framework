@@ -1,27 +1,33 @@
 ---
-description: Read-only triage of open Dependabot PRs — classify each (ecosystem, grouped, patch/minor/major, dev/runtime, security, CI, plus human/claude[bot] comment signal), print a CLI table with a suggested action (a maintainer's stated decision overrides), then give concrete per-PR guidance for anything non-routine (CI-failure diagnosis, what to read in the changelog, and the exact local commands from checkout for any hands-on check). Pass --md to write the triage to dependabot-triage-result.md at the repo root. Never merges, closes, comments, or edits.
+description: Read-only Dependabot triage with two scans, both on by default — (A) open Dependabot PRs: classify each (ecosystem, grouped, patch/minor/major, dev/runtime, security, CI, plus human/claude[bot] signal) and suggest an action; (B) open security alerts (vulnerabilities): dedupe across manifests and bucket each by fix-availability + direct-vs-transitive + whether Dependabot watches its manifest, with the exact command to clear it. Toggle with --no-prs / --no-vulns (default runs both); --md writes the result to dependabot-triage-result.md. Never merges, closes, comments, edits, approves, or dismisses.
 disable-model-invocation: true
 allowed-tools: Bash(gh pr list:*), Bash(gh pr view:*), Bash(gh pr checks:*), Bash(gh run view:*), Bash(gh api:*), Bash(gh repo view:*), Read, Grep, Glob, Write
-argument-hint: "[ecosystem: npm|cargo|github-actions|docker] [--md] (both optional)"
+argument-hint: "[ecosystem: npm|cargo|github-actions|docker] [--no-prs] [--no-vulns] [--md] (all optional)"
 ---
 
 # Dependabot triage
 
-Classify every open Dependabot PR in this repo, print one table with a **suggested action** per PR, then give **enhanced, concrete guidance for every non-routine PR** (CI failures, majors, measurement-sensitive bumps, stale leftovers) — and for each major bump say whether CI covers it, it needs **`tests-in-tee`**, or it needs a **hands-on local run** of a specific package/path. This command is **read-only** — it never merges, closes, comments, approves, or edits. It produces a triage a human acts on.
+Two read-only scans of this repo's Dependabot state, **both run by default**:
 
-Optional `$ARGUMENTS` (space-separated, order-independent):
-- An **ecosystem** name (`npm`, `cargo`, `github-actions`, `docker`) → only show that ecosystem; otherwise show all.
-- **`--md`** → instead of printing the triage to the terminal, write it to a file at the repo root (see Phase 5). The triage is identical either way; `--md` only changes where it goes.
+- **Scan A — open Dependabot PRs** (Phases 1–5): classify every open Dependabot PR, print one table with a **suggested action** each, then give concrete guidance for non-routine PRs (CI failures, majors, measurement-sensitive bumps, stale leftovers) and the coverage tier (CI / `tests-in-tee` / hands-on local run) for each major.
+- **Scan B — open security alerts / vulnerabilities** (Phases 6–9): read the repo's Dependabot **alerts** (the `/security/dependabot` page), dedupe them across manifests, sort each into a **bucket** (fix available & direct → bump it · fix available but transitive → force it via override / lockfile re-resolve · no fix → assess & dismiss-with-reason or replace), and say exactly **what to do** for each — including the ones the PR stream silently never fixes.
 
-"Read-only" refers to GitHub state — the command never merges, closes, comments, approves, or edits PRs. With `--md` the **only** thing it writes is that one local result file.
+This command is **read-only** — it never merges, closes, comments, approves, edits, or dismisses anything on GitHub. It produces a triage a human acts on; every fix command it prints is a recommendation for you to run, not something it runs. With `--md` the **only** thing it writes is one local result file.
 
-## Phase 0 — Resolve repo
+`$ARGUMENTS` (space-separated, order-independent, all optional):
+- An **ecosystem** name (`npm`, `cargo`, `github-actions`, `docker`) → restrict **both** scans to that ecosystem; otherwise show all.
+- **`--no-prs`** → skip Scan A (PRs). **`--no-vulns`** → skip Scan B (alerts). Default runs both; passing **both** flags leaves nothing to do — say so and stop.
+- **`--md`** → write the result to a file at the repo root instead of printing it (see Phase 10). The content is identical either way; `--md` only changes where it goes.
+
+## Phase 0 — Resolve repo & decide which scans run
 
 ```
 gh repo view --json nameWithOwner --jq .nameWithOwner
 ```
 
 Call it `{REPO}`. If it fails, stop and ask the user for the repo.
+
+Parse the flags: run **Scan A** (Phases 1–5) unless `--no-prs`; run **Scan B** (Phases 6–9) unless `--no-vulns`. If both flags are present there's nothing to do — say so and stop. An ecosystem positional, if present, filters **both** scans.
 
 ## Phase 1 — Gather
 
@@ -30,7 +36,7 @@ gh pr list --repo {REPO} --author "app/dependabot" --state open --limit 100 \
   --json number,title,labels,headRefName,createdAt,url,statusCheckRollup
 ```
 
-Read PR bodies where the title isn't enough to enumerate grouped deps/versions: `gh pr view <n> --repo {REPO} --json title,body`. If there are zero open Dependabot PRs, say so and stop.
+Read PR bodies where the title isn't enough to enumerate grouped deps/versions: `gh pr view <n> --repo {REPO} --json title,body`. If there are zero open Dependabot PRs, say so and skip to Phase 6 (or stop if `--no-vulns`).
 
 Also read each PR's **conversation** — human comments carry decisions the triage must respect (e.g. "blocked till we upgrade rust", "ignoring this major", "merge after X"):
 
@@ -94,17 +100,15 @@ Then state, per failing PR: *which job failed → the actual error → likely ca
 
 Append `· 🧪 run tests-in-tee (/run-e2e)` for any **major** `🧪 tests-in-tee` PR, and `· 🔧 manual run first` for any **major** `🔧 manual` PR. **Major here includes a pre-1.0 `0.y` bump** (`0.A.x → 0.B.x`, the 0.x flag); a patch or a `≥1.0` minor does **not** get a run recommendation — CI covers it, trust `ci-passed`. (`⛔ measurements` is exempt: it always needs `/run-e2e` + re-approval — see rule 4.)
 
-## Phase 5 — Output
+## Phase 5 — Scan A output (PRs)
 
-**Destination.** Build the full triage (table + enhanced guidance + coverage tiers + summary) exactly as specified below, then:
-- **Default (no `--md`)** → print it to the terminal.
-- **`--md` present** → write the complete triage to `{repo-root}/dependabot-triage-result.md` with `Write` (resolve the repo root with `git rev-parse --show-toplevel`). `Write` overwrites, so a previous `dependabot-triage-result.md` there is replaced. Start the file with the `## Dependabot triage — {REPO}  (N open)` header and a one-line "generated read-only on {today}" note; don't print the body to the terminal — just confirm the path written and give a one-line headline (e.g. counts by bucket).
+Build the PR triage as below. Where it goes (terminal vs `--md` file) is handled in **Phase 10**, which stitches in Scan B's section when both ran.
 
 ### Table
 One markdown table, sorted safest-first:
 
 ```
-## Dependabot triage — {REPO}  (N open)
+## Open Dependabot PRs — {REPO}  (N open)
 
 | PR | Eco | Package(s) | Grouped | Bump | Scope | CI | Sec | Suggested action |
 |----|-----|------------|---------|------|-------|----|----|------------------|
@@ -152,4 +156,76 @@ For each CI-❌, major, `⛔`, security, `🧹`, or any **major** `🧪`/`🔧` 
 - **Merge order**: safe patch/dev groups → minor groups (after a skim) → majors one at a time → `🔧` majors after a manual run → `⛔`/`🧪` majors after `tests-in-tee` + any measurement re-approval.
 - Flags legend — only for flags that appeared.
 
-Then **stop**. Take no action — the human decides what to merge/close.
+## Phase 6 — Gather security alerts (Scan B)
+
+Pull every **open** Dependabot alert for the repo:
+
+```
+gh api /repos/{REPO}/dependabot/alerts --paginate -X GET -f state=open -f per_page=100
+```
+
+Per alert, keep: `security_advisory.ghsa_id`, `security_advisory.severity`, `dependency.package.ecosystem` + `.name`, `dependency.scope` (`runtime`/`development`), `dependency.manifest_path` (the lockfile), `security_vulnerability.vulnerable_version_range`, and `security_vulnerability.first_patched_version.identifier` (**null = no fix published**). The alerts API labels cargo crates ecosystem **`rust`** (not `cargo`) — map the `cargo` positional to it; `github-actions`/`docker` rarely have alerts. If the call 403s, Dependabot alerts may be disabled or the token lacks the security-events scope — say so and skip Scan B. If there are zero open alerts, say "no open alerts" and skip to Phase 10.
+
+Context — **why these persist even after merging the PR stream**: Scan A's PRs are Dependabot *version updates*, which only bump **direct** deps in the **directories listed in `.github/dependabot.yml`**. Dependabot *security* updates (a separate feature) only open a fix PR when bumping resolves cleanly — so a vuln lingers when it's **transitive**, has **no published fix**, or sits in a **manifest Dependabot doesn't watch**. Phase 7 detects exactly those three.
+
+## Phase 7 — Classify each alert
+
+First **dedupe**: collapse alerts sharing a `ghsa_id` + package into one row, listing the manifests they hit (the same advisory in 5 lockfiles = one row, count 5). Then, per distinct (advisory, package):
+
+- **Fix?** — `first_patched_version.identifier` if present, else **none**.
+- **Direct or transitive?** — for each affected manifest, read the **sibling manifest source** (not the lockfile) and check whether the package is declared there:
+  - npm: the `package.json` next to the `package-lock.json` — is the package a key under `dependencies` / `devDependencies`?
+  - cargo: the `Cargo.toml` next to the `Cargo.lock` — is it under `[dependencies]` / `[dev-dependencies]`?
+  - Declared in at least one affected manifest → **direct**; declared in none → **transitive**.
+- **Watched?** — read `.github/dependabot.yml` and build the set of `{ecosystem, directory}` it lists under `updates:`. The alert's manifest **directory** (parent of `manifest_path`) is **watched** if it matches a configured `directory` for that ecosystem (exact dir; this repo uses one `directory` per entry, not recursive). A manifest dir not in that set (e.g. `tests-in-tee/`, `tests-in-tee/test-image/`) is **unwatched** → no version-update PR will ever touch it. Tag such rows `📂 unwatched`.
+- **Severity** — critical / high / medium / low.
+- **Exposure** — `runtime` vs `development` scope, and whether the manifest is a **published** artefact (`shade-agent-js`, `shade-agent-cli`, the `shade-attestation` crate) or **not shipped** (templates, `tests-in-tee/*`). A dev-scope or test-only alert is real but lower priority; a runtime alert in a published package is the high-priority case. (npm lockfiles don't ship to consumers of the published packages — consumers re-resolve from your version ranges — so most npm-lockfile alerts are a CI/dev/test surface, not a downstream-consumer one. Note that where it lowers urgency.)
+
+## Phase 8 — Bucket & suggested fix (first match wins)
+
+Each alert lands in exactly one bucket; `📂 unwatched` is an additional tag, not a bucket.
+
+1. **🟢 Direct + fix available** → the easy win. Merge the Dependabot PR that bumps it (Scan A may already list one — cross-reference by package), or bump it yourself: npm `npm i <pkg>@<fixed>` in the package, cargo bump the version in `Cargo.toml`; commit the regenerated lockfile.
+2. **🟠 Transitive + fix available** → **the PR stream won't clear these** (it bumps parents, not the indirect dep). Force the patched version:
+   - **npm** → add an `overrides` entry to the affected `package.json` (e.g. `"overrides": { "ws": ">=8.21.0" }`), or run `npm update <pkg>` / `npm audit fix` to re-resolve; commit the regenerated `package-lock.json`. Prefer `overrides` when a parent's range pins the old version so a plain update can't move it.
+   - **cargo** → `cargo update -p <crate> --precise <fixed>` in the crate dir (works when the fixed version is within the parent's semver range; if not, bump the parent crate); commit `Cargo.lock`.
+3. **🔴 No fix published** → Dependabot **cannot** act. Assess reachability + exposure (Phase 7): if the path isn't reachable or it's dev/test-only, **dismiss the alert with a reason** in the GitHub UI (or `gh api -X PATCH /repos/{REPO}/dependabot/alerts/<number> -f state=dismissed …` — a **write**, so this command only *recommends* it, never runs it). If it's a real shipped risk (e.g. a CRITICAL crate in the contract WASM), **replace or remove the dependency** (a code change) or pin a maintained fork.
+
+`📂 unwatched` rows: even a bucket-1/2 fix won't recur via Dependabot here — either **add the directory to `.github/dependabot.yml`** so it's maintained, or accept it (note when it's test-only / never published).
+
+## Phase 9 — Scan B output (vulnerabilities)
+
+Build the alerts triage as below; Phase 10 sends it to the terminal or the `--md` file.
+
+### Table
+One deduped markdown table, **critical-first**:
+
+```
+## Security alerts — {REPO}  (M open · D distinct)
+
+| Sev | Package | Eco | Scope | Fix | Bucket | Manifests | Advisory |
+|-----|---------|-----|-------|-----|--------|-----------|----------|
+```
+- **Sev** 🔴 critical · 🟠 high · 🟡 medium · ⚪ low.
+- **Fix** the patched version, or **none**.
+- **Bucket** 🟢 direct+fix · 🟠 transitive+fix · 🔴 no-fix (append `📂` when unwatched).
+- **Manifests** short ("`tests-in-tee` +2 more"); tag the `📂` ones.
+- **Advisory** the `GHSA-…` id.
+
+State the headline up front: M raw alerts collapse to D distinct (e.g. "26 alerts → 9 packages").
+
+### Per-bucket guidance
+For each non-empty bucket, a short block: the **one-line why it persisted**, the **fix recipe** from Phase 8 with the literal command per package (`overrides` / `npm audit fix` / `cargo update -p … --precise …`), and which entries are **`📂 unwatched`** (and whether they're test-only). Lead the 🔴 no-fix bucket with any **critical/high** entry and say plainly whether it's shipped (act — replace/remove) or dev/test-only (dismiss-with-reason).
+
+### Summary
+- Counts by bucket and by severity.
+- **Fix order**: 🟢 direct+fix (merge/bump) → 🟠 transitive+fix (override / re-resolve, one lockfile at a time) → 🔴 no-fix (dismiss-with-reason or replace). Surface critical/high first within each.
+- Note any **`📂 unwatched`** dirs and whether to extend `.github/dependabot.yml`.
+
+## Phase 10 — Where the output goes
+
+Assemble whichever scans ran (Scan A's section from Phase 5 first, then Scan B's from Phase 9), then:
+- **Default (no `--md`)** → print them to the terminal, Scan A first.
+- **`--md`** → write the combined result to `{repo-root}/dependabot-triage-result.md` in a **single** `Write` (resolve the root with `git rev-parse --show-toplevel`; `Write` overwrites any previous file). Start the file with a `# Dependabot triage — {REPO}` header and a one-line "generated read-only on {today}" note, then the section(s) that ran. Don't print the body to the terminal — just confirm the path written and give a one-line headline (counts by bucket for each scan that ran).
+
+Then **stop**. Take no action — the human decides what to merge, close, override, or dismiss.
