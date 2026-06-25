@@ -62,6 +62,46 @@ updates:
         update-types:
           - "minor"
 
+  - package-ecosystem: npm
+    directory: /tests-in-tee
+    schedule:
+      interval: weekly
+    versioning-strategy: increase
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 10
+    groups:
+      patch:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+      minor:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+
+  - package-ecosystem: npm
+    directory: /tests-in-tee/test-image
+    schedule:
+      interval: weekly
+    versioning-strategy: increase
+    open-pull-requests-limit: 5
+    cooldown:
+      default-days: 10
+    groups:
+      patch:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+      minor:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+
   # Rust crates
   - package-ecosystem: cargo
     directory: /shade-attestation
@@ -103,6 +143,24 @@ updates:
 
   - package-ecosystem: docker
     directory: /
+    schedule:
+      interval: weekly
+    cooldown:
+      default-days: 7
+    groups:
+      patch:
+        patterns:
+          - "*"
+        update-types:
+          - "patch"
+      minor:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+
+  - package-ecosystem: docker
+    directory: /contract-builder
     schedule:
       interval: weekly
     cooldown:
