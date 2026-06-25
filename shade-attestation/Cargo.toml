@@ -10,7 +10,7 @@ readme = "README.md"
 
 [dependencies]
 borsh = { version = "=1.6.1", features = ["derive"] }
-dcap-qvl = { version = "=0.4.0", default-features = false, features = ["contract", "borsh", "std", "ring", "default-x509"] }
+dcap-qvl = { version = "=0.5.2", default-features = false, features = ["contract", "borsh", "std", "ring", "default-x509"] }
 derive_more = { version = "=2.1.1", features = ["from", "deref", "into", "as_ref", "constructor"] }
 dstack-sdk-types = { version = "=0.1.2", features = ["borsh"] }
 hex = { version = "=0.4.3", features = ["serde"] }
