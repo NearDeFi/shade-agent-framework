@@ -1,7 +1,7 @@
 ---
-description: Read-only Dependabot triage with two scans, both on by default — (A) open Dependabot PRs: classify each (ecosystem, grouped, patch/minor/major, dev/runtime, security, CI, plus human/claude[bot] signal) and suggest an action; (B) open security alerts (vulnerabilities): dedupe across manifests and bucket each by fix-availability + direct-vs-transitive + whether Dependabot watches its manifest, with the exact command to clear it. Toggle with --no-prs / --no-vulns (default runs both); --md writes the result to dependabot-triage-result.md. Never merges, closes, comments, edits, approves, or dismisses.
+description: Read-only Dependabot triage with two scans, both on by default — (A) open Dependabot PRs: classify each (ecosystem, grouped, patch/minor/major, dev/runtime, security, CI, plus human/claude[bot] signal) and suggest an action; (B) open security alerts (vulnerabilities): dedupe across manifests and bucket each by fix-availability + direct-vs-transitive + whether Dependabot watches its manifest, with the exact command to clear it — plus a local npm audit + cargo audit cross-check across every manifest to surface anything Dependabot missed. Toggle with --no-prs / --no-vulns (default runs both); --md writes the result to dependabot-triage-result.md. Never merges, closes, comments, edits, approves, dismisses, or runs any audit-fix.
 disable-model-invocation: true
-allowed-tools: Bash(gh pr list:*), Bash(gh pr view:*), Bash(gh pr checks:*), Bash(gh run view:*), Bash(gh api:*), Bash(gh repo view:*), Read, Grep, Glob, Write
+allowed-tools: Bash(gh pr list:*), Bash(gh pr view:*), Bash(gh pr checks:*), Bash(gh run view:*), Bash(gh api:*), Bash(gh repo view:*), Bash(npm audit:*), Bash(cargo audit:*), Bash(git rev-parse:*), Read, Grep, Glob, Write
 argument-hint: "[ecosystem: npm|cargo|github-actions|docker] [--no-prs] [--no-vulns] [--md] (all optional)"
 ---
 
@@ -10,7 +10,7 @@ argument-hint: "[ecosystem: npm|cargo|github-actions|docker] [--no-prs] [--no-vu
 Two read-only scans of this repo's Dependabot state, **both run by default**:
 
 - **Scan A — open Dependabot PRs** (Phases 1–5): classify every open Dependabot PR, print one table with a **suggested action** each, then give concrete guidance for non-routine PRs (CI failures, majors, measurement-sensitive bumps, stale leftovers) and the coverage tier (CI / `tests-in-tee` / hands-on local run) for each major.
-- **Scan B — open security alerts / vulnerabilities** (Phases 6–9): read the repo's Dependabot **alerts** (the `/security/dependabot` page), dedupe them across manifests, sort each into a **bucket** (fix available & direct → bump it · fix available but transitive → force it via override / lockfile re-resolve · no fix → assess & dismiss-with-reason or replace), and say exactly **what to do** for each — including the ones the PR stream silently never fixes.
+- **Scan B — open security alerts / vulnerabilities** (Phases 6–9): read the repo's Dependabot **alerts** (the `/security/dependabot` page), dedupe them across manifests, sort each into a **bucket** (fix available & direct → bump it · fix available but transitive → force it via override / lockfile re-resolve · no fix → assess & dismiss-with-reason or replace), and say exactly **what to do** for each — including the ones the PR stream silently never fixes. As an **extra**, it cross-checks every manifest with `npm audit` + `cargo audit` and reports anything they catch that the Dependabot alerts missed.
 
 This command is **read-only** — it never merges, closes, comments, approves, edits, or dismisses anything on GitHub. It produces a triage a human acts on; every fix command it prints is a recommendation for you to run, not something it runs. With `--md` the **only** thing it writes is one local result file.
 
@@ -168,6 +168,22 @@ Per alert, keep: `security_advisory.ghsa_id`, `security_advisory.severity`, `dep
 
 Context — **why these persist even after merging the PR stream**: Scan A's PRs are Dependabot *version updates*, which only bump **direct** deps in the **directories listed in `.github/dependabot.yml`**. Dependabot *security* updates (a separate feature) only open a fix PR when bumping resolves cleanly — so a vuln lingers when it's **transitive**, has **no published fix**, or sits in a **manifest Dependabot doesn't watch**. Phase 7 detects exactly those three.
 
+### Cross-check with local audit tools (the **extra** — catches what Dependabot missed)
+Dependabot alerts come from GitHub's Advisory DB over the manifests in its dependency graph. `npm audit` (npm registry advisory DB) and `cargo audit` (RustSec DB) draw on **different databases on different schedules**, and `cargo audit` additionally flags **unmaintained / yanked** crates Dependabot never reports — so they catch gaps. Run them **read-only** across **every** manifest in the repo, including dirs `dependabot.yml` doesn't watch. (Honor the ecosystem positional: `npm` → npm only, `cargo` → cargo only.)
+
+- **npm** — each `package.json` (find with Glob; here: `shade-agent-cli`, `shade-agent-js`, `shade-agent-template`, `tests-in-tee`, `tests-in-tee/test-image`):
+  ```
+  ( cd <dir> && npm audit --json --package-lock-only )
+  ```
+  `--package-lock-only` audits the committed lockfile without needing `node_modules`. Read `metadata.vulnerabilities` for counts and the `vulnerabilities` map for advisories (each node lists `via` — match on the **root** advisory/package, not the parents it taints). **Never** run `npm audit fix` — it writes.
+- **cargo** — each dir with a `Cargo.lock` (here: `shade-attestation`, `shade-contract-template`):
+  ```
+  cargo audit --file <dir>/Cargo.lock
+  ```
+  Read-only; reports advisories **and** unmaintained/yanked warnings. If it isn't installed (`cargo: no such subcommand: audit`), **don't install it** — note "cargo audit unavailable, skipped" and move on.
+
+Keep each finding's advisory id (`GHSA-…` / `RUSTSEC-…` / npm advisory), package, severity, manifest, and fixed version, to reconcile against the Dependabot alerts in Phase 7.
+
 ## Phase 7 — Classify each alert
 
 First **dedupe**: collapse alerts sharing a `ghsa_id` + package into one row, listing the manifests they hit (the same advisory in 5 lockfiles = one row, count 5). Then, per distinct (advisory, package):
@@ -180,6 +196,7 @@ First **dedupe**: collapse alerts sharing a `ghsa_id` + package into one row, li
 - **Watched?** — read `.github/dependabot.yml` and build the set of `{ecosystem, directory}` it lists under `updates:`. The alert's manifest **directory** (parent of `manifest_path`) is **watched** if it matches a configured `directory` for that ecosystem (exact dir; this repo uses one `directory` per entry, not recursive). A manifest dir not in that set (e.g. `tests-in-tee/`, `tests-in-tee/test-image/`) is **unwatched** → no version-update PR will ever touch it. Tag such rows `📂 unwatched`.
 - **Severity** — critical / high / medium / low.
 - **Exposure** — `runtime` vs `development` scope, and whether the manifest is a **published** artefact (`shade-agent-js`, `shade-agent-cli`, the `shade-attestation` crate) or **not shipped** (templates, `tests-in-tee/*`). A dev-scope or test-only alert is real but lower priority; a runtime alert in a published package is the high-priority case. (npm lockfiles don't ship to consumers of the published packages — consumers re-resolve from your version ranges — so most npm-lockfile alerts are a CI/dev/test surface, not a downstream-consumer one. Note that where it lowers urgency.)
+- **Source & audit delta** — tag each finding `dependabot`, `audit` (only `npm`/`cargo audit` saw it), or `both` (match by advisory id, or root package + manifest). The **`audit`-only** set is the payoff of the cross-check — what Dependabot missed: a different advisory DB, an unwatched manifest, a lag, or a `cargo audit` unmaintained/yanked crate. Classify `audit`-only findings with the same fix / direct-vs-transitive / watched logic; treat unmaintained/yanked as a no-fix-class finding (label "unmaintained", not a CVE).
 
 ## Phase 8 — Bucket & suggested fix (first match wins)
 
@@ -217,8 +234,12 @@ State the headline up front: M raw alerts collapse to D distinct (e.g. "26 alert
 ### Per-bucket guidance
 For each non-empty bucket, a short block: the **one-line why it persisted**, the **fix recipe** from Phase 8 with the literal command per package (`overrides` / `npm audit fix` / `cargo update -p … --precise …`), and which entries are **`📂 unwatched`** (and whether they're test-only). Lead the 🔴 no-fix bucket with any **critical/high** entry and say plainly whether it's shipped (act — replace/remove) or dev/test-only (dismiss-with-reason).
 
+### Extra — local audit cross-check (what Dependabot missed)
+Report only the **`audit`-only** delta from Phase 7 (the alerts already appear in the table above). If it's empty, one line: "`npm audit` + `cargo audit` surfaced nothing beyond the Dependabot alerts — coverage agrees." Otherwise a short table in the same shape with an added **Source** column (`npm-audit` / `cargo-audit`), bucket each finding the same way, and list `cargo audit` **unmaintained / yanked** entries explicitly. Flag any manifest the audit covered that `dependabot.yml` doesn't watch (a coverage gap worth closing). If a tool was unavailable, name it and note its ecosystem's cross-check was skipped.
+
 ### Summary
 - Counts by bucket and by severity.
+- **Audit cross-check**: N `audit`-only findings beyond Dependabot (or "none — coverage agrees"); note any tool skipped.
 - **Fix order**: 🟢 direct+fix (merge/bump) → 🟠 transitive+fix (override / re-resolve, one lockfile at a time) → 🔴 no-fix (dismiss-with-reason or replace). Surface critical/high first within each.
 - Note any **`📂 unwatched`** dirs and whether to extend `.github/dependabot.yml`.
 
