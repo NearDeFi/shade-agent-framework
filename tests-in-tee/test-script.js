@@ -1544,16 +1544,16 @@ async function test9(appUrl) {
         );
       }
 
-      // Verify each agent has 3 keys (the TEE returns counts, never the keys)
-      if (result.agent1KeyCount !== 3) {
+      // Verify each agent has 50 keys (the TEE returns counts, never the keys)
+      if (result.agent1KeyCount !== 50) {
         throw new Error(
-          `Agent 1 should have 3 keys, got ${result.agent1KeyCount ?? 0}`,
+          `Agent 1 should have 50 keys, got ${result.agent1KeyCount ?? 0}`,
         );
       }
 
-      if (result.agent2KeyCount !== 3) {
+      if (result.agent2KeyCount !== 50) {
         throw new Error(
-          `Agent 2 should have 3 keys, got ${result.agent2KeyCount ?? 0}`,
+          `Agent 2 should have 50 keys, got ${result.agent2KeyCount ?? 0}`,
         );
       }
 

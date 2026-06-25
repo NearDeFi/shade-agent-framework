@@ -7,6 +7,8 @@
 
 import { ShadeClient } from "@neardefi/shade-agent-js";
 
+const KEYS_PER_AGENT = 50;
+
 export default async function testUniqueKeys(): Promise<{
   success: boolean;
   error?: string;
@@ -17,7 +19,7 @@ export default async function testUniqueKeys(): Promise<{
   agent2AccountId?: string;
 }> {
   try {
-    // Create first agent instance with numKeys=3
+    // Create first agent instance
     const agent1 = await ShadeClient.create({
       networkId: "testnet",
       agentContractId: process.env.AGENT_CONTRACT_ID,
@@ -26,16 +28,16 @@ export default async function testUniqueKeys(): Promise<{
         privateKey: process.env.SPONSOR_PRIVATE_KEY!,
       },
       derivationPath: process.env.SPONSOR_PRIVATE_KEY,
-      numKeys: 3,
+      numKeys: KEYS_PER_AGENT,
     });
 
     // Fund first agent
-    await agent1.fund(0.3);
+    await agent1.fund(0.5);
 
     // Register first agent (this will add keys via ensureKeysSetup)
     await agent1.register();
 
-    // Create second agent instance with numKeys=3
+    // Create second agent instance
     const agent2 = await ShadeClient.create({
       networkId: "testnet",
       agentContractId: process.env.AGENT_CONTRACT_ID,
@@ -44,11 +46,11 @@ export default async function testUniqueKeys(): Promise<{
         privateKey: process.env.SPONSOR_PRIVATE_KEY!,
       },
       derivationPath: process.env.SPONSOR_PRIVATE_KEY,
-      numKeys: 3,
+      numKeys: KEYS_PER_AGENT,
     });
 
     // Fund second agent
-    await agent2.fund(0.3);
+    await agent2.fund(0.5);
 
     // Register second agent (this will add keys via ensureKeysSetup)
     await agent2.register();
@@ -66,7 +68,10 @@ export default async function testUniqueKeys(): Promise<{
     const agent2KeyCount = agent2Keys.length;
 
     return {
-      success: allKeysUnique && agent1KeyCount === 3 && agent2KeyCount === 3,
+      success:
+        allKeysUnique &&
+        agent1KeyCount === KEYS_PER_AGENT &&
+        agent2KeyCount === KEYS_PER_AGENT,
       allKeysUnique,
       agent1KeyCount,
       agent2KeyCount,
