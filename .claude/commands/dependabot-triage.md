@@ -51,7 +51,7 @@ Fetch this for every flagged PR (and any you're unsure about); skip it for pure 
 - **Bump type** — patch / minor / major. Individual → parse `from A.B.C to D.E.F`. Grouped → the group name (patch / minor).
   - **0.x rule (dominates the group name):** for a pre-1.0 dep, a `0.A.x → 0.B.x` bump (the minor/`y` position moves) is breaking-risk — **classify it as `major`**, not minor. A pre-1.0 `0.A.x → 0.A.z` (only the patch/`z` moves) stays **patch**.
   - This escalation applies **inside a group**: if a `patch`/`minor` group contains any dep doing a `0.y` bump, the group's effective bump is **`major`** — label the Bump cell `major (0.x)`, name the offending dep, and take the major action (Phase 4 rule 6), not the minor/patch one. (e.g. a "minor group" containing `@phala/cloud 0.2.9 → 0.3.0` → **major**.)
-- **Scope** — **dev** if title is `chore(deps-dev)…`; else **runtime** (may be mixed).
+- **Scope** — **dev** if the title is `chore(deps-dev)…`, else **runtime** (this repo's Dependabot titles do carry the `chore(deps)` / `chore(deps-dev)` prefix). If a title ever lacks it, fall back to the manifest at the PR head — npm: bumped packages in `devDependencies` vs `dependencies` — and label **mixed** when a group spans both.
 - **Security?** — `security` label or a GHSA-/CVE- advisory block in the body.
 - **CI** — ✅ / ❌ / ⏳ / – from `statusCheckRollup`.
 - **Comments / human signal** — from the conversation (Phase 1): any human comment stating a decision (blocked / hold / ignore / merge-after-X), attributed to its author and quoted; plus any `claude[bot]` review findings (not `github-actions[bot]`). These feed the **human override** in Phase 4 and the **Decision** line in Phase 5.
@@ -127,7 +127,7 @@ For each CI-❌, major, `⛔`, security, `🧹`, or any **major** `🧪`/`🔧` 
 ### Verification by coverage tier (only for flagged PRs)
 `ci-passed` runs per-package **build + mocked unit tests on ubuntu**. Treat anything it covers as done — an ubuntu pass stands in for other platforms, so never ask for a local re-run of what CI already runs. Route only the gaps:
 
-**🧪 Run `tests-in-tee` (real Phala TEE + chain + deploy).** Flag these **only for major bumps** (incl. a pre-1.0 `0.y` bump) — `ci-passed` only mocks them, so a breaking change needs real-TEE coverage; a patch or `≥1.0` minor is covered, trust CI. Comment **`/run-e2e`** on the PR (maintainer; non-blocking; `main`/`stable` base, in-repo secrets), or locally `cd tests-in-tee && npm ci && npm run test` (needs `PHALA_API_KEY` + funded testnet NEAR; see root README).
+**🧪 Run `tests-in-tee` (real Phala TEE + chain + deploy).** Flag these **only for major bumps** (incl. a pre-1.0 `0.y` bump) — `ci-passed` only mocks them, so a breaking change needs real-TEE coverage; a patch or `≥1.0` minor is covered, trust CI. Comment **`/run-e2e`** on the PR (maintainer; non-blocking; `main`/`stable` base, in-repo secrets), or run it locally — **build `shade-agent-js` first** (`cd shade-agent-js && npm ci && npm run build`; the test image copies its gitignored `dist/`), build the contract WASM, then `cd tests-in-tee && npm ci && (cd test-image && npm ci) && npm run test` (needs a funded testnet NEAR account + `PHALA_API_KEY`; full recipe in `tests-in-tee/README.md`).
 
 | Dep / change | Why only tests-in-tee covers it |
 |---|---|
