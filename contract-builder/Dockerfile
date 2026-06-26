@@ -1,5 +1,5 @@
 # Build stage - use full environment for building everything
-FROM ubuntu:24.04 AS builder
+FROM ubuntu:26.04 AS builder
 
 # Install all build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -15,7 +15,7 @@ RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y \
        https://github.com/near/cargo-near/releases/download/cargo-near-v0.16.1/cargo-near-installer.sh | sh
 
 # Runtime stage - minimal Ubuntu for compatibility
-FROM ubuntu:24.04 AS runtime
+FROM ubuntu:26.04 AS runtime
 
 # Install runtime packages including build tools (needed for some crates)
 RUN apt-get update && apt-get install -y --no-install-recommends \
