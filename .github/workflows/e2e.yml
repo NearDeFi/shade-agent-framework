@@ -138,7 +138,7 @@ jobs:
       - uses: Swatinem/rust-cache@c19371144df3bb44fab255c43d04cbc2ab54d1c4 # v2.9.1
         with:
           workspaces: shade-contract-template
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: contract-wasm
           path: shade-contract-template/target/near
@@ -164,7 +164,7 @@ jobs:
             shade-agent-js/package-lock.json
             tests-in-tee/package-lock.json
             tests-in-tee/test-image/package-lock.json
-      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: contract-wasm
           path: shade-contract-template/target/near
