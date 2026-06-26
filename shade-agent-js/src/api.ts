@@ -332,7 +332,7 @@ export class ShadeClient {
    * Funds the agent account with NEAR tokens from the sponsor account
    * @param fundAmount - Amount of NEAR tokens to transfer to the agent account in human readable format (e.g. 1 = one NEAR)
    * @returns Promise that resolves when funding is complete
-   * @throws Error if sponsor is not configured or if transfer fails after retries
+   * @throws Error if sponsor is not configured or if transfer fails
    */
   async fund(fundAmount: number): Promise<void> {
     if (!this.config.sponsor) {
