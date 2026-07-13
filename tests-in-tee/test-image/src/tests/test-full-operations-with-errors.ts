@@ -259,6 +259,14 @@ export default async function testFullOperationsWithErrors(): Promise<{
     console.log = originalLog;
     console.warn = originalWarn;
     console.error = originalError;
+    // A key leak outranks the retry: scan the captured console before propagating
+    // a re-sendable tx rejection, or a leak on a retried run is never checked
+    // (each retry has its own fresh capture, so the leaking run's output is lost).
+    if (consoleCapture.some((line) => containsPrivateKey(line))) {
+      throw new Error(
+        "PRIVATE KEY LEAK DETECTED: console output contains private key patterns",
+      );
+    }
     // Let a re-sendable tx rejection propagate so the endpoint returns a 500.
     if (isResendableTxError(e)) throw e;
     result.error = e instanceof Error ? e.message : String(e);
