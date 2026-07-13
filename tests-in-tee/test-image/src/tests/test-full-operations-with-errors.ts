@@ -29,6 +29,19 @@ function scanForPrivateKeyLeak(obj: unknown): boolean {
   return containsPrivateKey(str);
 }
 
+// A nonce conflict or tx expiry means the tx was rejected and never executed,
+// so it's safe to re-run. The should-succeed ops re-throw it (rather than
+// recording a per-op failure) so it surfaces as the endpoint's 500 and the test
+// script re-calls. The expiry match is tight so it can't catch an attestation
+// "expired" error.
+function isResendableTxError(e: unknown): boolean {
+  const type = (e as { type?: unknown })?.type;
+  if (type === "InvalidNonce" || type === "Expired") return true;
+  const message = (e as { message?: unknown })?.message;
+  if (typeof message !== "string") return false;
+  return /nonce/i.test(message) || /transaction has expired/i.test(message);
+}
+
 export default async function testFullOperationsWithErrors(): Promise<{
   success: boolean;
   agentAccountId?: string;
@@ -122,11 +135,12 @@ export default async function testFullOperationsWithErrors(): Promise<{
       throw e;
     }
 
-    // 2. Fund with normal amount (0.3 NEAR)
+    // 2. Fund with normal amount (0.5 NEAR)
     try {
-      await agent.fund(0.3);
+      await agent.fund(0.5);
       result.operations.fundNormal = { ok: true };
     } catch (e: unknown) {
+      if (isResendableTxError(e)) throw e;
       const err = e instanceof Error ? e.message : String(e);
       result.operations.fundNormal = { ok: false, error: err };
     }
@@ -136,6 +150,7 @@ export default async function testFullOperationsWithErrors(): Promise<{
       await agent.register();
       result.operations.register = { ok: true };
     } catch (e: unknown) {
+      if (isResendableTxError(e)) throw e;
       const err = e instanceof Error ? e.message : String(e);
       result.operations.register = { ok: false, error: err };
     }
@@ -244,6 +259,16 @@ export default async function testFullOperationsWithErrors(): Promise<{
     console.log = originalLog;
     console.warn = originalWarn;
     console.error = originalError;
+    // A key leak outranks the retry: scan the captured console before propagating
+    // a re-sendable tx rejection, or a leak on a retried run is never checked
+    // (each retry has its own fresh capture, so the leaking run's output is lost).
+    if (consoleCapture.some((line) => containsPrivateKey(line))) {
+      throw new Error(
+        "PRIVATE KEY LEAK DETECTED: console output contains private key patterns",
+      );
+    }
+    // Let a re-sendable tx rejection propagate so the endpoint returns a 500.
+    if (isResendableTxError(e)) throw e;
     result.error = e instanceof Error ? e.message : String(e);
     result.leakedInConsole = consoleCapture.some((line) =>
       containsPrivateKey(line),

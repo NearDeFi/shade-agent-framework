@@ -145,7 +145,8 @@ const contractAccount = new Account(AGENT_CONTRACT_ID, provider, signer);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 // Failures are tagged with a category + context so the reporter can name what
-// went wrong. Retries stay narrow: connection errors and NEAR nonce conflicts.
+// went wrong. Retries stay narrow: connection errors and re-sendable NEAR tx
+// rejections (nonce conflicts, tx expiry).
 const ErrorCategory = {
   CONNECTION: "CONNECTION",
   APP: "APP",
@@ -272,8 +273,18 @@ async function fetchWithRetry(
       body = undefined;
     }
 
-    // App handler crash (carries a stack) — report it, never retry even on 5xx.
+    // App handler crash (carries a stack). A re-sendable NEAR tx rejection here
+    // is the agent's in-TEE fund/register hitting a stale sponsor nonce or an
+    // expired block hash (RPC lag, worse when runs overlap) — re-call so the app
+    // re-signs against a fresh nonce + block hash. Jitter decorrelates retriers.
     if (body?.success === false && typeof body.stack === "string") {
+      if (isResendableTxError({ message: body.error }) && attempt < maxAttempts) {
+        console.log(
+          `Retryable tx error calling ${url} (attempt ${attempt} of ${maxAttempts}), retrying`,
+        );
+        await sleep(delay + Math.floor(Math.random() * 2000));
+        continue;
+      }
       throw tagError(
         new Error(body.error || "Test app handler error"),
         ErrorCategory.APP,
@@ -282,7 +293,19 @@ async function fetchWithRetry(
     }
 
     // Structured registration result (no stack) — a body the caller inspects.
+    // Retry only a re-sendable tx rejection; the measurement/PPID errors tests
+    // assert on aren't nonce/expiry, so they pass straight through.
     if (body?.success === false && body.registrationError !== undefined) {
+      if (
+        isResendableTxError({ message: body.registrationError }) &&
+        attempt < maxAttempts
+      ) {
+        console.log(
+          `Retryable tx error registering via ${url} (attempt ${attempt} of ${maxAttempts}), retrying`,
+        );
+        await sleep(delay + Math.floor(Math.random() * 2000));
+        continue;
+      }
       return body;
     }
 
@@ -315,16 +338,21 @@ async function fetchWithRetry(
   );
 }
 
-// A nonce conflict is RPC read-after-write lag: a node returns a stale
-// access-key nonce, so the next tx reuses one the chain already consumed.
-// Re-invoking re-queries it; jittered backoff lets the node catch up.
-function isNonceConflict(e) {
-  return e?.type === "InvalidNonce" || /nonce/i.test(e?.message ?? "");
+// Two NEAR tx rejections that are safe to re-send because the tx never
+// executed: a nonce conflict (a stale access-key nonce from RPC read-after-write
+// lag) and an expiry (the signed block hash aged out before a validator saw it,
+// likelier when runs overlap). Re-invoking re-queries the nonce and re-fetches
+// the block hash; jittered backoff lets the node catch up. The expiry match is
+// tight so it can't catch the contract's `ExpiredAttestation` removal reason.
+function isResendableTxError(e) {
+  if (e?.type === "InvalidNonce" || e?.type === "Expired") return true;
+  const message = e?.message ?? "";
+  return /nonce/i.test(message) || /transaction has expired/i.test(message);
 }
 
-// `category` lets the caller label an exhausted/non-nonce failure by phase:
+// `category` lets the caller label an exhausted/non-retryable failure by phase:
 // setup-path callers pass SETUP; the in-test owner/admin calls keep NEAR.
-async function withNonceRetry(
+async function withTxRetry(
   fn,
   label,
   { category = ErrorCategory.NEAR, maxAttempts = 5 } = {},
@@ -333,9 +361,9 @@ async function withNonceRetry(
     try {
       return await fn();
     } catch (e) {
-      if (attempt < maxAttempts && isNonceConflict(e)) {
+      if (attempt < maxAttempts && isResendableTxError(e)) {
         console.log(
-          `Nonce conflict on ${label} (attempt ${attempt} of ${maxAttempts}), retrying`,
+          `Retryable tx error on ${label} (attempt ${attempt} of ${maxAttempts}), retrying`,
         );
         await sleep(300 + attempt * 400 + Math.floor(Math.random() * 2000));
         continue;
@@ -444,7 +472,7 @@ async function createContractAccount() {
   if (contractAccountExists) {
     // Wipe contract state instead of deleting (account + balance preserved).
     try {
-      await withNonceRetry(
+      await withTxRetry(
         () => wipeContractState(contractAccount),
         "wipe-contract-state",
         { category: ErrorCategory.SETUP },
@@ -471,7 +499,7 @@ async function createContractAccount() {
     if (topUp > 0) {
       console.log(`Topping up contract account with ${topUp} NEAR...`);
       try {
-        await withNonceRetry(
+        await withTxRetry(
           () =>
             account.transfer({
               receiverId: AGENT_CONTRACT_ID,
@@ -494,7 +522,7 @@ async function createContractAccount() {
   console.log("Contract account does not exist, creating it");
   try {
     const publicKey = await account.getSigner().getPublicKey();
-    await withNonceRetry(
+    await withTxRetry(
       () =>
         account.createAccount(
           AGENT_CONTRACT_ID,
@@ -535,7 +563,7 @@ async function deployContract() {
 
   try {
     const wasmBytes = fs.readFileSync(wasmPath);
-    await withNonceRetry(
+    await withTxRetry(
       () => contractAccount.deployContract(new Uint8Array(wasmBytes)),
       "deploy-contract",
       { category: ErrorCategory.SETUP },
@@ -561,7 +589,7 @@ async function initializeContract() {
   };
 
   try {
-    await withNonceRetry(
+    await withTxRetry(
       () =>
         contractAccount.callFunction({
           contractId: AGENT_CONTRACT_ID,
@@ -772,7 +800,7 @@ async function getAppUrl(appId) {
 // Approve measurements
 async function approveMeasurements(measurements) {
   console.log("Approving measurements...");
-  await withNonceRetry(
+  await withTxRetry(
     () =>
       contractAccount.callFunction({
         contractId: AGENT_CONTRACT_ID,
@@ -787,7 +815,7 @@ async function approveMeasurements(measurements) {
 // Remove measurements
 async function removeMeasurements(measurements) {
   console.log("Removing measurements...");
-  await withNonceRetry(
+  await withTxRetry(
     () =>
       contractAccount.callFunction({
         contractId: AGENT_CONTRACT_ID,
@@ -802,7 +830,7 @@ async function removeMeasurements(measurements) {
 // Approve PPIDs
 async function approvePpids(ppids) {
   console.log("Approving PPIDs...");
-  await withNonceRetry(
+  await withTxRetry(
     () =>
       contractAccount.callFunction({
         contractId: AGENT_CONTRACT_ID,
@@ -817,7 +845,7 @@ async function approvePpids(ppids) {
 // Remove PPIDs
 async function removePpids(ppids) {
   console.log("Removing PPIDs...");
-  await withNonceRetry(
+  await withTxRetry(
     () =>
       contractAccount.callFunction({
         contractId: AGENT_CONTRACT_ID,
@@ -833,7 +861,7 @@ async function removePpids(ppids) {
 async function updateAttestationExpirationTime(ms) {
   const msStr = String(ms);
   console.log(`Updating attestation expiration to ${msStr} ms...`);
-  await withNonceRetry(
+  await withTxRetry(
     () =>
       contractAccount.callFunction({
         contractId: AGENT_CONTRACT_ID,

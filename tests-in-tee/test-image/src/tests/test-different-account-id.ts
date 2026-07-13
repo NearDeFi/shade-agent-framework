@@ -76,7 +76,7 @@ export default async function testDifferentAccountId(
   // Fund the different account
   await funderAccount.transfer({
     token: NEAR,
-    amount: NEAR.toUnits(0.3),
+    amount: NEAR.toUnits(0.5),
     receiverId: differentAccountId,
   });
 
