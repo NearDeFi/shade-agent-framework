@@ -219,7 +219,7 @@ async function fetchWithRetry(
     test,
     step,
     timeoutMs = 60000,
-    maxAttempts = 10,
+    maxAttempts = 7,
     delay = 2000,
     checkForPrivateKeyLeak = false,
   } = {},
@@ -363,7 +363,7 @@ function isResendableTxError(e) {
 async function withTxRetry(
   fn,
   label,
-  { category = ErrorCategory.NEAR, maxAttempts = 10 } = {},
+  { category = ErrorCategory.NEAR, maxAttempts = 7 } = {},
 ) {
   for (let attempt = 1; ; attempt++) {
     try {
