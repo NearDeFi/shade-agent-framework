@@ -47,7 +47,7 @@ async function createAgent() {
     derivationPath: sponsorPrivateKey, // Most likely to cause same key so use
   });
   // Fund the agent
-  await newAgent.fund(0.3);
+  await newAgent.fund(0.5);
   return newAgent;
 }
 

@@ -135,9 +135,9 @@ export default async function testFullOperationsWithErrors(): Promise<{
       throw e;
     }
 
-    // 2. Fund with normal amount (0.3 NEAR)
+    // 2. Fund with normal amount (0.5 NEAR)
     try {
-      await agent.fund(0.3);
+      await agent.fund(0.5);
       result.operations.fundNormal = { ok: true };
     } catch (e: unknown) {
       if (isResendableTxError(e)) throw e;
