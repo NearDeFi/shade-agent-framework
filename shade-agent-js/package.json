@@ -26,7 +26,7 @@
     "test:coverage": "vitest run --coverage tests/unit"
   },
   "dependencies": {
-    "@hackylabs/deep-redact": "3.0.5",
+    "@hackylabs/deep-redact": "4.0.2",
     "@near-js/accounts": "2.5.1",
     "@near-js/crypto": "2.5.1",
     "@near-js/providers": "2.5.1",
