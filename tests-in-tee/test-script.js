@@ -202,6 +202,14 @@ function isTransientHttpStatus(status) {
   );
 }
 
+// Exponential backoff (doubling per attempt, capped) with equal jitter: the
+// wait grows each retry and is randomized, so concurrent runs contending on the
+// shared sponsor nonce spread out instead of colliding again in lockstep.
+function backoffMs(attempt, base, cap = 20000) {
+  const ceil = Math.min(cap, base * 2 ** (attempt - 1));
+  return Math.floor(ceil / 2) + Math.floor(Math.random() * (ceil / 2));
+}
+
 // Call a test-app endpoint with connection-only retries + a per-request timeout.
 // Returns the parsed body; throws a tagged CONNECTION/APP error.
 async function fetchWithRetry(
@@ -211,7 +219,7 @@ async function fetchWithRetry(
     test,
     step,
     timeoutMs = 60000,
-    maxAttempts = 5,
+    maxAttempts = 10,
     delay = 2000,
     checkForPrivateKeyLeak = false,
   } = {},
@@ -282,7 +290,7 @@ async function fetchWithRetry(
         console.log(
           `Retryable tx error calling ${url} (attempt ${attempt} of ${maxAttempts}), retrying`,
         );
-        await sleep(delay + Math.floor(Math.random() * 2000));
+        await sleep(backoffMs(attempt, delay));
         continue;
       }
       throw tagError(
@@ -303,7 +311,7 @@ async function fetchWithRetry(
         console.log(
           `Retryable tx error registering via ${url} (attempt ${attempt} of ${maxAttempts}), retrying`,
         );
-        await sleep(delay + Math.floor(Math.random() * 2000));
+        await sleep(backoffMs(attempt, delay));
         continue;
       }
       return body;
@@ -355,7 +363,7 @@ function isResendableTxError(e) {
 async function withTxRetry(
   fn,
   label,
-  { category = ErrorCategory.NEAR, maxAttempts = 5 } = {},
+  { category = ErrorCategory.NEAR, maxAttempts = 10 } = {},
 ) {
   for (let attempt = 1; ; attempt++) {
     try {
@@ -365,7 +373,7 @@ async function withTxRetry(
         console.log(
           `Retryable tx error on ${label} (attempt ${attempt} of ${maxAttempts}), retrying`,
         );
-        await sleep(300 + attempt * 400 + Math.floor(Math.random() * 2000));
+        await sleep(backoffMs(attempt, 1000));
         continue;
       }
       throw tagError(e, category, { step: label, attempt });
