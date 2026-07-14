@@ -1,7 +1,7 @@
 ---
 description: Check that both AI reviewers have reviewed a PR, resolve their comments, keep CI green, and re-request review — never merges
 disable-model-invocation: true
-allowed-tools: Bash(gh pr view:*), Bash(gh pr diff:*), Bash(gh pr comment:*), Bash(gh pr checks:*), Bash(gh pr edit:*), Bash(gh pr list:*), Bash(gh pr checkout:*), Bash(gh api:*), Bash(gh repo view:*), Bash(gh run view:*), Bash(git diff:*), Bash(git log:*), Bash(git fetch:*), Bash(git checkout:*), Bash(git status:*), Bash(git branch:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(cargo fmt:*), Bash(cargo clippy:*), Bash(cargo test:*), Bash(cargo check:*), Read, Edit, Write, Grep, Glob, Agent
+allowed-tools: Bash(gh pr view:*), Bash(gh pr diff:*), Bash(gh pr comment:*), Bash(gh pr checks:*), Bash(gh pr edit:*), Bash(gh pr list:*), Bash(gh pr checkout:*), Bash(gh api:*), Bash(gh repo view:*), Bash(gh run view:*), Bash(git diff:*), Bash(git log:*), Bash(git fetch:*), Bash(git checkout:*), Bash(git status:*), Bash(git branch:*), Bash(git worktree:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(cargo fmt:*), Bash(cargo clippy:*), Bash(cargo test:*), Bash(cargo check:*), Read, Edit, Write, Grep, Glob, Agent, EnterWorktree, ExitWorktree
 argument-hint: "<pr-number or url> [--fix]"
 ---
 
@@ -22,7 +22,7 @@ gh repo view --json nameWithOwner --jq .nameWithOwner
 Call it `{REPO}` and use it in every `gh` command below (via `--repo {REPO}`, and as the path segment in `gh api repos/{REPO}/...` calls).
 
 - If the command fails (not a git repository, or no GitHub remote), stop and ask the user for the repository.
-- All `git` operations (fetch, checkout, commit, push) and `gh pr checkout` run inside this working copy.
+- Code changes for the PR run inside a dedicated worktree under `.claude/worktrees/pr-{number}` (set up in Phase 3); read-only `gh` / `git` queries run from wherever the session currently is.
 
 ## Parse arguments
 
@@ -125,10 +125,7 @@ Wait for user confirmation (unless `--fix` flag set). Once confirmed, **record a
 
 ## Phase 3: Fix
 
-Checkout the PR branch if not already on it (handles fork PRs automatically):
-```
-gh pr checkout {number} --repo {REPO}
-```
+Work in an isolated worktree for this PR. Read `.claude/commands/utils/worktree.md` and follow **Enter — existing PR branch** to check out PR #{number} into `.claude/worktrees/pr-{number}` and switch the session into it (this handles fork PRs, and is a no-op re-entry if you are already in that worktree — e.g. on a later `/auto-resolve-pr` pass).
 
 **Implement fixes** for the approved review-comment fixes (from Phase 2).
 
