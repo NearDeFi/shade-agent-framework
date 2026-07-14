@@ -29,9 +29,9 @@ Parse the porcelain output into (path, branch/detached) pairs. **Only** consider
 
 For each `.claude/worktrees/<name>` on branch `<branch>`, gather read-only with `git -C .claude/worktrees/<name> …`:
 
-- **Why it was created** — infer from `<branch>`:
-  - `fix/*` → a fix started by `/fix-issue`; the slug describes the issue or problem.
-  - dir named `pr-<n>` → resolving PR #`<n>` via `/resolve-pr-reviews`.
+- **Why it was created** — infer from the dir name and `<branch>`:
+  - branch `fix/*` → a fix started by `/fix-issue` (the slug describes the problem); its PR reviews are resolved in this same worktree too.
+  - dir named `pr-<n>` → `/resolve-pr-reviews` created it to resolve PR #`<n>` when no worktree for that branch already existed.
   - otherwise → report the branch name; origin unknown.
 - **Related PR** — `gh pr list --head <branch> --repo {REPO} --state all --json number,title,state,url,mergedAt --jq '.[0]'`. Record number, title, and state (OPEN / MERGED / CLOSED). For an OPEN PR, also summarise CI with `gh pr checks <n> --repo {REPO}`. No match → "no PR".
 - **Commits (work done)** — `git -C … log --oneline origin/main..HEAD`: the count and subjects of commits on this branch beyond `main`.

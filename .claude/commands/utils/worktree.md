@@ -24,9 +24,12 @@ Because the fix runs in a dedicated worktree branched off `origin/main`, the mai
 
 Inputs: `{number}` (PR number) and `{REPO}`.
 
-1. The worktree is `.claude/worktrees/pr-{number}`. If it already appears in `git worktree list`, `EnterWorktree` with `path: .claude/worktrees/pr-{number}` and stop — it's already set up (idempotent across passes).
+**Reuse first.** A branch can only be checked out in one worktree at a time, so the goal is to land in the worktree the PR's branch is *already* in — normally the one `/fix-issue` created for this same branch. Only create a new worktree when nothing has that branch checked out.
+
+1. Find the PR's head branch: `gh pr view {number} --repo {REPO} --json headRefName --jq .headRefName` → `{branch}`.
 2. `git fetch origin`
-3. Create a detached worktree, enter it, then let `gh` check out the PR head (this handles fork PRs and names the branch correctly):
+3. **Reuse if it exists.** Look in `git worktree list --porcelain` for an entry with `branch refs/heads/{branch}`. If found, `EnterWorktree` with `path:` that worktree and stop (a no-op if the session is already there). This is the common case — continuing the work `/fix-issue` started, and the idempotent re-entry on later `/auto-resolve-pr` passes.
+4. **Otherwise create one** (no worktree has `{branch}`: e.g. resolving a PR this machine never worked on, or whose worktree was already reaped). Create a detached worktree, enter it, then let `gh` check out the PR head (this handles fork PRs and names the branch correctly):
    ```
    git worktree add --detach .claude/worktrees/pr-{number} origin/main
    ```
@@ -34,7 +37,6 @@ Inputs: `{number}` (PR number) and `{REPO}`.
    ```
    gh pr checkout {number} --repo {REPO}
    ```
-4. If `gh pr checkout` reports the branch is already checked out in another worktree, that PR is already open elsewhere: `ExitWorktree` (`action: keep`), `git worktree remove .claude/worktrees/pr-{number}`, then `EnterWorktree` (`path:`) that existing worktree and continue there.
 
 ## Safety rules (before any removal)
 

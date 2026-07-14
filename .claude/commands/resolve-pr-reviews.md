@@ -22,7 +22,7 @@ gh repo view --json nameWithOwner --jq .nameWithOwner
 Call it `{REPO}` and use it in every `gh` command below (via `--repo {REPO}`, and as the path segment in `gh api repos/{REPO}/...` calls).
 
 - If the command fails (not a git repository, or no GitHub remote), stop and ask the user for the repository.
-- Code changes for the PR run inside a dedicated worktree under `.claude/worktrees/pr-{number}` (set up in Phase 3); read-only `gh` / `git` queries run from wherever the session currently is.
+- Code changes for the PR run inside the worktree for its branch — reused if one already exists (e.g. the one `/fix-issue` made), otherwise created under `.claude/worktrees/` (set up in Phase 3). Read-only `gh` / `git` queries run from wherever the session currently is.
 
 ## Parse arguments
 
@@ -125,7 +125,7 @@ Wait for user confirmation (unless `--fix` flag set). Once confirmed, **record a
 
 ## Phase 3: Fix
 
-Work in an isolated worktree for this PR. Read `.claude/commands/utils/worktree.md` and follow **Enter — existing PR branch** to check out PR #{number} into `.claude/worktrees/pr-{number}` and switch the session into it (this handles fork PRs, and is a no-op re-entry if you are already in that worktree — e.g. on a later `/auto-resolve-pr` pass).
+Work in an isolated worktree for this PR. Read `.claude/commands/utils/worktree.md` and follow **Enter — existing PR branch**: it reuses the worktree the PR's branch is already checked out in — typically the one `/fix-issue` created for this same branch — and only creates a fresh `.claude/worktrees/pr-{number}` when no worktree has that branch (handling fork PRs). If you're already in that worktree (continuing right after `/fix-issue`, or a later `/auto-resolve-pr` pass), it's a no-op.
 
 **Implement fixes** for the approved review-comment fixes (from Phase 2).
 

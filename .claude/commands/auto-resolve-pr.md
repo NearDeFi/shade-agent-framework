@@ -84,7 +84,7 @@ On the 15-minute timeout, report which reviewer or check never landed and **STOP
 
 ### Step C — Delegate one pass to resolve-pr-reviews
 
-Read `.claude/commands/resolve-pr-reviews.md` and execute its full flow for PR #{number} **with the `--fix` flag** (fully autonomous — never block on the findings table). It will address comments, run the quality gate, push, run the CI fix loop, and at the end either post `Reviews passed!` (clean path) or re-request both reviewers (if it pushed commits). That delegated flow runs inside the PR's worktree (`.claude/worktrees/pr-{number}`) — created on the first pass and re-entered on later ones — so the whole loop stays isolated in one worktree.
+Read `.claude/commands/resolve-pr-reviews.md` and execute its full flow for PR #{number} **with the `--fix` flag** (fully autonomous — never block on the findings table). It will address comments, run the quality gate, push, run the CI fix loop, and at the end either post `Reviews passed!` (clean path) or re-request both reviewers (if it pushed commits). That delegated flow runs inside the PR's worktree — reused if the branch already has one (e.g. from `/fix-issue`), otherwise created under `.claude/worktrees/` — set up on the first pass and re-entered on later ones, so the whole loop stays isolated in one worktree.
 
 This loop is **hands-off**, so never wait on an interactive prompt: if the delegated CI step (`check-and-fix-ci`) hits its ~10-minute pending timeout and would *"ask the user whether to keep waiting"*, do **not** block — treat it as the delegated pass not settling and **STOP** with outcome `REVIEW_TIMEOUT`, reporting that CI never settled.
 
