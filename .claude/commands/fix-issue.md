@@ -18,7 +18,7 @@ gh repo view --json nameWithOwner --jq .nameWithOwner
 Call it `{REPO}` and use it in every `gh` command below (via `--repo {REPO}`).
 
 - If the command fails (not a git repository, or no GitHub remote), stop and ask the user for the repository.
-- All `git` operations (fetch, branch, checkout, commit) run inside this working copy.
+- Repo resolution and the initial `git fetch` run from the main checkout; the fix's own git operations (branch, edits, commit, push) run inside the isolated worktree created in Step 2 (under `.claude/worktrees/`).
 
 ## Step 1: Resolve the input
 

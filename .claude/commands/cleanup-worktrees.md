@@ -1,7 +1,7 @@
 ---
 description: Interactively review every git worktree under .claude/worktrees/ — for each, show its branch, why it was created, any related PR (state + CI), commits and unpushed/uncommitted work, then give a keep/delete recommendation with a reason and ask before removing. Never deletes without confirmation; never silently skips or auto-deletes a worktree that has uncommitted or unpushed work.
 disable-model-invocation: true
-allowed-tools: Bash(git worktree:*), Bash(git -C:*), Bash(git branch:*), Bash(git fetch:*), Bash(gh pr list:*), Bash(gh pr view:*), Bash(gh pr checks:*), Bash(gh repo view:*), Read, AskUserQuestion
+allowed-tools: Bash(git worktree:*), Bash(git -C .claude/worktrees/:*), Bash(git branch:*), Bash(git fetch:*), Bash(gh pr list:*), Bash(gh pr view:*), Bash(gh pr checks:*), Bash(gh repo view:*), Read, AskUserQuestion
 ---
 
 # Cleanup Worktrees
@@ -23,29 +23,32 @@ git fetch origin --prune
 git worktree list --porcelain
 ```
 
-Parse the porcelain output into (path, branch/detached) pairs. **Only** consider worktrees whose path is under `.claude/worktrees/`; ignore the main checkout and any worktree elsewhere on disk. If none remain, say "No worktrees under `.claude/worktrees/` to review." and stop.
+Parse the porcelain output into (path, branch-or-detached) pairs. **Only** consider worktrees whose path is under `.claude/worktrees/`; ignore the main checkout and any worktree elsewhere on disk. Refer to each by the **relative** path `.claude/worktrees/<name>` (the basename from the porcelain `worktree` line) — every `git -C` call below uses that relative form, which is also what the allowlist scopes. If none remain, say "No worktrees under `.claude/worktrees/` to review." and stop.
 
 ## Phase 2: Gather context per worktree
 
-For each `.claude/worktrees/<name>` on branch `<branch>`, gather read-only with `git -C .claude/worktrees/<name> …`:
+For each `.claude/worktrees/<name>` (on a branch `<branch>` **or detached**), gather read-only with `git -C .claude/worktrees/<name> …`:
 
-- **Why it was created** — infer from the dir name and `<branch>`:
+- **Head state** — `git -C … symbolic-ref --quiet --short HEAD` → `<branch>`. If it fails, the worktree is **detached** (e.g. a half-created `pr-<n>` whose `gh pr checkout` never completed); record `git -C … rev-parse --short HEAD` and skip the branch-only lookups below.
+- **Why it was created** — infer from the dir name and, when present, `<branch>`:
   - branch `fix/*` → a fix started by `/fix-issue` (the slug describes the problem); its PR reviews are resolved in this same worktree too.
   - dir named `pr-<n>` → `/resolve-pr-reviews` created it to resolve PR #`<n>` when no worktree for that branch already existed.
-  - otherwise → report the branch name; origin unknown.
-- **Related PR** — `gh pr list --head <branch> --repo {REPO} --state all --json number,title,state,url,mergedAt --jq '.[0]'`. Record number, title, and state (OPEN / MERGED / CLOSED). For an OPEN PR, also summarise CI with `gh pr checks <n> --repo {REPO}`. No match → "no PR".
-- **Commits (work done)** — `git -C … log --oneline origin/main..HEAD`: the count and subjects of commits on this branch beyond `main`.
-- **Unpushed** — if the branch has an upstream (`git -C … rev-parse --abbrev-ref @{u}` succeeds), `git -C … log --oneline @{u}..HEAD` are the unpushed commits. No upstream but commits beyond `main` → treat all of them as unpushed.
+  - otherwise → report the branch name (or the detached HEAD); origin unknown.
+- **Related PR** (branch only) — `gh pr list --head <branch> --repo {REPO} --state all --json number,title,state,url,mergedAt --jq '.[0]'`. Record number, title, and state (OPEN / MERGED / CLOSED). For an OPEN PR, also summarise CI with `gh pr checks <n> --repo {REPO}`. No match, or detached → "no PR".
+- **Commits (work done)** — `git -C … log --oneline origin/main..HEAD`: the count and subjects of commits on this worktree beyond `main`.
+- **Unpushed** (branch only) — if the branch has an upstream (`git -C … rev-parse --abbrev-ref @{u}` succeeds), `git -C … log --oneline @{u}..HEAD` are the unpushed commits. No upstream but commits beyond `main` → treat all of them as unpushed. A detached HEAD with commits beyond `origin/main` → treat those as unpushed too.
 - **Uncommitted changes** — `git -C … status --porcelain`: count of modified + untracked files. Surface this prominently — a worktree with uncommitted changes is **never** a silent skip and **never** a safe auto-delete.
 
 ## Phase 3: Recommend per worktree (first match wins)
+
+Count both committed **and** uncommitted changes as work done — a worktree is "empty" only when it has neither.
 
 - **Uncommitted changes present** → **Keep** — "N uncommitted file(s); deleting loses that work."
 - **Unpushed commits present** → **Keep** — "N commit(s) not on the remote; deleting loses them."
 - **PR OPEN** → **Keep** — "PR #<n> is open; you'll still iterate on it (reviews / CI)."
 - **PR MERGED** → **Delete** — "PR #<n> merged; the branch is upstreamed, nothing local to lose."
 - **PR CLOSED (unmerged)** → **Delete** — "PR #<n> closed without merging; work abandoned."
-- **No PR, no commits beyond `main`, clean** → **Delete** — "empty scaffold; no work on it."
+- **No PR, no commits beyond `main`, and a clean working tree (no diff, no untracked files)** → **Delete** — "empty scaffold; no work of any kind on it."
 - **No PR but has (pushed) commits** → **Keep** — "has commits but no PR yet; likely work in progress."
 
 ## Phase 4: Present, then ask per worktree

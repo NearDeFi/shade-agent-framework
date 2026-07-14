@@ -9,7 +9,7 @@ Worktrees are created with `git worktree add` (for an exact branch name) and the
 Inputs: `{slug}` (worktree directory name) and `{branch}` (e.g. `fix/{slug}`).
 
 1. `git fetch origin`
-2. If `.claude/worktrees/{slug}` already appears in `git worktree list`, it exists — skip to step 4.
+2. If `.claude/worktrees/{slug}` already appears in `git worktree list`, verify it is on `{branch}` (`git -C .claude/worktrees/{slug} branch --show-current`) — the caller's collision rule normally prevents a stale dir here. On `{branch}`, skip to step 4; on a different branch or detached, stop and have the caller pick a new slug.
 3. Create it off the latest base branch:
    ```
    git worktree add .claude/worktrees/{slug} -b {branch} origin/main
@@ -38,20 +38,11 @@ Inputs: `{number}` (PR number) and `{REPO}`.
    gh pr checkout {number} --repo {REPO}
    ```
 
-## Safety rules (before any removal)
-
-A worktree is **safe to remove** only when both hold — check while still inside it, or with `git -C .claude/worktrees/{name} …`:
-
-- **No uncommitted changes:** `git status --porcelain` is empty.
-- **No unpushed commits:** the branch has an upstream and `git log @{u}..HEAD` is empty. A branch with no upstream but commits beyond `origin/main` counts as unpushed → not safe.
-
-Never remove a worktree that fails either check unless the user has explicitly chosen to discard that specific work.
-
 ## Teardown — aborted run
 
 If a command aborts **before making any commit** (plan rejected, early error), remove the empty worktree it just created so dead-ends don't accumulate:
 
-1. While still inside it, confirm nothing was committed: `git log --oneline origin/main..HEAD` is empty and `git status --porcelain` shows only scaffold, if anything.
+1. **Only remove if there's no work to lose.** While still inside it, confirm `git status --porcelain` is empty (no uncommitted changes) *and* `git log --oneline origin/main..HEAD` is empty (nothing committed). If either shows work, keep the worktree and stop — let the user decide, or `/cleanup-worktrees` handle it later.
 2. `ExitWorktree` (`action: keep`) to return the session to the main checkout.
 3. `git worktree remove .claude/worktrees/{name}` (add `--force` only if it refuses over untracked scaffold and you've confirmed nothing was committed).
 4. Delete the abandoned branch if one was created: `git branch -D {branch}`.
