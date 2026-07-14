@@ -1,7 +1,7 @@
 ---
 description: Fix a GitHub issue (by number/URL) or an ad-hoc problem given as free text — create a branch, research the codebase, plan the fix, implement with tests, commit, push, open a PR, wait for CI and fix any failures, then request Claude and Copilot reviews
 disable-model-invocation: true
-allowed-tools: Bash(gh issue view:*), Bash(gh issue list:*), Bash(gh repo view:*), Bash(gh pr create:*), Bash(gh pr comment:*), Bash(gh pr checks:*), Bash(gh api:*), Bash(gh run view:*), Bash(git fetch:*), Bash(git checkout:*), Bash(git status:*), Bash(git branch:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(npm ci:*), Bash(npm install:*), Bash(npm i:*), Bash(npm run build:*), Bash(npm run test:*), Bash(npm test:*), Bash(cargo fmt:*), Bash(cargo clippy:*), Bash(cargo test:*), Bash(cargo near:*), Read, Edit, Write, Grep, Glob
+allowed-tools: Bash(gh issue view:*), Bash(gh issue list:*), Bash(gh repo view:*), Bash(gh pr create:*), Bash(gh pr comment:*), Bash(gh pr checks:*), Bash(gh api:*), Bash(gh run view:*), Bash(git fetch:*), Bash(git checkout:*), Bash(git status:*), Bash(git branch:*), Bash(git worktree:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(npm ci:*), Bash(npm install:*), Bash(npm i:*), Bash(npm run build:*), Bash(npm run test:*), Bash(npm test:*), Bash(cargo fmt:*), Bash(cargo clippy:*), Bash(cargo test:*), Bash(cargo near:*), Read, Edit, Write, Grep, Glob, EnterWorktree, ExitWorktree
 argument-hint: "<issue-number, issue-url, or a free-text problem description>"
 ---
 
@@ -18,7 +18,7 @@ gh repo view --json nameWithOwner --jq .nameWithOwner
 Call it `{REPO}` and use it in every `gh` command below (via `--repo {REPO}`).
 
 - If the command fails (not a git repository, or no GitHub remote), stop and ask the user for the repository.
-- All `git` operations (fetch, branch, checkout, commit) run inside this working copy.
+- Repo resolution and the initial `git fetch` run from the main checkout; the fix's own git operations (branch, edits, commit, push) run inside the isolated worktree created in Step 2 (under `.claude/worktrees/`).
 
 ## Step 1: Resolve the input
 
@@ -38,18 +38,19 @@ Call it `{REPO}` and use it in every `gh` command below (via `--repo {REPO}`).
 
 Carry forward the **problem statement** (and, in Issue mode, the issue **number**) — later steps refer to both.
 
-## Step 2: Create a branch
+## Step 2: Create an isolated worktree + branch
 
-Create a fresh branch off the latest `main` branch. This project integrates PRs on `main` — never branch off another long-lived branch here.
+Each fix runs in its own git worktree under `.claude/worktrees/`, so multiple terminals can work in parallel without colliding. The branch is still a fresh one off the latest `main` — this project integrates PRs on `main`, never branch off another long-lived branch here.
 
 1. Fetch latest: `git fetch origin`
 2. Confirm the base branch exists: `git branch -r --list origin/main`. If `origin/main` is not found, stop and tell the user (do not fall back to another branch).
-3. Create and switch to a new branch: `git checkout -b fix/{slug} origin/main`
+3. Decide `{slug}` and the branch `fix/{slug}`:
    - **Issue mode:** `{slug}` is `{number}-{short-slug}`, where `{short-slug}` is 3-5 words from the issue title, lowercase, hyphenated — e.g. slug `42-idor-workspace-check` → branch `fix/42-idor-workspace-check`.
    - **Ad-hoc mode:** `{slug}` is a 3-5 word, lowercase, hyphenated summary of the problem — e.g. slug `login-redirect-loop` → branch `fix/login-redirect-loop` — no issue number.
-   - **Avoid collisions** (more likely in Ad-hoc mode, which has no issue number): if `git branch -a --list "*fix/{slug}"` finds `fix/{slug}` already exists locally or on the remote (after the Step 2 `git fetch`), adjust the slug (add a distinguishing word or short suffix) so `git checkout -b` doesn't fail.
+   - **Avoid collisions** (more likely in Ad-hoc mode, which has no issue number): if `git branch -a --list "*fix/{slug}"` finds the branch, or `git worktree list` already has `.claude/worktrees/{slug}`, adjust the slug (add a distinguishing word or short suffix) so worktree creation doesn't fail.
+4. Read `.claude/commands/utils/worktree.md` and follow **Enter — new branch** to create `.claude/worktrees/{slug}` on `fix/{slug}` and switch the session into it.
 
-If the working tree has uncommitted changes, warn the user and stop. Do not stash or discard their work.
+Because the fix runs in a dedicated worktree branched off `origin/main`, the main checkout is left untouched — there's no need to check for or stash its uncommitted changes.
 
 ## Step 3: Understand the problem
 
@@ -88,7 +89,7 @@ Enter planning mode to design the implementation. The plan MUST cover:
 
 Follow all relevant CLAUDE.md files for architecture decisions: the root CLAUDE.md plus any CLAUDE.md in a directory whose files the plan touches (loaded in Step 4). If a planned change conflicts with one of them, change the plan, not the rule.
 
-Wait for user approval before implementing.
+Wait for user approval before implementing. If the user rejects the plan — or you must otherwise abort before making any commit — follow **Teardown — aborted run** in `.claude/commands/utils/worktree.md` to remove the empty worktree before stopping.
 
 ## Step 6: Implement
 
@@ -143,4 +144,4 @@ Read `.claude/commands/utils/check-and-fix-ci.md` and follow it for PR #{pr-numb
 
    This needs the repo/author to have Copilot code-review access and available premium-request quota; if the request errors or Copilot never posts, note it in the recap rather than retrying.
 
-3. Report back in chat: the PR URL, the CI outcome, whether the Claude review comment was posted, whether the Copilot review was requested, and a short recap of the change, tests, and open questions. Remind the user: once the reviews land, continue with `/resolve-pr-reviews {pr-number}` — or run `/auto-resolve-pr {pr-number}` to drive that review→fix loop hands-off to consensus.
+3. Report back in chat: the PR URL, the CI outcome, whether the Claude review comment was posted, whether the Copilot review was requested, and a short recap of the change, tests, and open questions. Note that the fix's worktree (`.claude/worktrees/{slug}`) stays in place for the review rounds — `/cleanup-worktrees` reaps it once the PR is merged or closed. Remind the user: once the reviews land, continue with `/resolve-pr-reviews {pr-number}` — or run `/auto-resolve-pr {pr-number}` to drive that review→fix loop hands-off to consensus.

@@ -1,7 +1,7 @@
 ---
 description: Loop the PR review→fix cycle to consensus — kick off the reviews if none are pending, wait for Claude+Copilot & CI, run resolve-pr-reviews (--fix), repeat up to 5×; never merges
 disable-model-invocation: true
-allowed-tools: Bash(gh pr view:*), Bash(gh pr diff:*), Bash(gh pr comment:*), Bash(gh pr checks:*), Bash(gh pr edit:*), Bash(gh pr list:*), Bash(gh pr checkout:*), Bash(gh api:*), Bash(gh repo view:*), Bash(gh run view:*), Bash(git diff:*), Bash(git log:*), Bash(git fetch:*), Bash(git checkout:*), Bash(git status:*), Bash(git branch:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(npm ci:*), Bash(npm install:*), Bash(npm i:*), Bash(npm run build:*), Bash(npm test:*), Bash(npm run test:*), Bash(cargo fmt:*), Bash(cargo clippy:*), Bash(cargo test:*), Bash(cargo check:*), Read, Edit, Write, Grep, Glob, Agent, Monitor
+allowed-tools: Bash(gh pr view:*), Bash(gh pr diff:*), Bash(gh pr comment:*), Bash(gh pr checks:*), Bash(gh pr edit:*), Bash(gh pr list:*), Bash(gh pr checkout:*), Bash(gh api:*), Bash(gh repo view:*), Bash(gh run view:*), Bash(git diff:*), Bash(git log:*), Bash(git fetch:*), Bash(git checkout:*), Bash(git status:*), Bash(git branch:*), Bash(git worktree:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(npm ci:*), Bash(npm install:*), Bash(npm i:*), Bash(npm run build:*), Bash(npm test:*), Bash(npm run test:*), Bash(cargo fmt:*), Bash(cargo clippy:*), Bash(cargo test:*), Bash(cargo check:*), Read, Edit, Write, Grep, Glob, Agent, Monitor, EnterWorktree, ExitWorktree
 argument-hint: "<pr-number or url>"
 ---
 
@@ -84,7 +84,7 @@ On the 15-minute timeout, report which reviewer or check never landed and **STOP
 
 ### Step C — Delegate one pass to resolve-pr-reviews
 
-Read `.claude/commands/resolve-pr-reviews.md` and execute its full flow for PR #{number} **with the `--fix` flag** (fully autonomous — never block on the findings table). It will address comments, run the quality gate, push, run the CI fix loop, and at the end either post `Reviews passed!` (clean path) or re-request both reviewers (if it pushed commits).
+Read `.claude/commands/resolve-pr-reviews.md` and execute its full flow for PR #{number} **with the `--fix` flag** (fully autonomous — never block on the findings table). It will address comments, run the quality gate, push, run the CI fix loop, and at the end either post `Reviews passed!` (clean path) or re-request both reviewers (if it pushed commits). That delegated flow runs inside the PR's worktree — reused if the branch already has one (e.g. from `/fix-issue`), otherwise created under `.claude/worktrees/` — set up on the first pass and re-entered on later ones, so the whole loop stays isolated in one worktree.
 
 This loop is **hands-off**, so never wait on an interactive prompt: if the delegated CI step (`check-and-fix-ci`) hits its ~10-minute pending timeout and would *"ask the user whether to keep waiting"*, do **not** block — treat it as the delegated pass not settling and **STOP** with outcome `REVIEW_TIMEOUT`, reporting that CI never settled.
 
