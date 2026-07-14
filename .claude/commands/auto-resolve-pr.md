@@ -2,7 +2,7 @@
 description: Loop the PR review→fix cycle to consensus — requires a reviewer flag; kick off the specified reviews if none are pending, wait (hard-blocking) for those reviewer(s) & CI, run resolve-pr-reviews (--fix), repeat up to 5×; never merges
 disable-model-invocation: true
 allowed-tools: Bash(gh pr view:*), Bash(gh pr diff:*), Bash(gh pr comment:*), Bash(gh pr checks:*), Bash(gh pr edit:*), Bash(gh pr list:*), Bash(gh pr checkout:*), Bash(gh api:*), Bash(gh repo view:*), Bash(gh run view:*), Bash(git diff:*), Bash(git log:*), Bash(git fetch:*), Bash(git checkout:*), Bash(git status:*), Bash(git branch:*), Bash(git worktree:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(npm ci:*), Bash(npm install:*), Bash(npm i:*), Bash(npm run build:*), Bash(npm test:*), Bash(npm run test:*), Bash(cargo fmt:*), Bash(cargo clippy:*), Bash(cargo test:*), Bash(cargo check:*), Read, Edit, Write, Grep, Glob, Agent, Monitor, EnterWorktree, ExitWorktree
-argument-hint: "<pr-number or url> (--all-review | --claude-review | --copilot-review)"
+argument-hint: "<pr-number or url> (--claude-review and/or --copilot-review, or --all-review — at least one required)"
 ---
 
 # Auto-Resolve PR
@@ -109,7 +109,7 @@ Let `head_after` be the new `headRefOid` and `commit_count_after` the new `commi
 
 Classify the pass **in this order — the first match wins**. Hard stop and Stall are checked *before* the head-changed test, because an unrecoverable pass can also have pushed commits (so a naive "head changed → Progress" would loop on a failing pass):
 
-- **Hard stop** ⇔ `resolve-pr-reviews` stopped unrecoverably this pass (CI `STILL_FAILING` after its 3 attempts, a finding it couldn't classify or fix, or a review trigger that never fired). → **STOP — report** (outcome `STILL_FAILING` for the CI case, otherwise `HARD_STOP`).
+- **Hard stop** ⇔ `resolve-pr-reviews` stopped unrecoverably this pass (CI `STILL_FAILING` after its 3 attempts, or a finding it couldn't classify or fix). → **STOP — report** (outcome `STILL_FAILING` for the CI case, otherwise `HARD_STOP`). (A cold-start trigger that never fires is a Step B stop, not a resolve-side one; a Phase 7 re-request that silently fails just yields a Progress pass, so Step B's next wait ends it as `REVIEW_TIMEOUT`.)
 - **Converged** ⇔ `head_after == head_before` **AND** CI green **AND** `resolve-pr-reviews` took its clean path (a `Reviews passed!` issue comment newer than the head). → **STOP — success.**
 - **Progress** ⇔ `head_after != head_before` (the pass pushed fixes and `resolve-pr-reviews` already re-requested the selected reviewer(s) against the new head). → loop back to **Step A**; Step B will see the pending requests and just wait for the fresh reviews.
 - **Stall** ⇔ `head_after == head_before` **but not converged** (e.g. a finding it classified as a false positive that a reviewer keeps reopening). Re-running would reproduce an identical state. → **STOP — report.** This is also the infinite-loop guard.

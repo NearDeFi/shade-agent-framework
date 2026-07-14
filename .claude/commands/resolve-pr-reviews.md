@@ -2,7 +2,7 @@
 description: Resolve a PR's review comments, keep CI green, and re-request only the reviewer(s) named by a flag — never requires a reviewer (just notes which are missing/stale), never merges
 disable-model-invocation: true
 allowed-tools: Bash(gh pr view:*), Bash(gh pr diff:*), Bash(gh pr comment:*), Bash(gh pr checks:*), Bash(gh pr edit:*), Bash(gh pr list:*), Bash(gh pr checkout:*), Bash(gh api:*), Bash(gh repo view:*), Bash(gh run view:*), Bash(git diff:*), Bash(git log:*), Bash(git fetch:*), Bash(git checkout:*), Bash(git status:*), Bash(git branch:*), Bash(git worktree:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(cargo fmt:*), Bash(cargo clippy:*), Bash(cargo test:*), Bash(cargo check:*), Read, Edit, Write, Grep, Glob, Agent, EnterWorktree, ExitWorktree
-argument-hint: "<pr-number or url> [--fix] [--all-review | --claude-review | --copilot-review]"
+argument-hint: "<pr-number or url> [--fix] [--claude-review and/or --copilot-review, or --all-review]"
 ---
 
 # Resolve PR Reviews
