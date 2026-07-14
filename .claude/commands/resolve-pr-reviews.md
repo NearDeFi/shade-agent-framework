@@ -69,7 +69,7 @@ Save `headRefOid` — needed for posting line comments and the duplicate-comment
 
 **Review coverage detection** — determine which AI reviewers have reviewed (for the status card and the Phase 7 report — never a gate):
 
-- **Claude reviewed** ⇔ an issue comment authored by `github-actions[bot]` matching the claude-review output contract: contains `### Code review`, `Found N issues`, or `No issues found.`
+- **Claude reviewed** ⇔ an issue comment authored by `claude[bot]` matching the claude-review output contract: contains `### Code review`, `Found N issues`, or `No issues found.` (The action posts as `claude[bot]`, not `github-actions[bot]`.)
 - **Copilot reviewed** ⇔ a review in `pulls/{number}/reviews` authored by `copilot-pull-request-reviewer[bot]` (displays as "Copilot").
 
 A review only counts if it was posted **after** the current head commit (compare its `created_at`/`submitted_at` against `gh pr view {number} --repo {REPO} --json commits --jq '.commits[-1].committedDate'`). A review of an earlier commit is **stale** — the code changed since that reviewer looked — and is treated as missing.

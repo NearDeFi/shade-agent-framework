@@ -50,7 +50,7 @@ Record `headRefOid` (call it `head_before`), the last commit's `committedDate`, 
 
 Only the reviewer(s) in the **selected set** (from Phase 0) count here — a reviewer outside the set is out of scope: never triggered, never waited on. A review counts only if it was posted **after** `committedDate` (same freshness rule as `resolve-pr-reviews`). A review of an earlier commit is **stale** — treat it as missing.
 
-- **Claude reviewed** ⇔ an issue comment by `github-actions[bot]` matching the claude-review output contract (contains `### Code review`, `Found N issues`, or `No issues found.`) that is newer than the head commit.
+- **Claude reviewed** ⇔ an issue comment by `claude[bot]` (not `github-actions[bot]`) matching the claude-review output contract (contains `### Code review`, `Found N issues`, or `No issues found.`) that is newer than the head commit.
 - **Copilot reviewed** ⇔ a review in `pulls/{number}/reviews` by `copilot-pull-request-reviewer[bot]` newer than the head commit.
 
 Gather state:
