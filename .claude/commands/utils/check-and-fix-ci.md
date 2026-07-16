@@ -14,6 +14,7 @@ Wait for a PR's CI to finish; if it fails: fix → quality gate → commit → p
 - **PR number**: from `$ARGUMENTS` (bare number or `https://github.com/owner/repo/pull/123` URL). If empty, detect from the current branch: `gh pr list --head $(git branch --show-current) --repo {REPO} --json number --jq '.[0].number'`. If still nothing, stop and ask the user.
 - **{REPO}**: `gh repo view --json nameWithOwner --jq .nameWithOwner`
 - The PR's branch must be checked out in this working copy — fixes are committed to it.
+- **No fork PRs.** This runs only on same-repo PRs (`untrusted-input.md` §5). If `gh pr view {pr-number} --repo {REPO} --json isCrossRepository --jq .isCrossRepository` is `true`, stop — a fork PR is out of scope. (Its callers reject forks before reaching here; refuse it when run standalone too.)
 
 ## Step 1: Detect CI
 
