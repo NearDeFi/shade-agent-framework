@@ -1,6 +1,6 @@
 # Pre-push self-review
 
-Shared, **blocking** procedure: review your own diff against the same bar the CI reviewer applies, *before* pushing — so the PR lands with the findings already fixed instead of surfacing them a round later. A caller (`/fix-issue`, `/resolve-pr-reviews`) runs this after its quality gate and before commit/push. It is a gate: you may not push until every must-fix finding is resolved or recorded as an accepted tradeoff (see step 4).
+Shared, **blocking** procedure: review your own diff against the same bar the CI reviewer applies, *before* pushing — so the PR lands with the findings already fixed instead of surfacing them a round later. A caller (`/fix-issue`, `/resolve-pr-reviews`) runs this after its quality gate and before commit/push. It is a gate: you may not push while any must-fix finding is unfixed. (A finding that turns out to be a deliberate tradeoff, not a defect, is recorded rather than fixed — recording never substitutes for fixing a real must-fix; see step 4.)
 
 This is not the quality gate (build/test/lint) — that still runs separately. This is the *judgement* pass the automated gate can't do.
 
@@ -46,6 +46,6 @@ Classify each finding and act:
 - **Deliberate tradeoff** (a real but intentional choice) → do not "fix" it; **record it in the PR's `## Design decisions / Accepted tradeoffs` section** (one line, the decision and why). The `claude-review` prompt reads that section and will not re-raise a listed item — this is what keeps a decision settled instead of re-litigated each round. (On `/fix-issue` the PR doesn't exist yet — carry these lines into the PR body when it's created.)
 - **LOW / nit** → fix if cheap; otherwise leave it.
 
-**Gate:** do not proceed to commit/push while any CRITICAL/HIGH/actionable-MEDIUM finding is unresolved and unrecorded. If a finding needs a call you can't make, stop and ask rather than pushing past it.
+**Gate:** do not proceed to commit/push while any must-fix finding (a CRITICAL/HIGH/actionable-MEDIUM defect) is unfixed. Recording does **not** clear a must-fix — it applies only to the deliberate-tradeoff category above, which by definition is not a defect. If a finding needs a call you can't make, stop and ask rather than pushing past it.
 
 Re-run the affected part of the quality gate after any fix this pass introduced (a self-review fix is new code).
