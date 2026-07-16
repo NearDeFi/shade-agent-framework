@@ -1,13 +1,13 @@
 ---
-description: Loop the PR review→fix cycle to consensus — requires a reviewer flag; kick off the specified reviews if none are pending, wait (hard-blocking) for those reviewer(s) & CI, run resolve-pr-reviews (--fix), repeat up to 5×; never merges
+description: Loop the PR review→fix cycle to consensus — requires a reviewer flag; kick off the specified reviews if none are pending, wait (hard-blocking) for those reviewer(s) & CI, run resolve-pr-reviews (--fix), repeat up to --max-passes times (default 5); never merges
 disable-model-invocation: true
 allowed-tools: Bash(gh pr view:*), Bash(gh pr diff:*), Bash(gh pr comment:*), Bash(gh pr checks:*), Bash(gh pr edit:*), Bash(gh pr list:*), Bash(gh pr checkout:*), Bash(gh api:*), Bash(gh repo view:*), Bash(gh run view:*), Bash(git diff:*), Bash(git log:*), Bash(git fetch:*), Bash(git checkout:*), Bash(git status:*), Bash(git branch:*), Bash(git worktree:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(npm ci:*), Bash(npm install:*), Bash(npm i:*), Bash(npm run build:*), Bash(npm test:*), Bash(npm run test:*), Bash(cargo fmt:*), Bash(cargo clippy:*), Bash(cargo test:*), Bash(cargo check:*), Read, Edit, Write, Grep, Glob, Agent, Monitor, EnterWorktree, ExitWorktree
-argument-hint: "<pr-number or url> (--claude-review and/or --copilot-review, or --all-review — at least one required)"
+argument-hint: "<pr-number or url> (--claude-review and/or --copilot-review, or --all-review — at least one required) [--max-passes N]"
 ---
 
 # Auto-Resolve PR
 
-Drive `/resolve-pr-reviews` to consensus in a capped loop: **wait** (hard-blocking) for the specified reviewer(s) and CI to land on the current head (kicking the reviews off only if nothing is already pending), run `resolve-pr-reviews` fully autonomously (`--fix`, forwarding the same reviewer flag), then repeat — at most **5 passes** — until the PR converges or hits a hard stop.
+Drive `/resolve-pr-reviews` to consensus in a capped loop: **wait** (hard-blocking) for the specified reviewer(s) and CI to land on the current head (kicking the reviews off only if nothing is already pending), run `resolve-pr-reviews` fully autonomously (`--fix`, forwarding the same reviewer flag), then repeat — at most **`--max-passes` passes (default 5)** — until the PR converges or hits a hard stop.
 
 This command **requires** a reviewer flag (see Phase 0) — the specified reviewer(s) are the ones it waits on and requires. `resolve-pr-reviews` on its own never blocks on a missing reviewer (it just notes which haven't reviewed the current head) and re-requests only the reviewer(s) named by its flag; it does one full pass (classify → fix → quality-gate → push → fix CI → re-request the selected reviewer(s)). This command is the human-in-the-loop that makes the specified reviewer(s) a hard requirement. It owns **waiting + looping**, and triggers reviews only to fill the **cold-start** gap: when no review or request exists yet for a specified reviewer. After any pass that pushes a fix, the delegated `resolve-pr-reviews` — run with the same flag — has already re-requested the specified reviewer(s), so on later passes this command only **waits** on those pending requests, it does not re-trigger. It delegates **all classification, fixing, replying, and CI repair** to `resolve-pr-reviews` and reimplements none of it.
 
@@ -23,14 +23,16 @@ gh repo view --json nameWithOwner --jq .nameWithOwner
 
 Call it `{REPO}` and use it in every `gh` command below. If the command fails (not a git repository, or no GitHub remote), stop and ask the user for the repository.
 
-Parse `$ARGUMENTS` for the PR number:
+**First strip `--max-passes N`** (the flag and its integer value) from `$ARGUMENTS` so its value can't be mistaken for the PR number — record `N` for the `MAX_PASSES` step below.
+
+Parse the remaining `$ARGUMENTS` for the PR number:
 - Extract from a bare number or a `https://github.com/owner/repo/pull/123` URL.
 - If absent, detect from the current branch: `gh pr list --head $(git branch --show-current) --repo {REPO} --json number --jq '.[0].number'`
 - If still nothing, stop and ask the user.
 
 **Parse the reviewer flags — a reviewer is required here.** Read `--all-review` / `--claude-review` / `--copilot-review` into the **selected reviewer set** (the union — `--all-review` ≡ Claude + Copilot). **If no review flag is given, the set is empty → STOP immediately** with a usage error: this command requires at least one of `--all-review`, `--claude-review`, or `--copilot-review` (it waits, hard-blocking, on whichever reviewer(s) you name). The selected set drives every reviewer step below — the wait, the cold-start trigger, the convergence check, and the flag forwarded to the delegated `resolve-pr-reviews`.
 
-Set `MAX_PASSES = 5`. Track `total_commits_pushed = 0` and a per-pass log for the final report.
+**Set `MAX_PASSES`** from the `--max-passes N` stripped above — a positive integer loop cap. Absent → `MAX_PASSES = 5`. Reject a non-integer or `N < 1` with a usage error. Track `total_commits_pushed = 0` and a per-pass log for the final report.
 
 ---
 
@@ -118,7 +120,7 @@ Classify the pass **in this order — the first match wins**. Hard stop and Stal
 
 ## Phase 2: Cap
 
-If `MAX_PASSES` passes complete without convergence, **STOP**. Never start a 6th pass.
+If `MAX_PASSES` passes complete without convergence, **STOP**. Never start pass `MAX_PASSES + 1`.
 
 ---
 
@@ -128,7 +130,7 @@ Report honestly — do not claim consensus unless the final pass actually conver
 
 ```
 PR #{number}: {title}
-Passes run: {N}/5
+Passes run: {N}/{MAX_PASSES}
 Commits pushed: {total_commits_pushed}
 CI: {PASS|FAIL|PENDING}
 Outcome: {CONVERGED | REVIEW_TIMEOUT | STILL_FAILING | HARD_STOP | STALL | CAP_REACHED}
@@ -142,7 +144,7 @@ In prose: per-pass summary (what each pass fixed / pushed), the final CI status,
 
 - **Never merge.** This command does not merge PRs under any circumstances.
 - **A reviewer flag is required.** At least one of `--all-review` / `--claude-review` / `--copilot-review` must be given; the command hard-stops in Phase 0 otherwise. Everything reviewer-related is scoped to that selected set.
-- **Hard cap of 5 passes.** Never exceed it.
+- **Hard cap of `MAX_PASSES` passes (default 5, set by `--max-passes`).** Never exceed it.
 - **Delegate, don't reimplement.** Only trigger, wait, and decide here. All classification, fixing, replying, and CI repair lives in `resolve-pr-reviews` — run it via `--fix` plus the selected reviewer flag(s).
 - **Same freshness rule as `resolve-pr-reviews`.** A review counts only if it postdates the current head commit; stale reviews are treated as missing.
 - **Trigger only at cold start, only for selected reviewers.** Kick off a review only when neither a fresh review nor a pending request exists for a selected reviewer. After a fix-pushing pass, `resolve-pr-reviews` (run with the same flag) has already re-requested the selected reviewer(s) — just wait; never double-request across the handoff.
