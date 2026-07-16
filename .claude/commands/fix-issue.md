@@ -1,8 +1,8 @@
 ---
-description: Fix a GitHub issue (by number/URL) or an ad-hoc problem given as free text — create a branch, research the codebase, plan the fix, implement with tests, commit, push, open a PR, wait for CI and fix any failures, then request Claude and Copilot reviews
+description: Fix a GitHub issue (by number/URL) or an ad-hoc problem given as free text — create a branch, research the codebase, plan the fix, implement with tests, commit, push, open a PR, wait for CI and fix any failures, then optionally request AI review(s) when a --all-review / --claude-review / --copilot-review flag is given (off by default)
 disable-model-invocation: true
 allowed-tools: Bash(gh issue view:*), Bash(gh issue list:*), Bash(gh repo view:*), Bash(gh pr create:*), Bash(gh pr comment:*), Bash(gh pr checks:*), Bash(gh api:*), Bash(gh run view:*), Bash(git fetch:*), Bash(git checkout:*), Bash(git status:*), Bash(git branch:*), Bash(git worktree:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(npm ci:*), Bash(npm install:*), Bash(npm i:*), Bash(npm run build:*), Bash(npm run test:*), Bash(npm test:*), Bash(cargo fmt:*), Bash(cargo clippy:*), Bash(cargo test:*), Bash(cargo near:*), Read, Edit, Write, Grep, Glob, EnterWorktree, ExitWorktree
-argument-hint: "<issue-number, issue-url, or a free-text problem description>"
+argument-hint: "<issue-number, issue-url, or a free-text problem description> [--claude-review and/or --copilot-review, or --all-review]"
 ---
 
 # Fix Issue
@@ -22,7 +22,9 @@ Call it `{REPO}` and use it in every `gh` command below (via `--repo {REPO}`).
 
 ## Step 1: Resolve the input
 
-`$ARGUMENTS` is either a GitHub issue reference or a free-text problem description. Decide which:
+**First, strip the review flags.** Pull any of `--all-review`, `--claude-review`, `--copilot-review` out of `$ARGUMENTS` and record the **selected reviewer set** (the union — `--all-review` ≡ Claude + Copilot; empty if none given). Reviews are **off by default**: with no flag the selected set is empty and Step 9 requests nobody. The remaining text (flags removed) is the issue reference or free-text problem description parsed below. Carry the selected set forward to Step 9.
+
+`$ARGUMENTS` (with the review flags removed) is either a GitHub issue reference or a free-text problem description. Decide which:
 
 - **Issue mode** — `$ARGUMENTS` is a bare number (e.g. `42`) or a GitHub issue URL (e.g. `https://github.com/owner/repo/issues/42`). Extract the number and fetch the issue:
 
@@ -124,11 +126,13 @@ After the plan is approved:
 Read `.claude/commands/utils/check-and-fix-ci.md` and follow it for PR #{pr-number}. Act on its outcome:
 
 - **PASS** or **NO_CI** → proceed to Step 9.
-- **STILL_FAILING** → stop and report what's failing. Do NOT proceed to Step 9 — never request reviews on a red PR.
+- **STILL_FAILING** → stop and report what's failing. Do NOT proceed to Step 9 — if a review flag was given, never request reviews on a red PR.
 
 ## Step 9: Request AI reviews and report
 
-1. Request the Claude review. The Claude workflow triggers on a **comment**, not the PR body or description:
+Requests are driven by the **selected reviewer set** from Step 1. Reviews are off by default, so if the set is **empty**, request nobody — skip straight to the report and note there that no AI review was requested. Otherwise request only the selected reviewer(s):
+
+1. **If Claude is selected**, request the Claude review. The Claude workflow triggers on a **comment**, not the PR body or description:
 
    ```
    gh pr comment {pr-number} --repo {REPO} --body "/claude-review"
@@ -136,7 +140,7 @@ Read `.claude/commands/utils/check-and-fix-ci.md` and follow it for PR #{pr-numb
 
    This fires only if `claude-review.yml` is on the repo's default branch and the authenticated `gh` user is the configured trigger user — if the workflow doesn't start, say so in the recap rather than re-commenting.
 
-2. Request the Copilot review. Copilot is **not** comment-triggered and is **not** auto-requested (there is no Copilot review ruleset), so request it explicitly via the API — the reviewer slug is `copilot-pull-request-reviewer[bot]`, and it reviews the current head:
+2. **If Copilot is selected**, request the Copilot review. Copilot is **not** comment-triggered and is **not** auto-requested (there is no Copilot review ruleset), so request it explicitly via the API — the reviewer slug is `copilot-pull-request-reviewer[bot]`, and it reviews the current head:
 
    ```
    gh api --method POST repos/{REPO}/pulls/{pr-number}/requested_reviewers -f "reviewers[]=copilot-pull-request-reviewer[bot]"
@@ -144,4 +148,4 @@ Read `.claude/commands/utils/check-and-fix-ci.md` and follow it for PR #{pr-numb
 
    This needs the repo/author to have Copilot code-review access and available premium-request quota; if the request errors or Copilot never posts, note it in the recap rather than retrying.
 
-3. Report back in chat: the PR URL, the CI outcome, whether the Claude review comment was posted, whether the Copilot review was requested, and a short recap of the change, tests, and open questions. Note that the fix's worktree (`.claude/worktrees/{slug}`) stays in place for the review rounds — `/cleanup-worktrees` reaps it once the PR is merged or closed. Remind the user: once the reviews land, continue with `/resolve-pr-reviews {pr-number}` — or run `/auto-resolve-pr {pr-number}` to drive that review→fix loop hands-off to consensus.
+3. Report back in chat: the PR URL, the CI outcome, which reviewer(s) were requested (or that none were, since reviews are off by default — mention the `--all-review` / `--claude-review` / `--copilot-review` flags to request one), and a short recap of the change, tests, and open questions. Note that the fix's worktree (`.claude/worktrees/{slug}`) stays in place for the review rounds — `/cleanup-worktrees` reaps it once the PR is merged or closed. Remind the user: to resolve reviews, run `/resolve-pr-reviews {pr-number}` with the reviewer flag(s) you want re-requested (`--all-review`, or `--claude-review` and/or `--copilot-review`) — or `/auto-resolve-pr {pr-number} --all-review` to drive that review→fix loop hands-off to consensus (it **requires** a reviewer flag; use `--all-review`, or `--claude-review` and/or `--copilot-review`).

@@ -1,13 +1,13 @@
 ---
-description: Check that both AI reviewers have reviewed a PR, resolve their comments, keep CI green, and re-request review — never merges
+description: Resolve a PR's review comments, keep CI green, and re-request only the reviewer(s) named by a flag — never requires a reviewer (just notes which are missing/stale), never merges
 disable-model-invocation: true
 allowed-tools: Bash(gh pr view:*), Bash(gh pr diff:*), Bash(gh pr comment:*), Bash(gh pr checks:*), Bash(gh pr edit:*), Bash(gh pr list:*), Bash(gh pr checkout:*), Bash(gh api:*), Bash(gh repo view:*), Bash(gh run view:*), Bash(git diff:*), Bash(git log:*), Bash(git fetch:*), Bash(git checkout:*), Bash(git status:*), Bash(git branch:*), Bash(git worktree:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(cargo fmt:*), Bash(cargo clippy:*), Bash(cargo test:*), Bash(cargo check:*), Read, Edit, Write, Grep, Glob, Agent, EnterWorktree, ExitWorktree
-argument-hint: "<pr-number or url> [--fix]"
+argument-hint: "<pr-number or url> [--fix] [--claude-review and/or --copilot-review, or --all-review]"
 ---
 
 # Resolve PR Reviews
 
-Review-gate → classify comments → fix → quality gate → push → CI → re-request reviews, or post "Reviews passed!" when there is nothing left to resolve.
+Note which AI reviewers are missing/stale (never blocking) → classify comments → fix → quality gate → push → CI → re-request the reviewer(s) named by a flag, or post "Reviews passed!" when there is nothing left to resolve.
 
 **This command never merges. Merging is a human decision.**
 
@@ -28,7 +28,7 @@ Call it `{REPO}` and use it in every `gh` command below (via `--repo {REPO}`, an
 
 Parse `$ARGUMENTS`:
 - Extract PR number from bare number or `https://github.com/owner/repo/pull/123` URL.
-- Flags: `--fix` (auto-fix without asking).
+- Flags: `--fix` (auto-fix without asking); `--all-review` / `--claude-review` / `--copilot-review` select which reviewer(s) to re-request. Record the **selected reviewer set** — the union of the review flags (`--all-review` ≡ Claude + Copilot), **empty if none given**. The set drives Phase 7's re-request only; it is never a requirement here (this command never blocks on a missing reviewer).
 - If no PR number, detect from current branch: `gh pr list --head $(git branch --show-current) --repo {REPO} --json number --jq '.[0].number'`
 - If still nothing, stop and ask the user.
 
@@ -67,9 +67,9 @@ gh api --paginate repos/{REPO}/issues/{number}/comments
 
 Save `headRefOid` — needed for posting line comments and the duplicate-comment guard later.
 
-**Review-gate detection** — determine which AI reviewers have reviewed:
+**Review coverage detection** — determine which AI reviewers have reviewed (for the status card and the Phase 7 report — never a gate):
 
-- **Claude reviewed** ⇔ an issue comment authored by `github-actions[bot]` matching the claude-review output contract: contains `### Code review`, `Found N issues`, or `No issues found.`
+- **Claude reviewed** ⇔ an issue comment authored by `claude[bot]` matching the claude-review output contract: contains `### Code review`, `Found N issues`, or `No issues found.` (The action posts as `claude[bot]`, not `github-actions[bot]`.)
 - **Copilot reviewed** ⇔ a review in `pulls/{number}/reviews` authored by `copilot-pull-request-reviewer[bot]` (displays as "Copilot").
 
 A review only counts if it was posted **after** the current head commit (compare its `created_at`/`submitted_at` against `gh pr view {number} --repo {REPO} --json commits --jq '.commits[-1].committedDate'`). A review of an earlier commit is **stale** — the code changed since that reviewer looked — and is treated as missing.
@@ -81,22 +81,23 @@ PR #{number}: {title}
 Author: {author}    Base: {base} ← {head}
 Size: +{additions} -{deletions} across {file_count} files
 CI: {PASS|FAIL|PENDING|NONE}
-AI reviews: Claude {✓|✗|stale}    Copilot {✓|✗|stale}
+AI reviews: Claude {✓|✗|stale}    Copilot {✓|✗|stale}   (✗ = never reviewed, stale = reviewed an earlier commit; neither blocks)
 Reviews: {N approved, N changes_requested, N comments-only, N bot-only}
 Unresolved comments: {N}
 Draft: {yes|no}
 ```
 
-**Decide the mode:**
+**Note which reviewers haven't reviewed the current head** (never reviewed, or stale = reviewed an earlier commit). That is **never** a stop condition here — just record it (it shows in the status card and the Phase 7 report). Do not block, and do not trigger a missing reviewer at this point; Phase 7 handles re-requesting whichever reviewer(s) the flag selects.
 
-1. **Claude or Copilot review missing or stale** → STOP. Tell the user which reviewer is missing and how to trigger it: Claude — comment `/claude-review` on the PR; Copilot — it is **not** auto-requested, so re-request it explicitly with `gh api --method POST repos/{REPO}/pulls/{number}/requested_reviewers -f "reviewers[]=copilot-pull-request-reviewer[bot]"` (or the ↻ next to Copilot in the PR's Reviewers panel). Then re-run this command. Do not proceed.
-2. **Unresolved review comments exist** → Phase 2 (address them).
-3. **CI failing, no unresolved comments** → Phase 6 (jump to CI fix).
-4. **Both reviewed + CI passing + nothing unresolved** (no comments needing action, or all already resolved) → Phase 7 (clean path).
+**Decide the mode** (driven only by comments and CI):
+
+1. **Unresolved review comments exist** → Phase 2 (address them).
+2. **CI failing, no unresolved comments** → Phase 6 (jump to CI fix).
+3. **CI passing + nothing unresolved** (no comments needing action, or all already resolved) → Phase 7 (clean path).
 
 **What counts as "unresolved":** only **new, actionable** findings — defects, missing tests, doc/spec errors, or anything CRITICAL/HIGH. A finding is **not** unresolved (does not block, does not need a new commit) if it is: (a) a previously-accepted, by-design tradeoff recorded in the PR's "Design decisions / Accepted tradeoffs" section; (b) an item Claude placed under a "### Design notes" heading; or (c) a LOW the maintainer already adjudicated in a reply. Those are consensus, not open work.
 
-**Convergence / stop condition.** AI reviews are stateless and re-surface accepted tradeoffs every round, so "zero findings" is not the goal and is not always reachable. Treat the PR as **converged → Phase 7 (clean path)** once both reviewers cover the current head, CI is green, and every remaining finding falls under (a)–(c) above (no new CRITICAL/HIGH, no new actionable MEDIUM). Do not push new commits just to silence by-design notes. **Hard cap: after 3 resolve cycles with no new actionable finding, declare consensus and stop** — report it and leave the merge to the human.
+**Convergence / stop condition.** AI reviews are stateless and re-surface accepted tradeoffs every round, so "zero findings" is not the goal and is not always reachable. Treat the PR as **converged → Phase 7 (clean path)** once CI is green and every remaining finding falls under (a)–(c) above (no new CRITICAL/HIGH, no new actionable MEDIUM) — reviewer coverage is noted, not required. Do not push new commits just to silence by-design notes. **Hard cap: after 3 resolve cycles with no new actionable finding, declare consensus and stop** — report it and leave the merge to the human.
 
 ---
 
@@ -190,35 +191,38 @@ Read `.claude/commands/utils/check-and-fix-ci.md` and follow it for PR #{number}
 
 Two paths with different end states — report each honestly. Do not print a success card claiming the AI reviewers are satisfied unless their reviews actually cover the current head commit.
 
-**If this run pushed any commits** (review fixes from Phase 5 and/or CI fixes from Phase 6): the fixes are new code the reviewers have not seen — their earlier reviews are now stale, and whether they are happy with the result is unknown. Both reviewers must be explicitly re-requested against the new head — Claude via a comment, Copilot via the API (it reviews the current head; needs Copilot access + premium-request quota):
+**If this run pushed any commits** (review fixes from Phase 5 and/or CI fixes from Phase 6): the fixes are new code the reviewers have not seen — any earlier reviews are now stale. Re-request **only the reviewer(s) in the selected set** against the new head — Claude via a comment, Copilot via the API (it reviews the current head; needs Copilot access + premium-request quota):
 
 ```
+# only if Claude is selected
 gh pr comment {number} --repo {REPO} --body "/claude-review"
+# only if Copilot is selected
 gh api --method POST repos/{REPO}/pulls/{number}/requested_reviewers -f "reviewers[]=copilot-pull-request-reviewer[bot]"
 ```
 
-Then report:
+If the selected set is **empty** (no review flag given), re-request **nobody** — say so in the report and remind the user they can re-run with `--all-review` / `--claude-review` / `--copilot-review` to re-request. Then report:
 
 ```
 PR #{number}: {title}
 CI: ✅ PASS (on the new head)
 Findings fixed: {N}    Comments addressed: {N}    Commits added: {N}
+Re-requested: {Claude and/or Copilot, or "none — no review flag given"}
 ```
 
-In prose, list which comments were addressed and what was pushed, note that both Claude and Copilot were re-requested against the new head, and remind the user to re-run `/resolve-pr-reviews` after the new reviews land. Do **NOT** post "Reviews passed!" on this path.
+In prose, list which comments were addressed and what was pushed, name which reviewer(s) were re-requested against the new head (or that none were), and remind the user to re-run `/resolve-pr-reviews` after any new reviews land. Do **NOT** post "Reviews passed!" on this path.
 
-**If this run started clean** (mode 4 — both reviewed the current head, CI passing, nothing to resolve, no commits pushed): post exactly one comment:
+**If this run started clean** (mode 3 — CI passing, nothing to resolve, no commits pushed): post the pass comment **only if at least one reviewer has a fresh review** of the current head — that keeps the signal honest now that neither reviewer is required:
 
 ```
 gh pr comment {number} --repo {REPO} --body "Reviews passed!"
 ```
 
-Duplicate guard: if a "Reviews passed!" comment already exists and is newer than the current head commit, report that instead of posting again. Then report:
+If *no* reviewer has a fresh review at all, **do not** post "Reviews passed!" — just report that no AI review covers the head. Duplicate guard: if a "Reviews passed!" comment already exists and is newer than the current head commit, report that instead of posting again. Then report — **honestly about coverage**, since neither reviewer is required — each reviewer's actual state against the current head (✓ = reviewed the current head; ✗ = no fresh review, i.e. never reviewed or reviewed an earlier commit):
 
 ```
 PR #{number}: {title}
 CI: ✅ PASS
-AI reviews: Claude ✓    Copilot ✓ (both reviewed the current head; nothing unresolved)
+AI reviews: Claude {✓|✗}    Copilot {✓|✗}   (✓ = reviewed current head, ✗ = no fresh review; nothing unresolved)
 Ready for a human to merge.
 ```
 
