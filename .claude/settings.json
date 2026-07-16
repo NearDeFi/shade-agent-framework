@@ -30,7 +30,30 @@
       "Bash(git push -u origin stable)",
       "Bash(git push -u origin stable:*)",
       "Bash(git push origin HEAD:stable)",
-      "Bash(git push origin HEAD:stable:*)"
+      "Bash(git push origin HEAD:stable:*)",
+
+      "Edit(.claude/settings.json)",
+      "Edit(.claude/settings.local.json)",
+      "Write(.claude/settings.json)",
+      "Write(.claude/settings.local.json)",
+      "Edit(.claude/commands/**)",
+      "Write(.claude/commands/**)",
+
+      "Edit(.github/workflows/**)",
+      "Write(.github/workflows/**)",
+      "Edit(**/build.rs)",
+      "Write(**/build.rs)",
+      "Edit(**/.npmrc)",
+      "Write(**/.npmrc)",
+      "Edit(.git/hooks/**)",
+      "Write(.git/hooks/**)",
+
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Read(~/.ssh/**)",
+      "Read(~/.aws/**)",
+      "Read(**/id_rsa*)",
+      "Read(**/*.pem)"
     ],
     "allow": [
       "Bash(gh pr comment:*)"
