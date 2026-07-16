@@ -82,7 +82,7 @@ jobs:
 
             // Select which suites run from the comment: `/run-e2e [contract|tee]`.
             // No selector (or an unrecognized one) runs both.
-            const arg = (context.payload.comment.body.match(/\/run-e2e\s+(\S+)/) || [])[1]?.toLowerCase();
+            const arg = (context.payload.comment.body.match(/\/run-e2e\s+([a-zA-Z]+)/) || [])[1]?.toLowerCase();
             let runContract = true, runTee = true;
             if (arg === 'contract') { runTee = false; }
             else if (arg === 'tee') { runContract = false; }
