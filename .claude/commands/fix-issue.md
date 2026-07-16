@@ -1,7 +1,7 @@
 ---
 description: Fix a GitHub issue (by number/URL) or an ad-hoc problem given as free text — create a branch, research the codebase, plan the fix, implement with tests, commit, push, open a PR, wait for CI and fix any failures, then optionally request AI review(s) when a --all-review / --claude-review / --copilot-review flag is given (off by default)
 disable-model-invocation: true
-allowed-tools: Bash(gh issue view:*), Bash(gh issue list:*), Bash(gh repo view:*), Bash(gh pr create:*), Bash(gh pr comment:*), Bash(gh pr checks:*), Bash(gh api:*), Bash(gh run view:*), Bash(git fetch:*), Bash(git checkout:*), Bash(git status:*), Bash(git branch:*), Bash(git worktree:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(npm ci:*), Bash(npm install:*), Bash(npm i:*), Bash(npm run build:*), Bash(npm run test:*), Bash(npm test:*), Bash(cargo fmt:*), Bash(cargo clippy:*), Bash(cargo test:*), Bash(cargo near:*), Read, Edit, Write, Grep, Glob, EnterWorktree, ExitWorktree
+allowed-tools: Bash(gh issue view:*), Bash(gh issue list:*), Bash(gh repo view:*), Bash(gh pr create:*), Bash(gh pr comment:*), Bash(gh pr checks:*), Bash(gh api:*), Bash(gh run view:*), Bash(git fetch:*), Bash(git checkout:*), Bash(git status:*), Bash(git diff:*), Bash(git branch:*), Bash(git worktree:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(npm ci:*), Bash(npm install:*), Bash(npm i:*), Bash(npm run build:*), Bash(npm run test:*), Bash(npm test:*), Bash(cargo fmt:*), Bash(cargo clippy:*), Bash(cargo test:*), Bash(cargo near:*), Read, Edit, Write, Grep, Glob, Agent, EnterWorktree, ExitWorktree
 argument-hint: "<issue-number, issue-url, or a free-text problem description> [--claude-review and/or --copilot-review, or --all-review]"
 ---
 
@@ -84,12 +84,16 @@ Enter planning mode to design the implementation. The plan MUST cover:
    - Happy path (expected input produces expected output)
    - Error paths (invalid input, missing data, permission denied)
    - Edge cases (empty collections, boundary values, concurrent access)
-5. **Project specific concerns**:
+   - Hostile inputs on every untrusted boundary the change touches (attestation quotes, RPC responses, `deployment.yaml`, env-derived config, CLI args) — planned per the trust-boundary checklist in `.claude/project-specifics/project-specific-concerns.md`; a break on an untrusted boundary is a real bug, so its test must fail on the unfixed code
+5. **Interactions with untouched code** — bugs are usually not diff-local. Call out the code the change does *not* touch but depends on: parallel paths handling the same condition, shared state/storage, and the callers and callees of each changed function.
+6. **Project specific concerns**:
    - Read `.claude/project-specifics/project-specific-concerns.md` and make sure the plan satisfies every project concern and universal rule listed there.
-6. **Unsure:** 
+7. **Unsure:** 
    - If you are unsure of anything ask the user
 
 Follow all relevant CLAUDE.md files for architecture decisions: the root CLAUDE.md plus any CLAUDE.md in a directory whose files the plan touches (loaded in Step 4). If a planned change conflicts with one of them, change the plan, not the rule.
+
+**Falsify the plan before showing it** (default; skip only for a trivial or docs-only change with no real interaction surface). Once the plan is drafted, dispatch one independent subagent (Agent tool) to try to prove it *wrong* — give it the full inlined plan, the change's likely blast radius, and `.claude/project-specifics/project-specific-concerns.md`, and ask it: "Find the highest-impact way this plan is wrong or incomplete — a weakened attestation or access-control invariant, an untrusted input left untested, a missing cross-package `docs/reference` / example-template / `tests-in-tee` update, or a bad interaction with code the plan doesn't touch. Say what would confirm vs refute each concern, then report what you found." Fold its real findings into the plan, and when you present the plan note in one line what the review surfaced (or that it found nothing).
 
 Wait for user approval before implementing. If the user rejects the plan — or you must otherwise abort before making any commit — follow **Teardown — aborted run** in `.claude/commands/utils/worktree.md` to remove the empty worktree before stopping.
 
@@ -102,6 +106,8 @@ After the plan is approved:
 3. Run project specific quality PR gate:
    - Read `.claude/project-specifics/pr-quality-gate.md` and complete all steps 
 4. If any check fails, fix it before proceeding.
+5. Run the pre-push self-review gate:
+   - Read `.claude/commands/utils/self-review.md` and complete it. Fix every must-fix finding before moving on (or, for a deliberate tradeoff, carry a one-line entry into the PR body's `## Design decisions / Accepted tradeoffs` section in Step 7). This is a gate — do not proceed to commit while a must-fix finding is unresolved.
 
 ## Step 7: Commit, push, and open a PR
 

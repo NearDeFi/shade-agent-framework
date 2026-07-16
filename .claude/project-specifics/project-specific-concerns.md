@@ -14,7 +14,9 @@
 
 These apply to all work in this repository, on top of the project-specific concerns above:
 
-- **Good test coverage, always.** Every code path added or changed gets unit tests covering the happy path, edge cases, all flows through the change, and malicious or hostile inputs.
-- **Regression tests for every bug fix.** Reproduce the bug in a test that fails on the old code; the fix turns it green; the test stays in the suite forever.
+- **Good test coverage, always.** Every code path added or changed gets unit tests covering the happy path, edge cases, all flows through the change, and malicious or hostile inputs. Classify each input by **trust boundary** — it decides bug vs hardening:
+  - **Untrusted** (caller-controlled: attestation quotes, RPC responses, `deployment.yaml` fields, env-derived config, CLI args) — attack it hard; a break is a **real bug** and needs a test that fails on the unfixed code. Probe boundary/cardinality (zero, one, many, max, empty, off-by-one), malformed input (wrong type, `null`/`undefined`, bad encoding, `NaN`/`Infinity`), numeric edges (overflow, precision, negative/zero), and concurrency/replay (same effect twice, out-of-order, retry mid-flight).
+  - **Internal contract** (a typed value your own code produced and already validated upstream) — a hostile value is usually unreachable, so a break is **hardening, not a live bug**; cover it only when you can show a real delivery path (an unvalidated cast, an unchecked cross-package field).
+- **Regression tests for every bug fix.** Reproduce the bug in a test that fails on the old code for the right reason (the fix — not a typo or bad import — is what turns it green); the test stays in the suite forever.
 - **Never commit secrets.** No keys, tokens, credentials, or customer data in code, config, tests, fixtures, or logs — use environment variables or secret stores.
 - **Justify new dependencies.** Prefer the standard library or dependencies already in the repo; adding a new one requires a stated reason (capability, size, maintenance, security surface) in the PR.
