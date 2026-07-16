@@ -88,6 +88,13 @@ then reports a single informational `e2e` status on the PR. That status is
 **non-blocking** — it never gates merge. The contract wasm is built once and
 shared with both jobs via an artifact.
 
+The comment selects which suites run, so a change touching only one side doesn't
+pay for the other (the wasm is still built just once either way):
+
+- **`/run-e2e`** — the contract integration tests and this tests-in-tee suite.
+- **`/run-e2e contract`** — the contract sandbox integration tests only.
+- **`/run-e2e tee`** — this tests-in-tee suite only.
+
 CI supplies the same inputs as the local `.env` via repository secrets:
 `TESTNET_ACCOUNT_ID`, `TESTNET_PRIVATE_KEY`, `PHALA_API_KEY` (and optionally
 `SPONSOR_ACCOUNT_ID` / `SPONSOR_PRIVATE_KEY`), plus `DOCKERHUB_USERNAME` /
