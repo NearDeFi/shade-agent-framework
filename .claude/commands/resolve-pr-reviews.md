@@ -81,13 +81,13 @@ PR #{number}: {title}
 Author: {author}    Base: {base} ← {head}
 Size: +{additions} -{deletions} across {file_count} files
 CI: {PASS|FAIL|PENDING|NONE}
-AI reviews: Claude {✓|✗|stale}    Copilot {✓|✗|stale}   (missing/stale = "left"; not blocking)
+AI reviews: Claude {✓|✗|stale}    Copilot {✓|✗|stale}   (✗ = never reviewed, stale = reviewed an earlier commit; neither blocks)
 Reviews: {N approved, N changes_requested, N comments-only, N bot-only}
 Unresolved comments: {N}
 Draft: {yes|no}
 ```
 
-**Note which reviewers are "left."** A missing or stale reviewer is **never** a stop condition here — just record it (it shows in the status card and the Phase 7 report). Do not block, and do not trigger a missing reviewer at this point; Phase 7 handles re-requesting whichever reviewer(s) the flag selects.
+**Note which reviewers haven't reviewed the current head** (never reviewed, or stale = reviewed an earlier commit). That is **never** a stop condition here — just record it (it shows in the status card and the Phase 7 report). Do not block, and do not trigger a missing reviewer at this point; Phase 7 handles re-requesting whichever reviewer(s) the flag selects.
 
 **Decide the mode** (driven only by comments and CI):
 
@@ -217,12 +217,12 @@ In prose, list which comments were addressed and what was pushed, name which rev
 gh pr comment {number} --repo {REPO} --body "Reviews passed!"
 ```
 
-If *no* reviewer has a fresh review at all, **do not** post "Reviews passed!" — just report that no AI review covers the head. Duplicate guard: if a "Reviews passed!" comment already exists and is newer than the current head commit, report that instead of posting again. Then report — **honestly about coverage**, since neither reviewer is required — each reviewer's actual state against the current head (✓ reviewed / left = missing or stale):
+If *no* reviewer has a fresh review at all, **do not** post "Reviews passed!" — just report that no AI review covers the head. Duplicate guard: if a "Reviews passed!" comment already exists and is newer than the current head commit, report that instead of posting again. Then report — **honestly about coverage**, since neither reviewer is required — each reviewer's actual state against the current head (✓ = reviewed the current head; ✗ = no fresh review, i.e. never reviewed or reviewed an earlier commit):
 
 ```
 PR #{number}: {title}
 CI: ✅ PASS
-AI reviews: Claude {✓|left}    Copilot {✓|left}   (nothing unresolved)
+AI reviews: Claude {✓|✗}    Copilot {✓|✗}   (✓ = reviewed current head, ✗ = no fresh review; nothing unresolved)
 Ready for a human to merge.
 ```
 
