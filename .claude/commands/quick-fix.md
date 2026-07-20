@@ -23,7 +23,8 @@ Call it `{REPO}`. If the command fails (not a git repository, or no GitHub remot
 
 Parse `$ARGUMENTS`:
 - **Reviewer flags** — pull any of `--all-review` / `--claude-review` / `--copilot-review` into the **selected reviewer set** (the union — `--all-review` ≡ Claude + Copilot). **If none is given, default to `--all-review`** (this flow requires at least one reviewer, since the resolve stage waits on it).
-- **`FIX_INPUT`** — everything left after removing the reviewer flags: the issue number, issue URL, or free-text problem description. If it is empty, stop and ask the user what to fix.
+- **Reject `--max-passes`** — this command is always a single review→fix round (it hardcodes `--max-passes 1`), so `--max-passes` is not accepted here. If `$ARGUMENTS` contains it, STOP with a usage error pointing the user to `/full-fix <input> --max-passes <n>` for a multi-pass run.
+- **`FIX_INPUT`** — everything left after removing the flags above: the issue number, issue URL, or free-text problem description. If it is empty, stop and ask the user what to fix.
 
 ## Phase 1: Fix the issue → open the PR
 

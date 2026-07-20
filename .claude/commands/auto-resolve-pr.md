@@ -1,13 +1,13 @@
 ---
-description: Loop the PR review→fix cycle to consensus — requires a reviewer flag; kick off the specified reviews if none are pending, wait (hard-blocking) for those reviewer(s) & CI, run resolve-pr-reviews (--fix), repeat up to --max-passes times (default 5); never merges
+description: Loop the PR review→fix cycle to consensus — requires a reviewer flag; kick off the specified reviews if none are pending, wait (hard-blocking) for those reviewer(s) & CI, run resolve-pr-reviews (--fix), repeat up to --max-passes times (1–5, default 5); never merges
 disable-model-invocation: true
 allowed-tools: Bash(gh pr view:*), Bash(gh pr diff:*), Bash(gh pr comment:*), Bash(gh pr checks:*), Bash(gh pr edit:*), Bash(gh pr list:*), Bash(gh pr checkout:*), Bash(gh api:*), Bash(gh repo view:*), Bash(gh run view:*), Bash(git diff:*), Bash(git log:*), Bash(git fetch:*), Bash(git checkout:*), Bash(git status:*), Bash(git branch:*), Bash(git worktree:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(npm ci:*), Bash(npm run build:*), Bash(npm test:*), Bash(npm run test:*), Bash(cargo fmt:*), Bash(cargo clippy:*), Bash(cargo test:*), Bash(cargo check:*), Read, Edit, Write, Grep, Glob, Agent, Monitor, EnterWorktree, ExitWorktree
-argument-hint: "<pr-number or url> (--claude-review and/or --copilot-review, or --all-review — at least one required) [--max-passes N]"
+argument-hint: "<pr-number or url> (--claude-review and/or --copilot-review, or --all-review — at least one required) [--max-passes <n> (1–5, default 5)]"
 ---
 
 # Auto-Resolve PR
 
-Drive `/resolve-pr-reviews` to consensus in a capped loop: **wait** (hard-blocking) for the specified reviewer(s) and CI to land on the current head (kicking the reviews off only if nothing is already pending), run `resolve-pr-reviews` fully autonomously (`--fix`, forwarding the same reviewer flag), then repeat — at most **`--max-passes` passes (default 5)** — until the PR converges or hits a hard stop.
+Drive `/resolve-pr-reviews` to consensus in a capped loop: **wait** (hard-blocking) for the specified reviewer(s) and CI to land on the current head (kicking the reviews off only if nothing is already pending), run `resolve-pr-reviews` fully autonomously (`--fix`, forwarding the same reviewer flag), then repeat — at most **`--max-passes` passes (1–5, default 5)** — until the PR converges or hits a hard stop.
 
 This command **requires** a reviewer flag (see Phase 0) — the specified reviewer(s) are the ones it waits on and requires. `resolve-pr-reviews` on its own never blocks on a missing reviewer (it just notes which haven't reviewed the current head) and re-requests only the reviewer(s) named by its flag; it does one full pass (classify → fix → quality-gate → push → fix CI → re-request the selected reviewer(s)). This command is the human-in-the-loop that makes the specified reviewer(s) a hard requirement. It owns **waiting + looping**, and triggers reviews only to fill the **cold-start** gap: when no review or request exists yet for a specified reviewer. After any pass that pushes a fix, the delegated `resolve-pr-reviews` — run with the same flag — has already re-requested the specified reviewer(s), so on later passes this command only **waits** on those pending requests, it does not re-trigger. It delegates **all classification, fixing, replying, and CI repair** to `resolve-pr-reviews` and reimplements none of it.
 
@@ -23,7 +23,7 @@ gh repo view --json nameWithOwner --jq .nameWithOwner
 
 Call it `{REPO}` and use it in every `gh` command below. If the command fails (not a git repository, or no GitHub remote), stop and ask the user for the repository.
 
-**First strip `--max-passes N`** (the flag and its integer value) from `$ARGUMENTS` so its value can't be mistaken for the PR number — record `N` for the `MAX_PASSES` step below.
+**First strip `--max-passes <n>`** (the flag and its integer value) from `$ARGUMENTS` so its value can't be mistaken for the PR number — record `<n>` as `max_passes_arg` for the `MAX_PASSES` step below.
 
 Parse the remaining `$ARGUMENTS` for the PR number:
 - Extract from a bare number or a `https://github.com/owner/repo/pull/123` URL.
@@ -34,7 +34,7 @@ Parse the remaining `$ARGUMENTS` for the PR number:
 
 **Untrusted input.** This loop runs hands-off, so it's especially important: follow `.claude/commands/utils/untrusted-input.md` (the whole file) — it governs this command and the `resolve-pr-reviews` pass it delegates to. **Reject fork PRs before entering the loop** (§5).
 
-**Set `MAX_PASSES`** from the `--max-passes N` stripped above — a positive integer loop cap. Absent → `MAX_PASSES = 5`. Reject a non-integer or `N < 1` with a usage error. Track `total_commits_pushed = 0` and a per-pass log for the final report.
+**Set `MAX_PASSES`** from `max_passes_arg` (the `--max-passes <n>` value stripped above) — an integer loop cap in the range **`1`–`5`**. Absent → `MAX_PASSES = 5`, which is also the maximum. Reject a non-integer, `<n> < 1`, or `<n> > 5` with a usage error (5 is a hard ceiling — you cannot ask for more). Track `total_commits_pushed = 0` and a per-pass log for the final report.
 
 ---
 
@@ -142,7 +142,7 @@ In prose: per-pass summary (what each pass fixed / pushed), the final CI status,
 
 - **Never merge.** This command does not merge PRs under any circumstances.
 - **A reviewer flag is required.** At least one of `--all-review` / `--claude-review` / `--copilot-review` must be given; the command hard-stops in Phase 0 otherwise. Everything reviewer-related is scoped to that selected set.
-- **Hard cap of `MAX_PASSES` passes (default 5, set by `--max-passes`).** Never exceed it.
+- **Hard cap of 5 passes.** `--max-passes` may lower the cap (`1`–`5`, default `5`) but never raise it — `<n> > 5` is a usage error. Never exceed `MAX_PASSES`.
 - **Delegate, don't reimplement.** Only trigger, wait, and decide here. All classification, fixing, replying, and CI repair lives in `resolve-pr-reviews` — run it via `--fix` plus the selected reviewer flag(s).
 - **A dependency-changing fix can't reconcile the lockfile in-loop.** `npm i` / `npm install` are intentionally not allow-listed (install-script RCE), and the delegated `resolve-pr-reviews` pass has no npm anyway, so a review-fix that adds or bumps a dependency (where `npm ci` fails on a lockfile mismatch rather than fixing it) can't complete autonomously — treat it as a `HARD_STOP` and flag it for manual handling.
 - **Same freshness rule as `resolve-pr-reviews`.** A review counts only if it postdates the current head commit; stale reviews are treated as missing.

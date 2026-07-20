@@ -2,7 +2,7 @@
 description: Fix a GitHub issue (or free-text problem) end-to-end and drive it to AI-review consensus — run /fix-issue to open the PR, then /auto-resolve-pr (loop the review→fix cycle up to 5 passes). For important changes. Never merges.
 disable-model-invocation: true
 allowed-tools: Bash(gh issue view:*), Bash(gh issue list:*), Bash(gh repo view:*), Bash(gh pr create:*), Bash(gh pr view:*), Bash(gh pr diff:*), Bash(gh pr comment:*), Bash(gh pr checks:*), Bash(gh pr edit:*), Bash(gh pr list:*), Bash(gh pr checkout:*), Bash(gh api:*), Bash(gh run view:*), Bash(git fetch:*), Bash(git checkout:*), Bash(git status:*), Bash(git branch:*), Bash(git worktree:*), Bash(git add:*), Bash(git commit:*), Bash(git push:*), Bash(git diff:*), Bash(git log:*), Bash(npm ci:*), Bash(npm install:*), Bash(npm i:*), Bash(npm run build:*), Bash(npm run test:*), Bash(npm test:*), Bash(cargo fmt:*), Bash(cargo clippy:*), Bash(cargo test:*), Bash(cargo near:*), Bash(cargo check:*), Read, Edit, Write, Grep, Glob, Agent, Monitor, EnterWorktree, ExitWorktree
-argument-hint: "<issue-number, issue-url, or a free-text problem description> [--claude-review and/or --copilot-review, or --all-review (default)] [--max-passes N]"
+argument-hint: "<issue-number, issue-url, or a free-text problem description> [--claude-review and/or --copilot-review, or --all-review (default)] [--max-passes <n> (1–5, default 5)]"
 ---
 
 # Full Fix
@@ -23,7 +23,7 @@ Call it `{REPO}`. If the command fails (not a git repository, or no GitHub remot
 
 Parse `$ARGUMENTS`:
 - **Reviewer flags** — pull any of `--all-review` / `--claude-review` / `--copilot-review` into the **selected reviewer set** (the union — `--all-review` ≡ Claude + Copilot). **If none is given, default to `--all-review`** (this flow requires at least one reviewer, since the resolve loop waits on it).
-- **`--max-passes N`** (optional) — pass it straight through to `/auto-resolve-pr` to change the loop cap (default 5). Leave it off for the default.
+- **`--max-passes <n>`** (optional, `1`–`5`) — pass it straight through to `/auto-resolve-pr` to lower the loop cap (default and maximum `5`; `<n> > 5` is a usage error). Leave it off for the default.
 - **`FIX_INPUT`** — everything left after removing the flags above: the issue number, issue URL, or free-text problem description. If it is empty, stop and ask the user what to fix.
 
 ## Phase 1: Fix the issue → open the PR
@@ -34,7 +34,7 @@ Capture the **PR number** it opens. If `fix-issue` never opens a PR (plan reject
 
 ## Phase 2: Loop to review consensus
 
-Read `.claude/commands/auto-resolve-pr.md` and execute its **full flow** for the captured PR number with the **same reviewer flag(s)** (plus `--max-passes N` if the user gave one) — e.g. `{pr} --all-review`. It reuses the PR's worktree and loops the wait → `resolve-pr-reviews --fix` → decide cycle until the PR converges (reviewers satisfied + CI green) or hits its cap / a hard stop.
+Read `.claude/commands/auto-resolve-pr.md` and execute its **full flow** for the captured PR number with the **same reviewer flag(s)** (plus `--max-passes <n>` if the user gave one) — e.g. `{pr} --all-review`. It reuses the PR's worktree and loops the wait → `resolve-pr-reviews --fix` → decide cycle until the PR converges (reviewers satisfied + CI green) or hits its cap / a hard stop.
 
 ## Phase 3: Report
 
