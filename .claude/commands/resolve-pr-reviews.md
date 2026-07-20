@@ -64,7 +64,7 @@ gh pr diff {number} --repo {REPO} --name-only
 gh pr checks {number} --repo {REPO} --json name,status,conclusion,detailsUrl
 ```
 
-**Comments and reviews — author first, then trusted bodies only** (`utils/untrusted-input.md` §2). Resolve the code-owner set once from `.github/CODEOWNERS` (base branch). First list *who* commented on each surface, **without bodies**:
+**Comments and reviews — author first, then trusted bodies only** (`utils/untrusted-input.md` §1). Resolve the code-owner set once from `.github/CODEOWNERS` (base branch). First list *who* commented on each surface, **without bodies**:
 ```
 gh api --paginate repos/{REPO}/pulls/{number}/comments  --jq '.[] | {id, user: .user.login, created_at}'
 gh api --paginate repos/{REPO}/pulls/{number}/reviews   --jq '.[] | {id, user: .user.login, state, submitted_at}'
