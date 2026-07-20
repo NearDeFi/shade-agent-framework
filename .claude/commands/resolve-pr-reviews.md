@@ -140,6 +140,7 @@ After all fixes implemented, proceed to Phase 4.
 ## Phase 4: Quality Gate
 
 - Read `.claude/project-specifics/pr-quality-gate.md` and complete all steps 
+- Then read `.claude/commands/utils/self-review.md` and complete the pre-push self-review on the fixes you just made — so a review fix doesn't introduce a fresh finding the next round would raise. Fix every must-fix finding; record any deliberate tradeoff in the PR's `## Design decisions / Accepted tradeoffs` section (Phase 2 already maintains that section).
 
 **If any step fails:** fix the issue and re-run. Do NOT proceed past a failing step. Loop up to 3 times per step. If still failing after 3 attempts, report the failure and stop.
 
