@@ -55,10 +55,8 @@ Only the reviewer(s) in the **selected set** (from Phase 0) count here — a rev
 - **Claude reviewed** ⇔ an issue comment by `claude[bot]` (not `github-actions[bot]`) matching the claude-review output contract (contains `### Code review`, `Found N issues`, or `No issues found.`) that is newer than the head commit.
 - **Copilot reviewed** ⇔ a review in `pulls/{number}/reviews` by `copilot-pull-request-reviewer[bot]` newer than the head commit.
 
-Gather state — this step only **waits on** the two bot reviewers, so it reads just their content (author-first, §1); code-owner comments are read later by the delegated `resolve-pr-reviews` (Step C), not here:
+Gather state — this step only **waits on** the two bot reviewers, so read just their content via the §1 recipe (the `claude[bot]` issue comment matching the review contract, and the `copilot[bot]` review); code-owner findings are read later by the delegated `resolve-pr-reviews` (Step C), not here. Plus:
 ```
-gh api --paginate repos/{REPO}/issues/{number}/comments --jq '.[] | select(.user.login=="claude[bot]") | {created_at, body}'
-gh api --paginate repos/{REPO}/pulls/{number}/reviews   --jq '.[] | select(.user.login=="copilot-pull-request-reviewer[bot]") | {submitted_at, state}'
 gh pr view {number} --repo {REPO} --json reviewRequests
 gh pr checks {number} --repo {REPO} --json name,bucket   # bucket: pending|pass|fail|skipping|cancel
 ```
@@ -100,12 +98,10 @@ Before any **STOP** that exits from this step (the CI-timeout `REVIEW_TIMEOUT` o
 
 ### Step D — Decide (machine-checkable, not from prose)
 
-Re-read the head, CI, and the trusted-author comment content — the `resolve-pr-reviews` clean-path signal, `Reviews passed!`, is an **issue** comment (posted by the code owner running that command), not a PR review comment, so fetch issue comments to detect convergence. Read only trusted authors' bodies (`utils/untrusted-input.md` §1):
+Re-read head + CI, plus the trusted-author comments via the §1 recipe — the clean-path signal `Reviews passed!` is an **issue** comment from the code owner running `resolve-pr-reviews`, so read `issues/{number}/comments` (`claude[bot]` + code owners) and `pulls/{number}/comments` (Copilot inline) to detect convergence:
 ```
 gh pr view {number} --repo {REPO} --json headRefOid,commits
 gh pr checks {number} --repo {REPO} --json name,bucket   # bucket: pending|pass|fail|skipping|cancel
-gh api --paginate repos/{REPO}/pulls/{number}/comments  --jq '.[] | select(.user.login=="copilot-pull-request-reviewer[bot]") | {created_at, path, body}'   # Copilot inline comments
-gh api --paginate repos/{REPO}/issues/{number}/comments --jq '.[] | select(.user.login=="claude[bot]" or (.user.login | IN(<code-owner logins>))) | {created_at, user: .user.login, body}'   # claude review + the code owner's `Reviews passed!`
 ```
 Let `head_after` be the new `headRefOid` and `commit_count_after` the new `commits` length. If `head_after != head_before`, increment `total_commits_pushed` by `commit_count_after - commit_count_before` (the commits this pass added).
 
