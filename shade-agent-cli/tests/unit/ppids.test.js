@@ -73,6 +73,19 @@ describe("getPpids", () => {
     expect(exitSpy).toHaveBeenCalledWith(1);
   });
 
+  // Phala's fleet API can list the same PPID twice. `approve_ppids` tolerates
+  // that (a set insert is a no-op) but `remove_ppids` require!s every removal
+  // to succeed, so the second occurrence panics with "PPID not in approved
+  // list". Dedupe here, where the bad data enters.
+  it("dedupes the Phala response, preserving first-seen order", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => ["b", "a", "b", "c", "a"],
+    });
+    expect(await getPpids(phala)).toEqual(["b", "a", "c"]);
+  });
+
   // Non-array body is a contract break — never silently coerce or wrap.
   it("exits 1 when the response body isn't an array", async () => {
     global.fetch = vi.fn().mockResolvedValue({

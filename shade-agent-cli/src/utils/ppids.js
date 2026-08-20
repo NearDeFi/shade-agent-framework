@@ -40,5 +40,8 @@ export async function getPpids(deployment) {
     process.exit(1);
   }
 
-  return ppids;
+  // The fleet API can list the same PPID twice. `approve_ppids` absorbs that
+  // silently (a set insert), but `remove_ppids` require!s every removal to
+  // succeed, so a repeated entry panics the contract on the second pass.
+  return [...new Set(ppids)];
 }
