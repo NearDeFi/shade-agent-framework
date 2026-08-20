@@ -1,6 +1,6 @@
 # Shade Agent CLI
 
-The **Shade Agent CLI** makes it easy to deploy a Shade Agent. It includes building and deploying your agent contract, building and publishing your agent's Docker image, and deploying the agent to Phala Cloud. The CLI revolves around a `deployment.yaml` file that configures how your Shade Agent will be deployed.
+The **Shade Agent CLI** makes it easy to deploy a Shade Agent. It includes building and deploying your agent contract, building and publishing your agent's Docker image, and deploying the agent to a TEE — either Phala Cloud or your own self-hosted dstack server. The CLI revolves around a `deployment.yaml` file that configures how your Shade Agent will be deployed.
 
 ---
 
@@ -82,7 +82,8 @@ CLI configurations are read from a single `deployment.yaml` file in the project 
 | **approve_measurements** | No | If enabled, sets allowed measurements in the agent contract. |
 | **approve_ppids** | No | If enabled, sets allowed PPIDs in the agent contract.|
 | **build_docker_image** | No (TEE only) | If enabled and environment is TEE, builds a new Docker image for your agent, publishes it, and updates the Docker Compose with the new image.  |
-| **deploy_to_phala** | No (TEE only) | If enabled and environment is TEE, deploys the Docker Compose to Phala Cloud. |
+| **deploy_to_phala** | No (TEE only) | If enabled and environment is TEE, deploys the Docker Compose to Phala Cloud. Mutually exclusive with `deploy_to_dstack`. |
+| **deploy_to_dstack** | No (TEE only) | If enabled and environment is TEE, deploys the Docker Compose to your own self-hosted dstack server over SSH. Mutually exclusive with `deploy_to_phala`. |
 | **whitelist_agent_for_local** | No | Config for the `shade whitelist` command to whitelist an agent's account ID whilst in local mode (not used by the shade deploy command). |
 | **os** | No | Override OS for tooling: `mac` or `linux`. If omitted, the CLI auto-detects from the current platform. |
 
@@ -148,7 +149,9 @@ Placeholders in args:
 
 - `<MEASUREMENTS>` — Resolves to real calculated measurements for the application for TEE and mock measurements for local. For TEE, the measurements depend on the docker compose file, the dstack version and instance type.
 
-> **Note:** When `args` contains `<MEASUREMENTS>` in TEE mode, the placeholder is computed from `deploy_to_phala.dstack_version`, `instance_type`, `public_logs`, and `public_sysinfo`. The CLI reads these fields even when `deploy_to_phala.enabled: false`, so the block must still be present with valid values. If `args` doesn't reference `<MEASUREMENTS>`, the `deploy_to_phala` block is not required.
+> **Note:** When `args` contains `<MEASUREMENTS>` in TEE mode, the placeholder is computed from `dstack_version`, `instance_type`, `public_logs`, and `public_sysinfo` on whichever deploy block is present — `deploy_to_phala` or `deploy_to_dstack`. The CLI reads these fields even when that block has `enabled: false`, so it must still be present with valid values. If `args` doesn't reference `<MEASUREMENTS>`, neither block is required.
+>
+> With `deploy_to_dstack`, the `key_provider_event_digest` in the measurements is computed from your own KMS over SSH rather than pinned to Phala's, so `approve_measurements` needs the server to be reachable.
 
 ### approve_ppids
 
@@ -161,7 +164,7 @@ Placeholders in args:
 
 Placeholders in args:
 
-- `<PPIDS>` — Resolves to a list of all PPIDs of devices on Phala Cloud for TEE and a mock PPID for local.
+- `<PPIDS>` — Resolves to a mock PPID for local. For TEE the source depends on the deploy backend: with `deploy_to_phala` it is the list of all PPIDs of devices on Phala Cloud; with `deploy_to_dstack` it is the single PPID of your server's CPU package, read out of the PCK certificate embedded in its KMS's bootstrap attestation. A literal PPID written into `args` instead of the placeholder keeps working either way.
 
 ### build_docker_image (TEE Only)
 
@@ -185,6 +188,32 @@ Placeholders in args:
 | **public_logs** | Yes | Boolean. If `true`, the dstack guest-agent's `GET /logs/<container>` endpoint is publicly reachable on port 8090, exposing all container logs. |
 | **public_sysinfo** | Yes | Boolean. If `true`, the dstack guest-agent's `GET /metrics` endpoint is publicly reachable on port 8090, exposing OS, CPU, memory, swap, uptime, load, and disk telemetry. |
 
+### deploy_to_dstack (TEE Only)
+
+Deploys to your own dstack server instead of Phala Cloud, over SSH. Mutually exclusive with `deploy_to_phala` — enabling both is an error. The server must already be set up with `dstack-vmm`, a KMS CVM and a gateway CVM, and the VM shape must match one of the `instance_type` rows below.
+
+| Key | Required | Description |
+|-----|----------|-------------|
+| **enabled** | No | If `false`, deployment to the dstack server is skipped. |
+| **app_name** | Yes | CVM name on the server. |
+| **env_file_path** | Yes | Path to the environment variables file (e.g. `./.env`). Encrypted to the server's KMS key **before it leaves your machine**, so the host never sees plaintext. |
+| **dstack_version** | Yes | The dstack OS image version to deploy with and to use when calculating measurements. Supported: `0.5.7`, `0.5.8`. The server must have this image installed. |
+| **instance_type** | Yes | The hardware instance type to use when calculating measurements. Also fixes the vCPU/memory the CVM is created with, because `rtmr0` measures both. Supported: `tdx.small`, `tdx.medium`, `tdx.large`, `tdx.xlarge`, `tdx.2xlarge`, `tdx.4xlarge`, `tdx.8xlarge`. |
+| **public_logs** | Yes | Boolean. Same meaning as under `deploy_to_phala`. |
+| **public_sysinfo** | Yes | Boolean. Same meaning as under `deploy_to_phala`. |
+| **ssh_host** | Yes | SSH destination for the server — an alias from your `~/.ssh/config` or `user@host`. Must be `[user@]host` using only letters, digits, dot, dash and underscore, and must not start with `-`. |
+| **gateway_domain** | Yes | The domain the dstack gateway serves under (e.g. `shade.example.com`). The app is reachable at `https://<app-id>-<port>.<gateway_domain>`. |
+| **disk_size_gb** | Yes | Encrypted disk size in GB (positive integer). Not measured. |
+
+The VMM and KMS endpoints (`http://127.0.0.1:10000`, `https://127.0.0.1:11001`), the gateway RPC port (`9202`) and the KMS allowlist path (`/opt/shade/kms/auth-config.json`) are constants in the CLI, reached by tunnelling `curl` through `ssh_host`. Nothing is installed on the server.
+
+Notes on this backend:
+
+- **Redeploys create a new CVM.** Same as the Phala backend — existing CVMs are managed at the VMM console (`http://127.0.0.1:10000/`, reachable with `ssh -L 10000:127.0.0.1:10000 <ssh_host>`).
+- **A fresh app id per deploy.** The app id is random rather than derived from the compose, so two deploys of the same image can't collide on the KMS-derived disk and env keys. The consequence is that the app URL changes every deploy and the CVM starts with a fresh encrypted disk — no state survives a redeploy.
+- **The apps map grows one entry per deploy.** Each deploy adds an entry to `auth-config.json` on the server so its KMS will hand out keys. A stale entry still lets that old image boot, so prune the map when you retire an image. Entries the CLI added carry a `_shade` marker naming the app and deploy time; nothing is pruned automatically.
+- **Env confidentiality depends on the server's KMS being genuine.** The CLI pins the recovered signer of the env encryption key to the KMS's own `k256_pubkey` and refuses to continue on a mismatch. A fully compromised host could still lie about both and read the environment. What it cannot do is produce a *registered* agent — the `key_provider_event_digest` approved on chain is derived from the same KMS CA, so a substituted KMS fails registration. Verifying the KMS CVM's own quote would close this properly and is not done yet.
+
 ### whitelist_agent_for_local (local only)
 
 Used by `shade whitelist`. No `enabled` flag; if the section is present, the command is available.
@@ -203,7 +232,7 @@ Placeholders in args:
 
 ## Supported configurations
 
-The Shade Agent CLI supports specific Phala Cloud / Dstack configurations, as listed below.
+The Shade Agent CLI supports specific Phala Cloud / Dstack configurations, as listed below. They apply to both deploy backends, except that the self-hosted `key_provider_event_digest` is computed from your own KMS rather than pinned to Phala's.
 
 **Dstack image versions:**
 
@@ -212,6 +241,8 @@ The Shade Agent CLI supports specific Phala Cloud / Dstack configurations, as li
 **Instance types:**
 
 `tdx.small`, `tdx.medium`, `tdx.large`, `tdx.xlarge`, `tdx.2xlarge`, `tdx.4xlarge`, `tdx.8xlarge`
+
+The vCPU/memory each type maps to (1 vCPU / 2 GB for `tdx.small`, doubling upward) is what `deploy_to_dstack` provisions, because `rtmr0` measures both. Only `tdx.small` is documented by Phala; check a larger type with `dstack-mr measure` against the row's `rtmr0` before its first self-hosted use.
 
 **QEMU versions:**
 

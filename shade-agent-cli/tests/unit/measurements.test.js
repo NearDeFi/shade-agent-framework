@@ -19,11 +19,19 @@
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import fs from "fs";
+import crypto from "crypto";
+import path from "path";
+import os from "os";
 import {
   hashAppCompose,
   buildAppComposeForDeploy,
   extractAllowedEnvs,
   calculateAppComposeHash,
+  prepareAppCompose,
+  prepareAppComposeFromParts,
+  getMeasurements,
+  INSTANCE_TYPE_SHAPES,
+  PHALA_KEY_PROVIDER_EVENT_DIGEST,
 } from "../../src/utils/measurements.js";
 
 describe("hashAppCompose", () => {
@@ -205,5 +213,187 @@ describe("calculateAppComposeHash", () => {
     });
     expect(onOn).not.toBe(offOff);
     spy.mockRestore();
+  });
+});
+
+describe("prepareAppComposeFromParts", () => {
+  // The compose bytes a self-hosted deploy sends must be the exact bytes the
+  // hash was taken over — the VMM hashes what it is given and never
+  // re-serialises.
+  it("returns a JSON string whose sha256 is the returned hash", () => {
+    const content = "services:\n  app:\n    image: x";
+    const { appCompose, composeJson, composeHash } = prepareAppComposeFromParts(
+      content,
+      ["FOO"],
+      { publicLogs: true, publicSysinfo: true },
+    );
+    expect(composeJson).toBe(JSON.stringify(appCompose));
+    expect(
+      crypto.createHash("sha256").update(composeJson).digest("hex"),
+    ).toBe(composeHash);
+  });
+
+  // calculateAppComposeHash now routes through the same helper, so the two
+  // must never diverge.
+  it("agrees with calculateAppComposeHash and hashAppCompose", () => {
+    const content = `services:
+  app:
+    environment:
+      FOO: \${FOO}
+`;
+    const spy = vi.spyOn(fs, "readFileSync").mockReturnValue(content);
+    const viaPath = calculateAppComposeHash("/fake/path", {
+      publicLogs: true,
+      publicSysinfo: true,
+    });
+    spy.mockRestore();
+    const prepared = prepareAppComposeFromParts(content, ["FOO"], {
+      publicLogs: true,
+      publicSysinfo: true,
+    });
+    expect(prepared.composeHash).toBe(viaPath);
+    expect(hashAppCompose(prepared.appCompose)).toBe(viaPath);
+  });
+});
+
+describe("prepareAppCompose", () => {
+  let tmpDir;
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "shade-prepare-"));
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(process, "exit").mockImplementation((code) => {
+      throw new Error(`exit:${code}`);
+    });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("drives the compose off docker_compose_path and tee_target", () => {
+    const composePath = path.join(tmpDir, "docker-compose.yaml");
+    fs.writeFileSync(
+      composePath,
+      "services:\n  app:\n    environment:\n      FOO: ${FOO}\n",
+    );
+    const { allowedEnvs, composeHash } = prepareAppCompose({
+      docker_compose_path: composePath,
+      tee_target: { public_logs: true, public_sysinfo: true },
+    });
+    expect(allowedEnvs).toEqual(["FOO"]);
+    expect(composeHash).toMatch(/^[0-9a-f]{64}$/);
+  });
+
+  it("exits 1 when the compose file is missing", () => {
+    expect(() =>
+      prepareAppCompose({
+        docker_compose_path: path.join(tmpDir, "nope.yaml"),
+        tee_target: { public_logs: true, public_sysinfo: true },
+      }),
+    ).toThrow("exit:1");
+  });
+});
+
+describe("key_provider_event_digest", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(process, "exit").mockImplementation((code) => {
+      throw new Error(`exit:${code}`);
+    });
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  const composeContent = "services:\n  app:\n    image: x";
+
+  // Regression guard: the Phala path must stay byte-identical now that the
+  // digest is threadable.
+  it("defaults to Phala's constant when none is passed", () => {
+    const spy = vi.spyOn(fs, "readFileSync").mockReturnValue(composeContent);
+    const measurements = getMeasurements(
+      true,
+      "/fake/path",
+      "0.5.8",
+      "tdx.small",
+      { publicLogs: true, publicSysinfo: true },
+    );
+    spy.mockRestore();
+    expect(measurements.key_provider_event_digest).toBe(
+      PHALA_KEY_PROVIDER_EVENT_DIGEST,
+    );
+    expect(measurements.rtmrs.rtmr0).toBe(
+      "68102e7b524af310f7b7d426ce75481e36c40f5d513a9009c046e9d37e31551f0134d954b496a3357fd61d03f07ffe96",
+    );
+  });
+
+  // A self-hosted server has its own KMS, so the digest is per-operator.
+  it("uses the supplied digest when one is passed", () => {
+    const spy = vi.spyOn(fs, "readFileSync").mockReturnValue(composeContent);
+    const digest = "ab".repeat(48);
+    const measurements = getMeasurements(
+      true,
+      "/fake/path",
+      "0.5.8",
+      "tdx.small",
+      {
+        publicLogs: true,
+        publicSysinfo: true,
+        keyProviderEventDigest: digest,
+      },
+    );
+    spy.mockRestore();
+    expect(measurements.key_provider_event_digest).toBe(digest);
+  });
+
+  // Local mode is all zeros regardless.
+  it("ignores the digest in local mode", () => {
+    const measurements = getMeasurements(false, undefined, undefined, undefined, {
+      keyProviderEventDigest: "ab".repeat(48),
+    });
+    expect(measurements.key_provider_event_digest).toBe("0".repeat(96));
+  });
+});
+
+describe("INSTANCE_TYPE_SHAPES", () => {
+  // rtmr0 measures vcpu and memory, so a self-hosted CVM has to be created in
+  // the shape the table's row was measured for. Every instance type the
+  // measurement table knows about needs a shape.
+  it("covers every instance type in the measurement table", async () => {
+    const { hardwareAndOSMeasurements } = await import(
+      "../../src/utils/measurements.js"
+    );
+    for (const version of Object.keys(hardwareAndOSMeasurements)) {
+      for (const instanceType of Object.keys(hardwareAndOSMeasurements[version])) {
+        expect(INSTANCE_TYPE_SHAPES[instanceType]).toBeDefined();
+      }
+    }
+  });
+
+  it("starts at 1 vcpu / 2048 MB and doubles", () => {
+    expect(INSTANCE_TYPE_SHAPES["tdx.small"]).toEqual({ vcpu: 1, memoryMb: 2048 });
+    const types = [
+      "tdx.small",
+      "tdx.medium",
+      "tdx.large",
+      "tdx.xlarge",
+      "tdx.2xlarge",
+      "tdx.4xlarge",
+      "tdx.8xlarge",
+    ];
+    for (let i = 1; i < types.length; i++) {
+      expect(INSTANCE_TYPE_SHAPES[types[i]].vcpu).toBe(
+        INSTANCE_TYPE_SHAPES[types[i - 1]].vcpu * 2,
+      );
+      expect(INSTANCE_TYPE_SHAPES[types[i]].memoryMb).toBe(
+        INSTANCE_TYPE_SHAPES[types[i - 1]].memoryMb * 2,
+      );
+    }
+  });
+
+  // Memory is in MB because that is what CreateVm.memory takes; a bare "2"
+  // would be 2 megabytes.
+  it("expresses memory in MB", () => {
+    for (const shape of Object.values(INSTANCE_TYPE_SHAPES)) {
+      expect(shape.memoryMb).toBe(shape.vcpu * 2048);
+    }
   });
 });

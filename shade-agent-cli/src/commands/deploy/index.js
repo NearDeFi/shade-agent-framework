@@ -12,6 +12,7 @@ import {
   deleteContractKey,
 } from "./near.js";
 import { deployPhalaWorkflow } from "./phala.js";
+import { deployDstackWorkflow } from "./dstack.js";
 import { getConfig } from "../../utils/config.js";
 import { createCommandErrorHandler } from "../../utils/error-handler.js";
 import { confirmDestructiveRedeployIfAccountExists } from "../../utils/destructive-redeploy.js";
@@ -79,6 +80,13 @@ export function deployCommand() {
         config.deployment.environment === "TEE"
       ) {
         await deployPhalaWorkflow();
+      }
+
+      if (
+        config.deployment.deploy_to_dstack?.enabled &&
+        config.deployment.environment === "TEE"
+      ) {
+        await deployDstackWorkflow();
       }
 
       console.log(chalk.green("\n✓ Deployment completed successfully!"));

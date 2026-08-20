@@ -960,7 +960,10 @@ function getCorrectMeasurements() {
 
 // Get correct PPIDs
 async function getCorrectPpids() {
-  return await getPpids(true);
+  return await getPpids({
+    environment: "TEE",
+    tee_target: { backend: "phala" },
+  });
 }
 
 // Create wrong measurements (wrong RTMR2)

@@ -2,7 +2,8 @@ import fs from "fs";
 import path from "path";
 import chalk from "chalk";
 import { createClient, deployAppAuth, encryptEnvVars, parseEnvVars } from "@phala/cloud";
-import { buildAppComposeForDeploy, hashAppCompose } from "./measurements.js";
+import { prepareAppComposeFromParts } from "./measurements.js";
+import { loadEnvVarsForDeploy } from "./env-file.js";
 
 const CLOUD_URL = "https://cloud.phala.com";
 
@@ -92,11 +93,12 @@ async function deploy_new_cvm(client, docker_compose_yml, env_vars, args, allowe
   const allowed_envs = Array.isArray(allowedEnvKeys) && allowedEnvKeys.length > 0
     ? allowedEnvKeys
     : env_vars.map((e) => e.key);
-  const compose_file = buildAppComposeForDeploy(
-    docker_compose_yml,
-    allowed_envs,
-    appComposeOptions,
-  );
+  const { appCompose: compose_file, composeHash: localComposeHash } =
+    prepareAppComposeFromParts(
+      docker_compose_yml,
+      allowed_envs,
+      appComposeOptions,
+    );
 
   const provision_payload = /** @type {import('@phala/cloud').ProvisionCvmRequest} */ (
     removeUndefined({
@@ -116,7 +118,6 @@ async function deploy_new_cvm(client, docker_compose_yml, env_vars, args, allowe
   // diverge, the on-chain approved measurement won't match the hash dstack
   // will measure inside the CVM, and the agent won't be able to register.
   // Abort before commitCvmProvision so nothing gets deployed.
-  const localComposeHash = hashAppCompose(compose_file);
   if (provision.compose_hash !== localComposeHash) {
     console.log(
       chalk.red(
@@ -288,19 +289,7 @@ async function deployToPhala(options) {
 
   const composeContent = fs.readFileSync(resolvedComposePath, "utf8");
 
-  let envVars = [];
-  if (envFilePath) {
-    const resolvedEnvPath = path.isAbsolute(envFilePath)
-      ? envFilePath
-      : path.resolve(process.cwd(), envFilePath);
-    if (fs.existsSync(resolvedEnvPath)) {
-      const envFileContent = fs.readFileSync(resolvedEnvPath, "utf8");
-      envVars = parseEnvVars(envFileContent);
-      if (Array.isArray(allowedEnvKeys) && allowedEnvKeys.length > 0) {
-        envVars = envVars.filter((e) => allowedEnvKeys.includes(e.key));
-      }
-    }
-  }
+  const envVars = loadEnvVarsForDeploy(envFilePath, allowedEnvKeys);
 
   const client = createClient({ apiKey });
   const args = {

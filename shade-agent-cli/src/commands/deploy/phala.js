@@ -43,10 +43,10 @@ export async function deployToPhala() {
 
     const composePath = config.deployment.docker_compose_path;
     const envFilePath = config.deployment?.deploy_to_phala?.env_file_path;
-    const dstackVersion = config.deployment?.deploy_to_phala?.dstack_version;
-    const instanceType = config.deployment?.deploy_to_phala?.instance_type;
-    const publicLogs = config.deployment?.deploy_to_phala?.public_logs;
-    const publicSysinfo = config.deployment?.deploy_to_phala?.public_sysinfo;
+    const dstackVersion = config.deployment?.tee_target?.dstack_version;
+    const instanceType = config.deployment?.tee_target?.instance_type;
+    const publicLogs = config.deployment?.tee_target?.public_logs;
+    const publicSysinfo = config.deployment?.tee_target?.public_sysinfo;
     const allowedEnvs = extractAllowedEnvs(composePath);
 
     const deployResult = await deployToPhalaSdk({

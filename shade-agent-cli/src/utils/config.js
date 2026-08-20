@@ -9,6 +9,11 @@ import { platform } from "os";
 import { getNearCredentials, getPhalaKey, getRpcConfig } from "./keystore.js";
 import { hardwareAndOSMeasurements } from "./measurements.js";
 import { hasPlaceholder } from "./placeholders.js";
+import { isValidSshHost } from "./dstack-transport.js";
+
+// A dotted DNS name the gateway serves `<app_id>-<port>.<domain>` under.
+const HOSTNAME_PATTERN =
+  /^(?=.{1,253}$)[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$/;
 
 function detectOS() {
   const platformName = platform();
@@ -46,6 +51,7 @@ export function parseDeploymentConfig(deploymentPath) {
     approve_measurements,
     approve_ppids,
     deploy_to_phala,
+    deploy_to_dstack,
     whitelist_agent_for_local,
   } = doc;
 
@@ -277,12 +283,47 @@ export function parseDeploymentConfig(deploymentPath) {
     mustBeMultilineString(approve_ppids.args, "approve_ppids.args");
   }
 
-  // deploy_to_phala validations
+  // deploy_to_phala / deploy_to_dstack validations. Exactly one deploy backend
+  // may be enabled; whichever is the target also supplies the measurement
+  // fields, even when its own deploy step is disabled.
   if (deploy_to_phala) {
     mustBeBooleanOrOmitted(deploy_to_phala.enabled, "deploy_to_phala.enabled");
   }
+  if (deploy_to_dstack) {
+    mustBeBooleanOrOmitted(
+      deploy_to_dstack.enabled,
+      "deploy_to_dstack.enabled",
+    );
+  }
 
-  const phalaEnabled = deploy_to_phala && deploy_to_phala.enabled !== false;
+  const phalaEnabled = !!deploy_to_phala && deploy_to_phala.enabled !== false;
+  const dstackEnabled = !!deploy_to_dstack && deploy_to_dstack.enabled !== false;
+  requireField(
+    !(phalaEnabled && dstackEnabled),
+    "deploy_to_phala and deploy_to_dstack cannot both be enabled — pick one deploy backend",
+  );
+  if (deploy_to_phala && deploy_to_dstack) {
+    requireField(
+      phalaEnabled || dstackEnabled,
+      "deploy_to_phala and deploy_to_dstack are both present but neither is enabled — remove one so the measurement fields have a single source",
+    );
+  }
+
+  // The backend whose block supplies dstack_version / instance_type /
+  // public_logs / public_sysinfo.
+  const teeBackend = dstackEnabled
+    ? "dstack"
+    : phalaEnabled
+      ? "phala"
+      : deploy_to_dstack
+        ? "dstack"
+        : deploy_to_phala
+          ? "phala"
+          : null;
+  const teeBlock = teeBackend === "dstack" ? deploy_to_dstack : deploy_to_phala;
+  const teeBlockLabel =
+    teeBackend === "dstack" ? "deploy_to_dstack" : "deploy_to_phala";
+
   // Only require measurement fields when <MEASUREMENTS> is in the args.
   const needsMeasurementFields =
     environment === "TEE" &&
@@ -290,7 +331,7 @@ export function parseDeploymentConfig(deploymentPath) {
     approve_measurements.enabled !== false &&
     hasPlaceholder(approve_measurements.args, "<MEASUREMENTS>");
 
-  // Phala-deploy-only fields — only needed when the workflow will actually run.
+  // Deploy-only fields — only needed when the workflow will actually run.
   if (phalaEnabled) {
     requireField(
       !!deploy_to_phala.env_file_path,
@@ -301,49 +342,81 @@ export function parseDeploymentConfig(deploymentPath) {
       "deploy_to_phala.app_name is required",
     );
   }
+  if (dstackEnabled) {
+    requireField(
+      !!deploy_to_dstack.env_file_path,
+      "deploy_to_dstack.env_file_path is required",
+    );
+    requireField(
+      !!deploy_to_dstack.app_name,
+      "deploy_to_dstack.app_name is required",
+    );
+    requireField(
+      typeof deploy_to_dstack.ssh_host === "string" &&
+        deploy_to_dstack.ssh_host.length > 0,
+      "deploy_to_dstack.ssh_host is required",
+    );
+    requireField(
+      isValidSshHost(deploy_to_dstack.ssh_host),
+      `deploy_to_dstack.ssh_host "${deploy_to_dstack.ssh_host}" is not a valid ssh destination — use [user@]host with only letters, digits, dot, dash and underscore, and it must not start with "-"`,
+    );
+    requireField(
+      typeof deploy_to_dstack.gateway_domain === "string" &&
+        HOSTNAME_PATTERN.test(deploy_to_dstack.gateway_domain),
+      "deploy_to_dstack.gateway_domain is required and must be a dotted hostname (e.g. shade.example.com)",
+    );
+    requireField(
+      Number.isInteger(deploy_to_dstack.disk_size_gb) &&
+        deploy_to_dstack.disk_size_gb > 0,
+      "deploy_to_dstack.disk_size_gb is required and must be a positive integer (GB)",
+    );
+  }
 
-  // public_logs / public_sysinfo feed the compose hash (for phala manifest
-  // and the TEE measurement). Required whenever phala deploy is on OR
+  // public_logs / public_sysinfo feed the compose hash (for the deploy manifest
+  // and the TEE measurement). Required whenever a deploy is on OR
   // approve_measurements will run in TEE.
-  if (phalaEnabled || needsMeasurementFields) {
+  if (phalaEnabled || dstackEnabled || needsMeasurementFields) {
     requireField(
-      !!deploy_to_phala,
-      "deploy_to_phala block is required (needs dstack_version, instance_type, public_logs, public_sysinfo)",
+      !!teeBlock,
+      "a deploy_to_phala or deploy_to_dstack block is required (needs dstack_version, instance_type, public_logs, public_sysinfo)",
     );
     requireField(
-      typeof deploy_to_phala?.public_logs === "boolean",
-      "deploy_to_phala.public_logs is required and must be a boolean (true or false)",
+      typeof teeBlock?.public_logs === "boolean",
+      `${teeBlockLabel}.public_logs is required and must be a boolean (true or false)`,
     );
     requireField(
-      typeof deploy_to_phala?.public_sysinfo === "boolean",
-      "deploy_to_phala.public_sysinfo is required and must be a boolean (true or false)",
+      typeof teeBlock?.public_sysinfo === "boolean",
+      `${teeBlockLabel}.public_sysinfo is required and must be a boolean (true or false)`,
     );
   }
 
   // dstack_version / instance_type are TEE-specific (compose hash + measurement).
-  if ((phalaEnabled || needsMeasurementFields) && environment === "TEE") {
+  if (
+    (phalaEnabled || dstackEnabled || needsMeasurementFields) &&
+    environment === "TEE"
+  ) {
     const supportedVersions = Object.keys(hardwareAndOSMeasurements);
     requireField(
-      typeof deploy_to_phala?.dstack_version === "string" &&
-        deploy_to_phala.dstack_version.length > 0,
-      `deploy_to_phala.dstack_version is required (one of: ${supportedVersions.join(", ")})`,
+      typeof teeBlock?.dstack_version === "string" &&
+        teeBlock.dstack_version.length > 0,
+      `${teeBlockLabel}.dstack_version is required (one of: ${supportedVersions.join(", ")})`,
     );
     requireField(
-      supportedVersions.includes(deploy_to_phala?.dstack_version),
-      `deploy_to_phala.dstack_version "${deploy_to_phala?.dstack_version}" is not supported (one of: ${supportedVersions.join(", ")})`,
+      supportedVersions.includes(teeBlock?.dstack_version),
+      `${teeBlockLabel}.dstack_version "${teeBlock?.dstack_version}" is not supported (one of: ${supportedVersions.join(", ")})`,
     );
 
     const supportedInstanceTypes = Object.keys(
-      hardwareAndOSMeasurements[deploy_to_phala?.dstack_version] || {},
+      hardwareAndOSMeasurements[teeBlock?.dstack_version] || {},
     );
     requireField(
-      typeof deploy_to_phala?.instance_type === "string" &&
-        deploy_to_phala.instance_type.length > 0,
-      `deploy_to_phala.instance_type is required (one of: ${supportedInstanceTypes.join(", ")})`,
+      typeof teeBlock?.instance_type === "string" &&
+        teeBlock.instance_type.length > 0,
+      `${teeBlockLabel}.instance_type is required (one of: ${supportedInstanceTypes.join(", ")})`,
     );
     requireField(
-      supportedInstanceTypes.includes(deploy_to_phala?.instance_type),
-      `deploy_to_phala.instance_type "${deploy_to_phala?.instance_type}" is not supported for dstack ${deploy_to_phala?.dstack_version} (one of: ${supportedInstanceTypes.join(", ")})`,
+      supportedInstanceTypes.includes(teeBlock?.instance_type),
+      `${teeBlockLabel}.instance_type "${teeBlock?.instance_type}" is not supported for dstack ${teeBlock?.dstack_version} (one of: ${supportedInstanceTypes.join(", ")})`,
     );
   }
 
@@ -423,11 +496,6 @@ export function parseDeploymentConfig(deploymentPath) {
             tgas: approve_ppids.tgas ?? 30,
           }
         : undefined,
-    // TODO: dstack_version / instance_type / public_logs / public_sysinfo
-    // are read by `approve_measurements` regardless of phala deploy status.
-    // They should live in their own top-level block (e.g. `tee_config:`)
-    // rather than under `deploy_to_phala`. Left here for now to avoid a
-    // breaking deployment.yaml change.
     deploy_to_phala: deploy_to_phala
       ? {
           // `enabled` defaults to true when the block exists without an
@@ -443,6 +511,30 @@ export function parseDeploymentConfig(deploymentPath) {
           public_sysinfo: deploy_to_phala.public_sysinfo,
         }
       : undefined,
+    deploy_to_dstack: deploy_to_dstack
+      ? {
+          enabled: deploy_to_dstack.enabled !== false,
+          env_file_path: deploy_to_dstack.env_file_path,
+          app_name: deploy_to_dstack.app_name,
+          dstack_version: deploy_to_dstack.dstack_version,
+          instance_type: deploy_to_dstack.instance_type,
+          public_logs: deploy_to_dstack.public_logs,
+          public_sysinfo: deploy_to_dstack.public_sysinfo,
+          ssh_host: deploy_to_dstack.ssh_host,
+          gateway_domain: deploy_to_dstack.gateway_domain,
+          disk_size_gb: deploy_to_dstack.disk_size_gb,
+        }
+      : undefined,
+    // The single place the rest of the CLI reads the TEE target from, so
+    // `approve_measurements` and `shade plan` don't have to know which deploy
+    // backend a deployment.yaml uses.
+    tee_target: {
+      backend: teeBackend,
+      dstack_version: teeBlock?.dstack_version,
+      instance_type: teeBlock?.instance_type,
+      public_logs: teeBlock?.public_logs,
+      public_sysinfo: teeBlock?.public_sysinfo,
+    },
     whitelist_agent_for_local: whitelist_agent_for_local
       ? {
           method_name: whitelist_agent_for_local.method_name,

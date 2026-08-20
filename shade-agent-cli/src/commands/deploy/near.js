@@ -11,6 +11,7 @@ import { checkTransactionOutcome } from "../../utils/transaction-outcome.js";
 import { dockerExec, runWithSudoOnLinux } from "../../utils/docker-utils.js";
 import { getMeasurements } from "../../utils/measurements.js";
 import { getPpids } from "../../utils/ppids.js";
+import { getKeyProviderEventDigest } from "../../utils/dstack-kms.js";
 import { wipeContractState } from "../../utils/state-cleanup.js";
 
 // Sleep for the specified number of milliseconds for nonce problems
@@ -382,14 +383,22 @@ export async function approveMeasurements() {
 
     // Resolve measurements placeholder in args
     const replacements = {};
+    const teeTarget = config.deployment.tee_target;
+    // A self-hosted server has its own KMS, so the key-provider digest is
+    // computed from it rather than pinned to Phala's.
+    const keyProviderEventDigest =
+      config.deployment.environment === "TEE" && teeTarget?.backend === "dstack"
+        ? getKeyProviderEventDigest(config.deployment.deploy_to_dstack.ssh_host)
+        : undefined;
     const measurements = getMeasurements(
       config.deployment.environment === "TEE",
       config.deployment.docker_compose_path,
-      config.deployment.deploy_to_phala?.dstack_version,
-      config.deployment.deploy_to_phala?.instance_type,
+      teeTarget?.dstack_version,
+      teeTarget?.instance_type,
       {
-        publicLogs: config.deployment.deploy_to_phala?.public_logs,
-        publicSysinfo: config.deployment.deploy_to_phala?.public_sysinfo,
+        publicLogs: teeTarget?.public_logs,
+        publicSysinfo: teeTarget?.public_sysinfo,
+        keyProviderEventDigest,
       },
     );
     // Pass the object directly, replacePlaceholders will handle JSON stringification
@@ -430,7 +439,7 @@ export async function approvePpids() {
     const approveCfg = config.deployment.approve_ppids;
 
     const replacements = {};
-    const ppids = await getPpids(config.deployment.environment === "TEE");
+    const ppids = await getPpids(config.deployment);
     replacements["<PPIDS>"] = ppids;
 
     const args = replacePlaceholders(approveCfg.args, replacements);

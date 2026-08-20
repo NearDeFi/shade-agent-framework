@@ -1,0 +1,90 @@
+# Self-hosted dstack server: TEE deployment to your own TDX box instead of Phala Cloud
+
+# Same shape as the first-time TEE deployment in example-2.yaml, but the agent is
+# deployed to a server you run, over SSH. The server needs dstack-vmm, a KMS CVM
+# and a gateway CVM already set up
+
+environment: TEE
+network: testnet
+docker_compose_path: ./docker-compose.yaml
+
+agent_contract:
+  contract_id: example-contract-123.testnet
+
+  deploy_custom:
+    enabled: true
+    funding_amount: 8
+    delete_key: false
+
+    deploy_from_source:
+      enabled: true
+      source_path: ./agent-contract
+      reproducible_build: false
+    deploy_from_wasm:
+      enabled: false
+      wasm_path: ./agent-contract/target/near/shade-contract-template.wasm
+    use_global_by_hash:
+      enabled: false
+      global_hash: 8eHvv9q4eovoUgDXYEduwv3dbcfXkCyPP9TSmhUSxkcm
+
+    init:
+      enabled: true
+      method_name: new
+      args: |
+        {
+          "requires_tee": <REQUIRES_TEE>,
+          "attestation_expiration_time_ms": <7_DAYS>,
+          "owner_id": <MASTER_ACCOUNT_ID>,
+          "mpc_contract_id": <DEFAULT_MPC_CONTRACT_ID>
+        }
+
+approve_measurements:
+  enabled: true
+  method_name: approve_measurements
+  # The key_provider_event_digest is computed from your own KMS, not Phala's
+  args: |
+    {
+      "measurements": <MEASUREMENTS>
+    }
+  # tgas: 30
+
+approve_ppids:
+  enabled: true
+  method_name: approve_ppids
+  # <PPIDS> resolves to your server's single PPID, read off its KMS
+  args: |
+    {
+      "ppids": <PPIDS>
+    }
+  # tgas: 30
+
+build_docker_image:
+  enabled: true
+  tag: username/my-first-agent
+  cache: true
+  dockerfile_path: ./Dockerfile
+
+# Deploy to your own dstack server. Cannot be enabled alongside deploy_to_phala
+deploy_to_dstack:
+  enabled: true
+  app_name: my-first-agent
+  env_file_path: ./.env
+  dstack_version: 0.5.8
+  instance_type: tdx.small
+  public_logs: true
+  public_sysinfo: true
+  # SSH alias from your ~/.ssh/config, or user@host
+  ssh_host: tdx
+  # The domain your dstack gateway serves under; the app lands on
+  # https://<app-id>-<port>.<gateway_domain>
+  gateway_domain: shade.example.com
+  # Encrypted disk size in GB, not measured
+  disk_size_gb: 20
+
+whitelist_agent_for_local:
+  method_name: whitelist_agent_for_local
+  args: |
+    {
+      "account_id": <AGENT_ACCOUNT_ID>
+    }
+  # tgas: 30
