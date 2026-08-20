@@ -182,7 +182,7 @@ Placeholders in args:
 |-----|----------|-------------|
 | **enabled** | No | If `false`, deployment to Phala Cloud is skipped. |
 | **app_name** | Yes | Phala Cloud app (CVM) name. |
-| **env_file_path** | Yes | Path to the environment variables file loaded when deploying to Phala (e.g. `./.env`). |
+| **env_file_path** | Yes | Path to the environment variables file loaded when deploying to Phala (e.g. `./.env`). Env vars are validated against the limits the dstack guest enforces before boot — at most 1024 variables, 1 MB in total, 128 KB per value, and names matching `^[a-zA-Z_][a-zA-Z0-9_]*$` — so a bad env file fails locally instead of at boot. |
 | **dstack_version** | Yes | The dstack OS image version to deploy with and to use when calculating measurements. Supported: `0.5.7`, `0.5.8`. |
 | **instance_type** | Yes | The hardware instance type to deploy with and to use when calculating measurements. Supported: `tdx.small`, `tdx.medium`, `tdx.large`, `tdx.xlarge`, `tdx.2xlarge`, `tdx.4xlarge`, `tdx.8xlarge`. |
 | **public_logs** | Yes | Boolean. If `true`, the dstack guest-agent's `GET /logs/<container>` endpoint is publicly reachable on port 8090, exposing all container logs. |
@@ -196,7 +196,7 @@ Deploys to your own dstack server instead of Phala Cloud, over SSH. Mutually exc
 |-----|----------|-------------|
 | **enabled** | No | If `false`, deployment to the dstack server is skipped. |
 | **app_name** | Yes | CVM name on the server. |
-| **env_file_path** | Yes | Path to the environment variables file (e.g. `./.env`). Encrypted to the server's KMS key **before it leaves your machine**, so the host never sees plaintext. |
+| **env_file_path** | Yes | Path to the environment variables file (e.g. `./.env`). Encrypted to the server's KMS key **before it leaves your machine**, so the host never sees plaintext. Env vars are validated against the limits the dstack guest enforces before boot — at most 1024 variables, 1 MB in total, 128 KB per value, and names matching `^[a-zA-Z_][a-zA-Z0-9_]*$` — so a bad env file fails locally instead of at boot. |
 | **dstack_version** | Yes | The dstack OS image version to deploy with and to use when calculating measurements. Supported: `0.5.7`, `0.5.8`. The server must have this image installed. |
 | **instance_type** | Yes | The hardware instance type to use when calculating measurements. Also fixes the vCPU/memory the CVM is created with, because `rtmr0` measures both. Supported: `tdx.small`, `tdx.medium`, `tdx.large`, `tdx.xlarge`, `tdx.2xlarge`, `tdx.4xlarge`, `tdx.8xlarge`. |
 | **public_logs** | Yes | Boolean. Same meaning as under `deploy_to_phala`. |
@@ -209,7 +209,7 @@ The VMM and KMS endpoints (`http://127.0.0.1:10000`, `https://127.0.0.1:11001`),
 
 Notes on this backend:
 
-- **Redeploys create a new CVM.** Same as the Phala backend — existing CVMs are managed at the VMM console (`http://127.0.0.1:10000/`, reachable with `ssh -L 10000:127.0.0.1:10000 <ssh_host>`).
+- **Redeploys create a new CVM.** Same as the Phala backend — existing CVMs are managed at the VMM console (`http://127.0.0.1:10000/`, reachable with `ssh -L 10000:127.0.0.1:10000 <ssh_host>`). A deploy that fails *after* the CVM is created — a post-condition mismatch or a boot error — also leaves that CVM running and its allowlist entry in place, so clean both up at the console before retrying.
 - **A fresh app id per deploy.** The app id is random rather than derived from the compose, so two deploys of the same image can't collide on the KMS-derived disk and env keys. The consequence is that the app URL changes every deploy and the CVM starts with a fresh encrypted disk — no state survives a redeploy.
 - **The apps map grows one entry per deploy.** Each deploy adds an entry to `auth-config.json` on the server so its KMS will hand out keys. A stale entry still lets that old image boot, so prune the map when you retire an image. Entries the CLI added carry a `_shade` marker naming the app and deploy time; nothing is pruned automatically.
 - **Env confidentiality depends on the server's KMS being genuine.** The CLI pins the recovered signer of the env encryption key to the KMS's own `k256_pubkey` and refuses to continue on a mismatch. A fully compromised host could still lie about both and read the environment. What it cannot do is produce a *registered* agent — the `key_provider_event_digest` approved on chain is derived from the same KMS CA, so a substituted KMS fails registration. Verifying the KMS CVM's own quote would close this properly and is not done yet.

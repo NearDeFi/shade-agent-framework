@@ -370,6 +370,27 @@ describe("dstack deploy", () => {
     fs.rmSync(envPath);
     await expect(deployToDstack(deployment())).rejects.toThrow("exit:1");
   });
+
+  // Local failures must happen before anything is allowlisted or created,
+  // otherwise a bad compose orphans a running CVM plus its allowlist entry.
+  it("bails before touching the server when the env file is missing", async () => {
+    mockVmm();
+    fs.rmSync(envPath);
+    await expect(deployToDstack(deployment())).rejects.toThrow("exit:1");
+    expect(allowlistApp).not.toHaveBeenCalled();
+    expect(vmmRpc.mock.calls.some((c) => c[1] === "CreateVm")).toBe(false);
+  });
+
+  it("bails before touching the server when the compose publishes no port", async () => {
+    mockVmm();
+    fs.writeFileSync(
+      composePath,
+      COMPOSE_YAML.replace(/    ports:\n      - 3000:3000\n/, ""),
+    );
+    await expect(deployToDstack(deployment())).rejects.toThrow("exit:1");
+    expect(allowlistApp).not.toHaveBeenCalled();
+    expect(vmmRpc.mock.calls.some((c) => c[1] === "CreateVm")).toBe(false);
+  });
 });
 
 describe("getAppPort", () => {

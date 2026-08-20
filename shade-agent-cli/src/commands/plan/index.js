@@ -450,7 +450,11 @@ export function planCommand() {
           );
         } else {
           logWrapped(
-            chalk.gray("• The agent won't be deployed to a TEE."),
+            chalk.gray(
+              deployment.tee_target?.backend === "dstack"
+                ? "• The agent won't be deployed to the self-hosted dstack server."
+                : "• The agent won't be deployed to Phala Cloud.",
+            ),
             70,
             2,
           );

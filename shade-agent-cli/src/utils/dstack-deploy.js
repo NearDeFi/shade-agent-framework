@@ -126,11 +126,13 @@ export async function deployToDstack(deployment) {
   }
 
   const { allowedEnvs, composeJson, composeHash } = prepareAppCompose(deployment);
-  // Read the env file before touching the server, so a missing or invalid one
-  // can't leave a stale entry in the allowlist.
+  // Read the env file and resolve the served port before touching the server,
+  // so neither a missing env file nor an unroutable compose can leave a stale
+  // allowlist entry or an orphaned CVM behind.
   const envVars = loadEnvVarsForDeploy(cfg.env_file_path, allowedEnvs, {
     requireFile: true,
   });
+  const appPort = getAppPort(deployment.docker_compose_path);
 
   const appId = crypto.randomBytes(20).toString("hex");
   console.log(
@@ -201,6 +203,6 @@ export async function deployToDstack(deployment) {
     console.log(chalk.gray(`Boot progress: ${vm.boot_progress}`));
   }
 
-  const appUrl = `https://${appId}-${getAppPort(deployment.docker_compose_path)}.${cfg.gateway_domain}`;
+  const appUrl = `https://${appId}-${appPort}.${cfg.gateway_domain}`;
   return { vmId, appId, appUrl, composeHash, gatewayUrl: gateway.url };
 }
