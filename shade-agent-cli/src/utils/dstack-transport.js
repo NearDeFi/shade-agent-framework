@@ -11,6 +11,9 @@ export const GATEWAY_RPC_PORT = 9202;
 export const AUTH_CONFIG_PATH = "/opt/shade/kms/auth-config.json";
 
 const CURL_TIMEOUT_SECONDS = 30;
+// Bounds the whole ssh invocation, including the file-op path where there is no
+// `curl -m` to cap it. Comfortably above the curl timeout plus a handshake.
+const SSH_TIMEOUT_MS = 120_000;
 
 // `ssh` reads a leading-dash argv element as an option, so a host of
 // `-oProxyCommand=...` would run an arbitrary local command even though
@@ -79,10 +82,19 @@ function ssh(host, remoteCommand, { input = "" } = {}) {
         encoding: "utf8",
         maxBuffer: 64 * 1024 * 1024,
         stdio: ["pipe", "pipe", "pipe"],
+        timeout: SSH_TIMEOUT_MS,
       },
     );
     return { status: 0, stdout, stderr: "" };
   } catch (e) {
+    if (e.killed) {
+      console.log(
+        chalk.red(
+          `Error: ssh to "${host}" did not finish within ${SSH_TIMEOUT_MS / 1000}s and was killed`,
+        ),
+      );
+      process.exit(1);
+    }
     return {
       status: e.status ?? 255,
       stdout: e.stdout ?? "",

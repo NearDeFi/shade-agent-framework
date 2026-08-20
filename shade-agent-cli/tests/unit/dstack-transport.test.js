@@ -256,6 +256,22 @@ describe("transport error reporting", () => {
     expect(logged()).toContain("Permission denied");
   });
 
+  // The file-op path has no `curl -m` to cap it, so the invocation itself is
+  // bounded locally rather than relying on a remote `timeout` binary.
+  it("bounds every ssh invocation and reports a kill distinctly", () => {
+    execFileSync.mockReturnValue("{}\n200");
+    vmmRpc("tdx", "ListImages", {});
+    expect(lastOptions().timeout).toBeGreaterThan(0);
+
+    execFileSync.mockImplementation(() => {
+      const err = new Error("spawnSync ETIMEDOUT");
+      err.killed = true;
+      throw err;
+    });
+    expect(() => sshReadFile("tdx", AUTH_CONFIG_PATH)).toThrow("exit:1");
+    expect(logged()).toMatch(/did not finish within \d+s and was killed/);
+  });
+
   it("rejects a method name that is not a plain prpc method", () => {
     expect(() => vmmRpc("tdx", "CreateVm?json&x=1", {})).toThrow("exit:1");
     expect(() => vmmRpc("tdx", "Create Vm", {})).toThrow("exit:1");

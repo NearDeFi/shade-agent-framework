@@ -381,6 +381,19 @@ describe("dstack deploy", () => {
     expect(vmmRpc.mock.calls.some((c) => c[1] === "CreateVm")).toBe(false);
   });
 
+  // A signer that isn't this KMS must abort before the allowlist is written,
+  // not after — otherwise a rejected key leaves an entry for an app id that
+  // will never be deployed.
+  it("bails before the allowlist write when the env key fails to verify", async () => {
+    mockVmm();
+    getAppEnvEncryptPubKey.mockImplementation(() => {
+      throw new Error("exit:1");
+    });
+    await expect(deployToDstack(deployment())).rejects.toThrow("exit:1");
+    expect(allowlistApp).not.toHaveBeenCalled();
+    expect(vmmRpc.mock.calls.some((c) => c[1] === "CreateVm")).toBe(false);
+  });
+
   it("bails before touching the server when the compose publishes no port", async () => {
     mockVmm();
     fs.writeFileSync(

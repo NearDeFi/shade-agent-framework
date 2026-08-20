@@ -139,6 +139,11 @@ export async function deployToDstack(deployment) {
     `Deploying to the self-hosted dstack server ${sshHost} as app ${appId}`,
   );
 
+  // Fetch and pin the env encryption key before the allowlist write too: an
+  // unverifiable signature or a signer that isn't this KMS must abort while the
+  // server is still untouched.
+  const envPubKey = getAppEnvEncryptPubKey(sshHost, appId);
+
   const marker = `${cfg.app_name} ${new Date().toISOString()}`;
   const { written } = allowlistApp(sshHost, appId, composeHash, marker);
   console.log(
@@ -147,7 +152,6 @@ export async function deployToDstack(deployment) {
       : `App already allowlisted in ${AUTH_CONFIG_PATH}`,
   );
 
-  const envPubKey = getAppEnvEncryptPubKey(sshHost, appId);
   const encryptedEnv =
     envVars.length > 0 ? await encryptEnvVars(envVars, envPubKey) : "";
   console.log(

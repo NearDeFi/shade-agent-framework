@@ -151,7 +151,7 @@ Placeholders in args:
 
 > **Note:** When `args` contains `<MEASUREMENTS>` in TEE mode, the placeholder is computed from `dstack_version`, `instance_type`, `public_logs`, and `public_sysinfo` on whichever deploy block is present — `deploy_to_phala` or `deploy_to_dstack`. The CLI reads these fields even when that block has `enabled: false`, so it must still be present with valid values. If `args` doesn't reference `<MEASUREMENTS>`, neither block is required.
 >
-> With `deploy_to_dstack`, the `key_provider_event_digest` in the measurements is computed from your own KMS over SSH rather than pinned to Phala's, so `approve_measurements` needs the server to be reachable.
+> With `deploy_to_dstack`, the `key_provider_event_digest` in the measurements is computed from your own KMS over SSH rather than pinned to Phala's, so both `shade deploy` and `shade plan` need the server to be reachable to resolve `<MEASUREMENTS>`. On the Phala backend the measurements are computed entirely locally.
 
 ### approve_ppids
 
@@ -164,7 +164,7 @@ Placeholders in args:
 
 Placeholders in args:
 
-- `<PPIDS>` — Resolves to a mock PPID for local. For TEE the source depends on the deploy backend: with `deploy_to_phala` it is the list of all PPIDs of devices on Phala Cloud; with `deploy_to_dstack` it is the single PPID of your server's CPU package, read out of the PCK certificate embedded in its KMS's bootstrap attestation. A literal PPID written into `args` instead of the placeholder keeps working either way.
+- `<PPIDS>` — Resolves to a mock PPID for local. For TEE the source depends on the deploy backend: with `deploy_to_phala` it is the list of all PPIDs of devices on Phala Cloud; with `deploy_to_dstack` it is the single PPID of your server's CPU package, read out of the PCK certificate embedded in its KMS's bootstrap attestation, so the server must be reachable for `shade deploy` and `shade plan` alike. A literal PPID written into `args` instead of the placeholder keeps working either way.
 
 ### build_docker_image (TEE Only)
 
@@ -182,7 +182,7 @@ Placeholders in args:
 |-----|----------|-------------|
 | **enabled** | No | If `false`, deployment to Phala Cloud is skipped. |
 | **app_name** | Yes | Phala Cloud app (CVM) name. |
-| **env_file_path** | Yes | Path to the environment variables file loaded when deploying to Phala (e.g. `./.env`). Env vars are validated against the limits the dstack guest enforces before boot — at most 1024 variables, 1 MB in total, 128 KB per value, and names matching `^[a-zA-Z_][a-zA-Z0-9_]*$` — so a bad env file fails locally instead of at boot. |
+| **env_file_path** | Yes | Path to the environment variables file loaded when deploying to Phala (e.g. `./.env`). Env vars are validated against the limits the dstack guest enforces before boot — at most 1024 variables, 1 MB in total, 128 KB per value, names of at most 255 characters matching `^[a-zA-Z_][a-zA-Z0-9_]*$` — so a bad env file fails locally instead of at boot. |
 | **dstack_version** | Yes | The dstack OS image version to deploy with and to use when calculating measurements. Supported: `0.5.7`, `0.5.8`. |
 | **instance_type** | Yes | The hardware instance type to deploy with and to use when calculating measurements. Supported: `tdx.small`, `tdx.medium`, `tdx.large`, `tdx.xlarge`, `tdx.2xlarge`, `tdx.4xlarge`, `tdx.8xlarge`. |
 | **public_logs** | Yes | Boolean. If `true`, the dstack guest-agent's `GET /logs/<container>` endpoint is publicly reachable on port 8090, exposing all container logs. |
@@ -196,7 +196,7 @@ Deploys to your own dstack server instead of Phala Cloud, over SSH. Mutually exc
 |-----|----------|-------------|
 | **enabled** | No | If `false`, deployment to the dstack server is skipped. |
 | **app_name** | Yes | CVM name on the server. |
-| **env_file_path** | Yes | Path to the environment variables file (e.g. `./.env`). Encrypted to the server's KMS key **before it leaves your machine**, so the host never sees plaintext. Env vars are validated against the limits the dstack guest enforces before boot — at most 1024 variables, 1 MB in total, 128 KB per value, and names matching `^[a-zA-Z_][a-zA-Z0-9_]*$` — so a bad env file fails locally instead of at boot. |
+| **env_file_path** | Yes | Path to the environment variables file (e.g. `./.env`). Encrypted to the server's KMS key **before it leaves your machine**, so the host never sees plaintext. Env vars are validated against the limits the dstack guest enforces before boot — at most 1024 variables, 1 MB in total, 128 KB per value, names of at most 255 characters matching `^[a-zA-Z_][a-zA-Z0-9_]*$` — so a bad env file fails locally instead of at boot. |
 | **dstack_version** | Yes | The dstack OS image version to deploy with and to use when calculating measurements. Supported: `0.5.7`, `0.5.8`. The server must have this image installed. |
 | **instance_type** | Yes | The hardware instance type to use when calculating measurements. Also fixes the vCPU/memory the CVM is created with, because `rtmr0` measures both. Supported: `tdx.small`, `tdx.medium`, `tdx.large`, `tdx.xlarge`, `tdx.2xlarge`, `tdx.4xlarge`, `tdx.8xlarge`. |
 | **public_logs** | Yes | Boolean. Same meaning as under `deploy_to_phala`. |
