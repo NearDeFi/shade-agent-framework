@@ -325,18 +325,31 @@ export function parseDeploymentConfig(deploymentPath) {
   const needsTeeConfig =
     deployEnabled || needsMeasurementFields || needsPpidTarget;
 
-  if (needsTeeConfig) {
-    requireField(
-      !!tee_config,
-      "tee_config is required (needs dstack_version, instance_type, public_logs, public_sysinfo, and a phala or server target)",
-    );
+  // Two targets are never both right, whatever else is going on.
+  if (tee_config) {
     requireField(
       !(phalaSelected && serverSelected),
       "tee_config.phala and tee_config.server cannot both be enabled — pick exactly one target",
     );
+  }
+
+  // A target is only needed when something depends on which TEE this is: the
+  // <MEASUREMENTS> / <PPIDS> placeholders resolve differently per target, and a
+  // deploy has to know where to go. Literal values in the args need no target.
+  if (needsMeasurementFields || needsPpidTarget) {
+    requireField(
+      !!tee_config,
+      "tee_config is required to resolve <MEASUREMENTS> / <PPIDS> (needs dstack_version, instance_type, public_logs, public_sysinfo, and a phala or server target)",
+    );
     requireField(
       phalaSelected || serverSelected,
-      "tee_config needs exactly one enabled target: set tee_config.phala.enabled or tee_config.server.enabled to true",
+      "tee_config needs one enabled target to resolve <MEASUREMENTS> / <PPIDS>, because both differ per target — enable tee_config.phala or tee_config.server, or put literal values in the args instead",
+    );
+  }
+  if (deployEnabled) {
+    requireField(
+      phalaSelected || serverSelected,
+      "tee_config.deploy is enabled but no target is — enable tee_config.phala or tee_config.server to say where to deploy",
     );
   }
 

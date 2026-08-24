@@ -1080,13 +1080,45 @@ describe("parseDeploymentConfig", () => {
         );
       });
 
-      // The measurement fields have no meaning without a target: the
-      // key-provider digest and the PPID source both depend on it.
-      it("exits 1 when neither target is enabled", () => {
+      // A deploy has to know where to go, or it would silently do nothing.
+      it("exits 1 when deploying with neither target enabled", () => {
         expectExit(
           teeYaml({ phala: { enabled: false }, server: { enabled: false } }),
-          "needs exactly one enabled target",
+          "tee_config.deploy is enabled but no target is",
         );
+      });
+
+      // <MEASUREMENTS> and <PPIDS> resolve differently per target, so they
+      // need one even when nothing is deployed.
+      it("exits 1 when a placeholder needs a target and none is enabled", () => {
+        expectExit(
+          validYaml({
+            tee_config: deepMerge(serverTarget, {
+              deploy: { enabled: false },
+              phala: { enabled: false },
+              server: { enabled: false },
+            }),
+            approve_measurements: {
+              enabled: true,
+              method_name: "approve_measurements",
+              args: '{\n  "measurements": <MEASUREMENTS>\n}\n',
+            },
+          }),
+          "to resolve <MEASUREMENTS> / <PPIDS>",
+        );
+      });
+
+      // Literal values need no target at all, even with a full tee_config.
+      it("allows no target when the args carry literal values and nothing deploys", () => {
+        const config = parse(
+          teeYaml({
+            deploy: { enabled: false },
+            phala: { enabled: false },
+            server: { enabled: false },
+          }),
+        );
+        expect(exitSpy).not.toHaveBeenCalled();
+        expect(config.tee_config.backend).toBeNull();
       });
 
       it("exits 1 when tee_config is missing entirely but measurements need it", () => {
@@ -1099,7 +1131,7 @@ describe("parseDeploymentConfig", () => {
               args: '{\n  "measurements": <MEASUREMENTS>\n}\n',
             },
           }),
-          "tee_config is required",
+          "tee_config is required to resolve",
         );
       });
 

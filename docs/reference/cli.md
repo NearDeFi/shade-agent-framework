@@ -189,7 +189,12 @@ Everything about the TEE the agent is measured for and deployed to. The top-leve
 | **phala** | One of two | Target Phala Cloud. See [phala](#tee_configphala). |
 | **server** | One of two | Target your own self-hosted dstack server over SSH. See [server](#tee_configserver). |
 
-Exactly one of `phala` / `server` must be enabled whenever measurements, PPIDs, or a deploy need a target.
+A target is only required when something depends on which TEE this is:
+
+- `approve_measurements` or `approve_ppids` use the `<MEASUREMENTS>` / `<PPIDS>` placeholders — both resolve differently per target, so one must be enabled. Write literal values in `args` instead and no target is needed.
+- `deploy.enabled: true` — a deploy has to know where to go.
+
+Enabling both is always an error.
 
 #### tee_config.deploy
 
