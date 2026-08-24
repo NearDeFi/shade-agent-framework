@@ -23,11 +23,10 @@ vi.mock("../../src/utils/dstack-kms.js", () => ({
 const { getPpids } = await import("../../src/utils/ppids.js");
 
 const local = { environment: "local" };
-const phala = { environment: "TEE", tee_target: { backend: "phala" } };
+const phala = { environment: "TEE", tee_config: { backend: "phala" } };
 const dstack = {
   environment: "TEE",
-  tee_target: { backend: "server" },
-  deploy_to_server: { ssh_host: "tdx" },
+  tee_config: { backend: "server", server: { ssh_host: "tdx" } },
 };
 
 describe("getPpids", () => {

@@ -65,25 +65,24 @@ let envPath;
 function deployment(overrides = {}) {
   return {
     docker_compose_path: composePath,
-    tee_target: {
+    tee_config: {
       backend: "server",
       dstack_version: "0.5.8",
       instance_type: "tdx.small",
       public_logs: true,
       public_sysinfo: true,
-    },
-    deploy_to_server: {
-      enabled: true,
-      app_name: "my-test-agent",
-      env_file_path: envPath,
-      dstack_version: "0.5.8",
-      instance_type: "tdx.small",
-      public_logs: true,
-      public_sysinfo: true,
-      ssh_host: "tdx",
-      gateway_domain: "shade.example.com",
-      disk_size_gb: 20,
-      ...overrides.deploy_to_server,
+      deploy: {
+        enabled: true,
+        app_name: "my-test-agent",
+        env_file_path: envPath,
+        ...overrides.deploy,
+      },
+      server: {
+        ssh_host: "tdx",
+        gateway_domain: "shade.example.com",
+        disk_size_gb: 20,
+        ...overrides.server,
+      },
     },
     ...overrides.top,
   };
@@ -276,7 +275,7 @@ describe("dstack deploy", () => {
     mockVmm();
     await expect(
       deployToDstack(
-        deployment({ deploy_to_server: { gateway_domain: "wrong.example.com" } }),
+        deployment({ server: { gateway_domain: "wrong.example.com" } }),
       ),
     ).rejects.toThrow("exit:1");
     expect(vmmRpc.mock.calls.some((c) => c[1] === "CreateVm")).toBe(false);

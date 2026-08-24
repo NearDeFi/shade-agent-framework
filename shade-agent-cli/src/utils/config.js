@@ -50,8 +50,7 @@ export function parseDeploymentConfig(deploymentPath) {
     build_docker_image,
     approve_measurements,
     approve_ppids,
-    deploy_to_phala,
-    deploy_to_server,
+    tee_config,
     whitelist_agent_for_local,
   } = doc;
 
@@ -283,140 +282,142 @@ export function parseDeploymentConfig(deploymentPath) {
     mustBeMultilineString(approve_ppids.args, "approve_ppids.args");
   }
 
-  // deploy_to_phala / deploy_to_server validations. Exactly one deploy backend
-  // may be enabled; whichever is the target also supplies the measurement
-  // fields, even when its own deploy step is disabled.
-  if (deploy_to_phala) {
-    mustBeBooleanOrOmitted(deploy_to_phala.enabled, "deploy_to_phala.enabled");
-  }
-  if (deploy_to_server) {
-    mustBeBooleanOrOmitted(
-      deploy_to_server.enabled,
-      "deploy_to_server.enabled",
-    );
-  }
-
-  const phalaEnabled = !!deploy_to_phala && deploy_to_phala.enabled !== false;
-  const dstackEnabled = !!deploy_to_server && deploy_to_server.enabled !== false;
-  requireField(
-    !(phalaEnabled && dstackEnabled),
-    "deploy_to_phala and deploy_to_server cannot both be enabled — pick one deploy backend",
-  );
-  if (deploy_to_phala && deploy_to_server) {
+  // tee_config: everything about the TEE being targeted. The top-level fields
+  // feed the measurements and are read whether or not anything is deployed;
+  // `deploy` holds the deploy-only config; `phala` / `server` select the target
+  // and carry its specifics.
+  if (tee_config) {
     requireField(
-      phalaEnabled || dstackEnabled,
-      "deploy_to_phala and deploy_to_server are both present but neither is enabled — remove one so the measurement fields have a single source",
+      typeof tee_config === "object" && !Array.isArray(tee_config),
+      "tee_config must be a block",
+    );
+    mustBeBooleanOrOmitted(
+      tee_config.deploy?.enabled,
+      "tee_config.deploy.enabled",
+    );
+    mustBeBooleanOrOmitted(
+      tee_config.phala?.enabled,
+      "tee_config.phala.enabled",
+    );
+    mustBeBooleanOrOmitted(
+      tee_config.server?.enabled,
+      "tee_config.server.enabled",
     );
   }
 
-  // The backend whose block supplies dstack_version / instance_type /
-  // public_logs / public_sysinfo.
-  const teeBackend = dstackEnabled
-    ? "server"
-    : phalaEnabled
-      ? "phala"
-      : deploy_to_server
-        ? "server"
-        : deploy_to_phala
-          ? "phala"
-          : null;
-  const teeBlock = teeBackend === "server" ? deploy_to_server : deploy_to_phala;
-  const teeBlockLabel =
-    teeBackend === "server" ? "deploy_to_server" : "deploy_to_phala";
+  const phalaSelected = !!tee_config?.phala && tee_config.phala.enabled !== false;
+  const serverSelected =
+    !!tee_config?.server && tee_config.server.enabled !== false;
+  const deployEnabled = !!tee_config?.deploy && tee_config.deploy.enabled !== false;
 
-  // Only require measurement fields when <MEASUREMENTS> is in the args.
+  // The measurement fields are only needed when <MEASUREMENTS> is in the args.
   const needsMeasurementFields =
     environment === "TEE" &&
     approve_measurements &&
     approve_measurements.enabled !== false &&
     hasPlaceholder(approve_measurements.args, "<MEASUREMENTS>");
+  // <PPIDS> needs the target too, since the PPID source differs per backend.
+  const needsPpidTarget =
+    environment === "TEE" &&
+    approve_ppids &&
+    approve_ppids.enabled !== false &&
+    hasPlaceholder(approve_ppids.args, "<PPIDS>");
+  const needsTeeConfig =
+    deployEnabled || needsMeasurementFields || needsPpidTarget;
 
-  // Deploy-only fields — only needed when the workflow will actually run.
-  if (phalaEnabled) {
+  if (needsTeeConfig) {
     requireField(
-      !!deploy_to_phala.env_file_path,
-      "deploy_to_phala.env_file_path is required",
+      !!tee_config,
+      "tee_config is required (needs dstack_version, instance_type, public_logs, public_sysinfo, and a phala or server target)",
     );
     requireField(
-      !!deploy_to_phala.app_name,
-      "deploy_to_phala.app_name is required",
-    );
-  }
-  if (dstackEnabled) {
-    requireField(
-      !!deploy_to_server.env_file_path,
-      "deploy_to_server.env_file_path is required",
+      !(phalaSelected && serverSelected),
+      "tee_config.phala and tee_config.server cannot both be enabled — pick exactly one target",
     );
     requireField(
-      !!deploy_to_server.app_name,
-      "deploy_to_server.app_name is required",
-    );
-    requireField(
-      typeof deploy_to_server.ssh_host === "string" &&
-        deploy_to_server.ssh_host.length > 0,
-      "deploy_to_server.ssh_host is required",
-    );
-    requireField(
-      isValidSshHost(deploy_to_server.ssh_host),
-      `deploy_to_server.ssh_host "${deploy_to_server.ssh_host}" is not a valid ssh destination — use [user@]host with only letters, digits, dot, dash and underscore, and it must not start with "-"`,
-    );
-    requireField(
-      typeof deploy_to_server.gateway_domain === "string" &&
-        HOSTNAME_PATTERN.test(deploy_to_server.gateway_domain),
-      "deploy_to_server.gateway_domain is required and must be a dotted hostname (e.g. shade.example.com)",
-    );
-    requireField(
-      Number.isInteger(deploy_to_server.disk_size_gb) &&
-        deploy_to_server.disk_size_gb > 0,
-      "deploy_to_server.disk_size_gb is required and must be a positive integer (GB)",
+      phalaSelected || serverSelected,
+      "tee_config needs exactly one enabled target: set tee_config.phala.enabled or tee_config.server.enabled to true",
     );
   }
 
-  // public_logs / public_sysinfo feed the compose hash (for the deploy manifest
-  // and the TEE measurement). Required whenever a deploy is on OR
-  // approve_measurements will run in TEE.
-  if (phalaEnabled || dstackEnabled || needsMeasurementFields) {
+  const teeBackend = serverSelected ? "server" : phalaSelected ? "phala" : null;
+
+  // public_logs / public_sysinfo feed the compose hash, so they are needed
+  // whenever measurements are computed, not only when deploying.
+  if (needsTeeConfig) {
     requireField(
-      !!teeBlock,
-      "a deploy_to_phala or deploy_to_server block is required (needs dstack_version, instance_type, public_logs, public_sysinfo)",
+      typeof tee_config?.public_logs === "boolean",
+      "tee_config.public_logs is required and must be a boolean (true or false)",
     );
     requireField(
-      typeof teeBlock?.public_logs === "boolean",
-      `${teeBlockLabel}.public_logs is required and must be a boolean (true or false)`,
-    );
-    requireField(
-      typeof teeBlock?.public_sysinfo === "boolean",
-      `${teeBlockLabel}.public_sysinfo is required and must be a boolean (true or false)`,
+      typeof tee_config?.public_sysinfo === "boolean",
+      "tee_config.public_sysinfo is required and must be a boolean (true or false)",
     );
   }
 
   // dstack_version / instance_type are TEE-specific (compose hash + measurement).
-  if (
-    (phalaEnabled || dstackEnabled || needsMeasurementFields) &&
-    environment === "TEE"
-  ) {
+  if (needsTeeConfig && environment === "TEE") {
     const supportedVersions = Object.keys(hardwareAndOSMeasurements);
     requireField(
-      typeof teeBlock?.dstack_version === "string" &&
-        teeBlock.dstack_version.length > 0,
-      `${teeBlockLabel}.dstack_version is required (one of: ${supportedVersions.join(", ")})`,
+      typeof tee_config?.dstack_version === "string" &&
+        tee_config.dstack_version.length > 0,
+      `tee_config.dstack_version is required (one of: ${supportedVersions.join(", ")})`,
     );
     requireField(
-      supportedVersions.includes(teeBlock?.dstack_version),
-      `${teeBlockLabel}.dstack_version "${teeBlock?.dstack_version}" is not supported (one of: ${supportedVersions.join(", ")})`,
+      supportedVersions.includes(tee_config?.dstack_version),
+      `tee_config.dstack_version "${tee_config?.dstack_version}" is not supported (one of: ${supportedVersions.join(", ")})`,
     );
 
     const supportedInstanceTypes = Object.keys(
-      hardwareAndOSMeasurements[teeBlock?.dstack_version] || {},
+      hardwareAndOSMeasurements[tee_config?.dstack_version] || {},
     );
     requireField(
-      typeof teeBlock?.instance_type === "string" &&
-        teeBlock.instance_type.length > 0,
-      `${teeBlockLabel}.instance_type is required (one of: ${supportedInstanceTypes.join(", ")})`,
+      typeof tee_config?.instance_type === "string" &&
+        tee_config.instance_type.length > 0,
+      `tee_config.instance_type is required (one of: ${supportedInstanceTypes.join(", ")})`,
     );
     requireField(
-      supportedInstanceTypes.includes(teeBlock?.instance_type),
-      `${teeBlockLabel}.instance_type "${teeBlock?.instance_type}" is not supported for dstack ${teeBlock?.dstack_version} (one of: ${supportedInstanceTypes.join(", ")})`,
+      supportedInstanceTypes.includes(tee_config?.instance_type),
+      `tee_config.instance_type "${tee_config?.instance_type}" is not supported for dstack ${tee_config?.dstack_version} (one of: ${supportedInstanceTypes.join(", ")})`,
+    );
+  }
+
+  // Deploy-only fields. Nothing here is read for a measure-only run.
+  if (deployEnabled) {
+    requireField(
+      !!tee_config.deploy.app_name,
+      "tee_config.deploy.app_name is required when tee_config.deploy is enabled",
+    );
+    requireField(
+      !!tee_config.deploy.env_file_path,
+      "tee_config.deploy.env_file_path is required when tee_config.deploy is enabled",
+    );
+  }
+
+  // ssh_host is NOT deploy-only: it is how the CLI reaches the server's KMS to
+  // compute the key-provider digest and read the PPID, so it is required
+  // whenever the server is the target.
+  if (serverSelected) {
+    requireField(
+      typeof tee_config.server.ssh_host === "string" &&
+        tee_config.server.ssh_host.length > 0,
+      "tee_config.server.ssh_host is required",
+    );
+    requireField(
+      isValidSshHost(tee_config.server.ssh_host),
+      `tee_config.server.ssh_host "${tee_config.server.ssh_host}" is not a valid ssh destination — use [user@]host with only letters, digits, dot, dash and underscore, and it must not start with "-"`,
+    );
+  }
+  if (serverSelected && deployEnabled) {
+    requireField(
+      typeof tee_config.server.gateway_domain === "string" &&
+        HOSTNAME_PATTERN.test(tee_config.server.gateway_domain),
+      "tee_config.server.gateway_domain is required when deploying and must be a dotted hostname (e.g. shade.example.com)",
+    );
+    requireField(
+      Number.isInteger(tee_config.server.disk_size_gb) &&
+        tee_config.server.disk_size_gb > 0,
+      "tee_config.server.disk_size_gb is required when deploying and must be a positive integer (GB)",
     );
   }
 
@@ -496,44 +497,27 @@ export function parseDeploymentConfig(deploymentPath) {
             tgas: approve_ppids.tgas ?? 30,
           }
         : undefined,
-    deploy_to_phala: deploy_to_phala
-      ? {
-          // `enabled` defaults to true when the block exists without an
-          // explicit `enabled` field. The measurement-related fields below
-          // are emitted regardless of `enabled` so `approve_measurements`
-          // can read them even when the actual phala deploy is disabled.
-          enabled: deploy_to_phala.enabled !== false,
-          env_file_path: deploy_to_phala.env_file_path,
-          app_name: deploy_to_phala.app_name,
-          dstack_version: deploy_to_phala.dstack_version,
-          instance_type: deploy_to_phala.instance_type,
-          public_logs: deploy_to_phala.public_logs,
-          public_sysinfo: deploy_to_phala.public_sysinfo,
-        }
-      : undefined,
-    deploy_to_server: deploy_to_server
-      ? {
-          enabled: deploy_to_server.enabled !== false,
-          env_file_path: deploy_to_server.env_file_path,
-          app_name: deploy_to_server.app_name,
-          dstack_version: deploy_to_server.dstack_version,
-          instance_type: deploy_to_server.instance_type,
-          public_logs: deploy_to_server.public_logs,
-          public_sysinfo: deploy_to_server.public_sysinfo,
-          ssh_host: deploy_to_server.ssh_host,
-          gateway_domain: deploy_to_server.gateway_domain,
-          disk_size_gb: deploy_to_server.disk_size_gb,
-        }
-      : undefined,
-    // The single place the rest of the CLI reads the TEE target from, so
-    // `approve_measurements` and `shade plan` don't have to know which deploy
-    // backend a deployment.yaml uses.
-    tee_target: {
+    // The single resolved view of the TEE target. `backend` is null when no
+    // target is selected, which is legal for a local deploy or when
+    // approve_measurements / approve_ppids use literal values.
+    tee_config: {
       backend: teeBackend,
-      dstack_version: teeBlock?.dstack_version,
-      instance_type: teeBlock?.instance_type,
-      public_logs: teeBlock?.public_logs,
-      public_sysinfo: teeBlock?.public_sysinfo,
+      dstack_version: tee_config?.dstack_version,
+      instance_type: tee_config?.instance_type,
+      public_logs: tee_config?.public_logs,
+      public_sysinfo: tee_config?.public_sysinfo,
+      deploy: {
+        enabled: deployEnabled,
+        app_name: tee_config?.deploy?.app_name,
+        env_file_path: tee_config?.deploy?.env_file_path,
+      },
+      server: serverSelected
+        ? {
+            ssh_host: tee_config.server.ssh_host,
+            gateway_domain: tee_config.server.gateway_domain,
+            disk_size_gb: tee_config.server.disk_size_gb,
+          }
+        : undefined,
     },
     whitelist_agent_for_local: whitelist_agent_for_local
       ? {
@@ -633,11 +617,12 @@ export async function getConfig() {
   }
   const { accountId, privateKey } = credentials;
 
-  // Fetch PHALA key if needed (only required for TEE environment with deploy_to_phala enabled)
+  // Fetch PHALA key if needed (only when actually deploying to Phala Cloud)
   let phalaKey = null;
   if (
     deploymentConfig?.environment === "TEE" &&
-    deploymentConfig?.deploy_to_phala?.enabled
+    deploymentConfig?.tee_config?.backend === "phala" &&
+    deploymentConfig?.tee_config?.deploy?.enabled
   ) {
     phalaKey = await getPhalaKey();
     if (!phalaKey) {

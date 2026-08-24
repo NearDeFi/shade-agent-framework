@@ -41,7 +41,7 @@ export function getMeasurements(
   if (!dstackVersion || !instanceType) {
     console.log(
       chalk.red(
-        "Error: dstack_version and instance_type (from deploy_to_phala or deploy_to_server) are required to calculate TEE measurements",
+        "Error: dstack_version and instance_type (from tee_config) are required to calculate TEE measurements",
       ),
     );
     process.exit(1);
@@ -50,7 +50,7 @@ export function getMeasurements(
   if (typeof publicLogs !== "boolean" || typeof publicSysinfo !== "boolean") {
     console.log(
       chalk.red(
-        "Error: public_logs and public_sysinfo (from deploy_to_phala or deploy_to_server) are required to calculate TEE measurements",
+        "Error: public_logs and public_sysinfo (from tee_config) are required to calculate TEE measurements",
       ),
     );
     process.exit(1);
@@ -238,7 +238,7 @@ export function prepareAppComposeFromParts(
 /**
  * Same, driven straight off a parsed deployment config.
  *
- * @param {object} deployment - Parsed deployment.yaml (needs docker_compose_path and tee_target)
+ * @param {object} deployment - Parsed deployment.yaml (needs docker_compose_path and tee_config)
  */
 export function prepareAppCompose(deployment) {
   const composePath = deployment?.docker_compose_path;
@@ -258,8 +258,8 @@ export function prepareAppCompose(deployment) {
     fs.readFileSync(composePath, "utf8"),
     extractAllowedEnvs(composePath),
     {
-      publicLogs: deployment?.tee_target?.public_logs,
-      publicSysinfo: deployment?.tee_target?.public_sysinfo,
+      publicLogs: deployment?.tee_config?.public_logs,
+      publicSysinfo: deployment?.tee_config?.public_sysinfo,
     },
   );
 }

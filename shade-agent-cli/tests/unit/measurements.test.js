@@ -270,7 +270,7 @@ describe("prepareAppCompose", () => {
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it("drives the compose off docker_compose_path and tee_target", () => {
+  it("drives the compose off docker_compose_path and tee_config", () => {
     const composePath = path.join(tmpDir, "docker-compose.yaml");
     fs.writeFileSync(
       composePath,
@@ -278,7 +278,7 @@ describe("prepareAppCompose", () => {
     );
     const { allowedEnvs, composeHash } = prepareAppCompose({
       docker_compose_path: composePath,
-      tee_target: { public_logs: true, public_sysinfo: true },
+      tee_config: { public_logs: true, public_sysinfo: true },
     });
     expect(allowedEnvs).toEqual(["FOO"]);
     expect(composeHash).toMatch(/^[0-9a-f]{64}$/);
@@ -288,7 +288,7 @@ describe("prepareAppCompose", () => {
     expect(() =>
       prepareAppCompose({
         docker_compose_path: path.join(tmpDir, "nope.yaml"),
-        tee_target: { public_logs: true, public_sysinfo: true },
+        tee_config: { public_logs: true, public_sysinfo: true },
       }),
     ).toThrow("exit:1");
   });

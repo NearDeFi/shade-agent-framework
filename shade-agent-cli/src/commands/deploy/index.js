@@ -75,18 +75,13 @@ export function deployCommand() {
         await approvePpids();
       }
 
-      if (
-        config.deployment.deploy_to_phala?.enabled &&
-        config.deployment.environment === "TEE"
-      ) {
-        await deployPhalaWorkflow();
-      }
-
-      if (
-        config.deployment.deploy_to_server?.enabled &&
-        config.deployment.environment === "TEE"
-      ) {
-        await deployServerWorkflow();
+      const tee = config.deployment.tee_config;
+      if (tee?.deploy?.enabled && config.deployment.environment === "TEE") {
+        if (tee.backend === "phala") {
+          await deployPhalaWorkflow();
+        } else if (tee.backend === "server") {
+          await deployServerWorkflow();
+        }
       }
 
       console.log(chalk.green("\n✓ Deployment completed successfully!"));

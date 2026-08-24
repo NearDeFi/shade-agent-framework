@@ -57,14 +57,14 @@ const { approveMeasurements, approvePpids } = await import(
 const dstackDeployment = (overrides = {}) => ({
   environment: "TEE",
   docker_compose_path: "./docker-compose.yaml",
-  tee_target: {
+  tee_config: {
     backend: "server",
     dstack_version: "0.5.8",
     instance_type: "tdx.small",
     public_logs: true,
     public_sysinfo: true,
+    server: { ssh_host: "tdx" },
   },
-  deploy_to_server: { ssh_host: "tdx" },
   agent_contract: { contract_id: "agent.testnet" },
   ...overrides,
 });

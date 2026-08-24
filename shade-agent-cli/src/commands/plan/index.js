@@ -303,16 +303,16 @@ export function planCommand() {
           const measurements = getMeasurements(
             deployment.environment === "TEE",
             deployment.docker_compose_path,
-            deployment.tee_target?.dstack_version,
-            deployment.tee_target?.instance_type,
+            deployment.tee_config?.dstack_version,
+            deployment.tee_config?.instance_type,
             {
-              publicLogs: deployment.tee_target?.public_logs,
-              publicSysinfo: deployment.tee_target?.public_sysinfo,
+              publicLogs: deployment.tee_config?.public_logs,
+              publicSysinfo: deployment.tee_config?.public_sysinfo,
               keyProviderEventDigest:
                 deployment.environment === "TEE" &&
-                deployment.tee_target?.backend === "server"
+                deployment.tee_config?.backend === "server"
                   ? getKeyProviderEventDigest(
-                      deployment.deploy_to_server.ssh_host,
+                      deployment.tee_config.server.ssh_host,
                     )
                   : undefined,
             },
@@ -390,34 +390,40 @@ export function planCommand() {
         console.log("");
       }
 
-      // 4. TEE Deployment
-      const dstackCfg = deployment.deploy_to_server;
-      const dstackEnabled = dstackCfg?.enabled === true;
-      console.log(
-        chalk.cyan.bold(
-          deployment.tee_target?.backend === "server"
-            ? "🖥️  Self-Hosted dstack Deployment"
-            : "☁️  Phala Cloud Deployment",
-        ),
-      );
+      // 4. Deployment. One section whose body names the target, so the
+      // heading can never disagree with what follows it.
+      const tee = deployment.tee_config;
+      const willDeploy =
+        deployment.environment === "TEE" && tee?.deploy?.enabled === true;
+      console.log(chalk.cyan.bold("🚀 Agent Deployment"));
       console.log(chalk.gray("─".repeat(70)));
       console.log("");
-      if (deployment.environment === "TEE") {
+      if (!willDeploy) {
+        logWrapped(
+          chalk.gray(
+            deployment.environment !== "TEE"
+              ? "• The agent won't be deployed because the environment is local. Run it yourself from your docker-compose."
+              : "• The agent won't be deployed. Set tee_config.deploy.enabled to true to deploy it, or run it yourself from your docker-compose.",
+          ),
+          70,
+          2,
+        );
+      } else {
         const dockerStatus = deployment.build_docker_image ? "new" : "existing";
-        if (dstackEnabled) {
-          const shape = getInstanceShape(dstackCfg.instance_type);
+        if (tee.backend === "server") {
+          const shape = getInstanceShape(tee.instance_type);
           logWrapped(
-            `• The ${chalk.yellow(dockerStatus)} docker image will be deployed to the self-hosted dstack server ${chalk.yellow(dstackCfg.ssh_host)} as a CVM named ${chalk.yellow(dstackCfg.app_name)}, with the environment variables contained within ${chalk.yellow(dstackCfg.env_file_path)} encrypted to the server's KMS before they leave this machine.`,
+            `• The ${chalk.yellow(dockerStatus)} docker image will be deployed to your own server ${chalk.yellow(tee.server.ssh_host)} as a CVM named ${chalk.yellow(tee.deploy.app_name)}, with the environment variables contained within ${chalk.yellow(tee.deploy.env_file_path)} encrypted to the server's KMS before they leave this machine.`,
             70,
             2,
           );
           logWrapped(
-            `• OS image: ${chalk.yellow(`dstack-${dstackCfg.dstack_version}`)}  Instance type: ${chalk.yellow(dstackCfg.instance_type)}  Shape: ${chalk.yellow(`${shape.vcpu} vcpu / ${shape.memoryMb} MB / ${dstackCfg.disk_size_gb} GB`)}`,
+            `• OS image: ${chalk.yellow(`dstack-${tee.dstack_version}`)}  Instance type: ${chalk.yellow(tee.instance_type)}  Shape: ${chalk.yellow(`${shape.vcpu} vcpu / ${shape.memoryMb} MB / ${tee.server.disk_size_gb} GB`)}`,
             70,
             2,
           );
           logWrapped(
-            `• Public logs: ${chalk.yellow(dstackCfg.public_logs ? "enabled" : "disabled")}  Public sysinfo: ${chalk.yellow(dstackCfg.public_sysinfo ? "enabled" : "disabled")}`,
+            `• Public logs: ${chalk.yellow(tee.public_logs ? "enabled" : "disabled")}  Public sysinfo: ${chalk.yellow(tee.public_sysinfo ? "enabled" : "disabled")}`,
             70,
             2,
           );
@@ -427,7 +433,7 @@ export function planCommand() {
             2,
           );
           logWrapped(
-            `• The app will be served at ${chalk.yellow(`https://<app-id>-<port>.${dstackCfg.gateway_domain}`)}, so the URL changes on every deploy and the CVM starts with a fresh encrypted disk.`,
+            `• The app will be served at ${chalk.yellow(`https://<app-id>-<port>.${tee.server.gateway_domain}`)}, so the URL changes on every deploy and the CVM starts with a fresh encrypted disk.`,
             70,
             2,
           );
@@ -436,41 +442,23 @@ export function planCommand() {
             70,
             2,
           );
-        } else if (deployment.deploy_to_phala?.enabled) {
-          logWrapped(
-            `• The ${chalk.yellow(dockerStatus)} docker image will be published to Phala Cloud with the name ${chalk.yellow(deployment.deploy_to_phala.app_name)} and the environment variables contained within ${chalk.yellow(deployment.deploy_to_phala.env_file_path)}.`,
-            70,
-            2,
-          );
-          logWrapped(
-            `• OS image: ${chalk.yellow(`dstack-${deployment.deploy_to_phala.dstack_version}`)}  Instance type: ${chalk.yellow(deployment.deploy_to_phala.instance_type)}`,
-            70,
-            2,
-          );
-          logWrapped(
-            `• Public logs: ${chalk.yellow(deployment.deploy_to_phala.public_logs ? "enabled" : "disabled")}  Public sysinfo: ${chalk.yellow(deployment.deploy_to_phala.public_sysinfo ? "enabled" : "disabled")}`,
-            70,
-            2,
-          );
         } else {
           logWrapped(
-            chalk.gray(
-              deployment.tee_target?.backend === "server"
-                ? "• The agent won't be deployed to the self-hosted dstack server."
-                : "• The agent won't be deployed to Phala Cloud.",
-            ),
+            `• The ${chalk.yellow(dockerStatus)} docker image will be published to Phala Cloud with the name ${chalk.yellow(tee.deploy.app_name)} and the environment variables contained within ${chalk.yellow(tee.deploy.env_file_path)}.`,
+            70,
+            2,
+          );
+          logWrapped(
+            `• OS image: ${chalk.yellow(`dstack-${tee.dstack_version}`)}  Instance type: ${chalk.yellow(tee.instance_type)}`,
+            70,
+            2,
+          );
+          logWrapped(
+            `• Public logs: ${chalk.yellow(tee.public_logs ? "enabled" : "disabled")}  Public sysinfo: ${chalk.yellow(tee.public_sysinfo ? "enabled" : "disabled")}`,
             70,
             2,
           );
         }
-      } else {
-        logWrapped(
-          chalk.gray(
-            "• The agent won't be deployed to a TEE because the environment is local.",
-          ),
-          70,
-          2,
-        );
       }
       console.log("");
 
@@ -492,13 +480,15 @@ export function planCommand() {
 
       if (
         deployment.environment === "TEE" &&
-        deployment.deploy_to_phala?.enabled &&
+        deployment.tee_config?.backend === "phala" &&
+        deployment.tee_config?.deploy?.enabled &&
         !phalaKey
       ) {
         missingCredentials.push("Phala API key");
       } else if (
         deployment.environment === "TEE" &&
-        deployment.deploy_to_phala?.enabled
+        deployment.tee_config?.backend === "phala" &&
+        deployment.tee_config?.deploy?.enabled
       ) {
         console.log("✓ Phala API key: configured");
       }

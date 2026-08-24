@@ -387,14 +387,14 @@ export async function approveMeasurements() {
     // it when the placeholder is actually there.
     const replacements = {};
     if (hasPlaceholder(approveCfg.args, "<MEASUREMENTS>")) {
-      const teeTarget = config.deployment.tee_target;
+      const teeTarget = config.deployment.tee_config;
       // A self-hosted server has its own KMS, so the key-provider digest is
       // computed from it rather than pinned to Phala's.
       const keyProviderEventDigest =
         config.deployment.environment === "TEE" &&
         teeTarget?.backend === "server"
           ? getKeyProviderEventDigest(
-              config.deployment.deploy_to_server.ssh_host,
+              config.deployment.tee_config.server.ssh_host,
             )
           : undefined;
       // Pass the object directly, replacePlaceholders will handle JSON stringification

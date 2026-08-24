@@ -18,8 +18,8 @@ export async function getPpids(deployment) {
     return [LOCAL_PPID];
   }
 
-  if (deployment?.tee_target?.backend === "server") {
-    return [getPpidFromKmsQuote(deployment.deploy_to_server.ssh_host)];
+  if (deployment?.tee_config?.backend === "server") {
+    return [getPpidFromKmsQuote(deployment.tee_config.server.ssh_host)];
   }
 
   const response = await fetch(PHALA_PPIDS_API_URL);

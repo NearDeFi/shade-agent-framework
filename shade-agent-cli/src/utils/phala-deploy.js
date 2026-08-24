@@ -214,7 +214,7 @@ async function deploy_new_cvm(client, docker_compose_yml, env_vars, args, allowe
  * Deploy to Phala Cloud (new CVM, PHALA KMS). For use by shade-agent-cli deploy.
  *
  * @param {object} options
- * @param {string} options.appName - CVM name (e.g. from deployment.yaml deploy_to_phala.app_name)
+ * @param {string} options.appName - CVM name (e.g. from deployment.yaml tee_config.deploy.app_name)
  * @param {string} options.apiKey - Phala Cloud API key
  * @param {string} options.composePath - Path to docker-compose file
  * @param {string} [options.envFilePath] - Path to .env file (optional)
@@ -240,20 +240,20 @@ async function deployToPhala(options) {
 
   if (!dstackVersion) {
     console.log(
-      chalk.red("Error: deploy_to_phala.dstack_version is required"),
+      chalk.red("Error: tee_config.dstack_version is required"),
     );
     process.exit(1);
   }
   if (!instanceType) {
     console.log(
-      chalk.red("Error: deploy_to_phala.instance_type is required"),
+      chalk.red("Error: tee_config.instance_type is required"),
     );
     process.exit(1);
   }
   if (typeof publicLogs !== "boolean") {
     console.log(
       chalk.red(
-        "Error: deploy_to_phala.public_logs is required and must be a boolean",
+        "Error: tee_config.public_logs is required and must be a boolean",
       ),
     );
     process.exit(1);
@@ -261,7 +261,7 @@ async function deployToPhala(options) {
   if (typeof publicSysinfo !== "boolean") {
     console.log(
       chalk.red(
-        "Error: deploy_to_phala.public_sysinfo is required and must be a boolean",
+        "Error: tee_config.public_sysinfo is required and must be a boolean",
       ),
     );
     process.exit(1);

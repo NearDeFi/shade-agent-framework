@@ -11,7 +11,7 @@ export async function deployServerWorkflow() {
   console.log(`\nYour app is live at:\n  ${result.appUrl}`);
   console.log(
     `\nCVM management: ${VMM_URL}/ (tunnel it with ` +
-      `\`ssh -L 10000:127.0.0.1:10000 ${config.deployment.deploy_to_server.ssh_host}\`)`,
+      `\`ssh -L 10000:127.0.0.1:10000 ${config.deployment.tee_config.server.ssh_host}\`)`,
   );
   console.log(
     chalk.gray(

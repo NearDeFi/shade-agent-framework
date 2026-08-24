@@ -99,21 +99,56 @@ build_docker_image:
   dockerfile_path: ../Dockerfile
   reproducible_build: false
 
-# Deploy the docker compose file to Phala Cloud with the specified environment variables
-# Optional, if not enabled the app will not be deployed to Phala Cloud
+# Configuration for the TEE the agent is measured for and deployed to
 # Only applicable if the environment is TEE
-deploy_to_phala:
-  enabled: true
-  app_name: my-test-agent
-  env_file_path: ./.env
+tee_config:
   # The dstack OS version the agent is deployed with
+  # This is measured, so changing it changes the approved measurements
   dstack_version: 0.5.8
   # The virtual hardware given to the TEE
+  # Also measured, and it fixes the vCPU and memory the CVM is created with
   instance_type: tdx.small
   # If true TEE logs are public
+  # Part of the app compose, so it is measured
   public_logs: true
   # If true metrics are public
+  # Part of the app compose, so it is measured
   public_sysinfo: true
+
+  # Deploy the agent to the target selected below
+  # Optional, if not enabled the measurements and PPIDs are still calculated
+  # and approved but nothing is deployed, so you can pre-approve an image and
+  # deploy it later or by hand
+  deploy:
+    enabled: true
+    # The name the CVM is given. Not measured
+    app_name: my-test-agent
+    # The environment variables given to the agent
+    # Only the variable names are measured (via allowed_envs in the docker
+    # compose), never the values, so changing a secret needs no re-approval
+    env_file_path: ./.env
+
+  # Exactly one of the targets below must be enabled
+  # The target decides where the agent is deployed, which PPIDs are approved,
+  # and which KMS the key provider digest is computed from
+
+  # Deploy to Phala Cloud. Needs a Phala API key set via "shade auth"
+  phala:
+    enabled: true
+
+  # Deploy to your own self-hosted dstack server, over SSH
+  # The server needs dstack-vmm, a KMS CVM and a gateway CVM already set up
+  server:
+    enabled: false
+    # SSH alias from your ~/.ssh/config, or user@host
+    # Required whenever the server is the target, even when not deploying,
+    # because the CLI reads the PPID and key provider digest from its KMS
+    ssh_host: tdx
+    # The domain your dstack gateway serves under, the app lands on
+    # https://<app-id>-<port>.<gateway_domain>
+    gateway_domain: shade.example.com
+    # Encrypted disk size in GB. Not measured
+    disk_size_gb: 20
 
 # Helper command to whitelist an agent for local mode
 # Use the "shade whitelist" command
