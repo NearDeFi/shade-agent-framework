@@ -82,7 +82,7 @@ CLI configurations are read from a single `deployment.yaml` file in the project 
 | **approve_measurements** | No | If enabled, sets allowed measurements in the agent contract. |
 | **approve_ppids** | No | If enabled, sets allowed PPIDs in the agent contract.|
 | **build_docker_image** | No (TEE only) | If enabled and environment is TEE, builds a new Docker image for your agent, publishes it, and updates the Docker Compose with the new image.  |
-| **tee_config** | Yes if TEE | Which TEE the agent is measured for and deployed to. See [tee_config](#tee_config-tee-only). |
+| **tee_config** | Yes if deploying, or if `<MEASUREMENTS>` / `<PPIDS>` are used | Which TEE the agent is measured for and deployed to. Not needed when the approval args carry literal values and nothing is deployed. See [tee_config](#tee_config-tee-only). |
 | **whitelist_agent_for_local** | No | Config for the `shade whitelist` command to whitelist an agent's account ID whilst in local mode (not used by the shade deploy command). |
 | **os** | No | Override OS for tooling: `mac` or `linux`. If omitted, the CLI auto-detects from the current platform. |
 
