@@ -4,14 +4,14 @@ import { deployToDstack } from "../../utils/dstack-deploy.js";
 import { VMM_URL } from "../../utils/dstack-transport.js";
 
 // Deploy the app to the self-hosted dstack server and report where it lives
-export async function deployDstackWorkflow() {
+export async function deployServerWorkflow() {
   const config = await getConfig();
   const result = await deployToDstack(config.deployment);
 
   console.log(`\nYour app is live at:\n  ${result.appUrl}`);
   console.log(
     `\nCVM management: ${VMM_URL}/ (tunnel it with ` +
-      `\`ssh -L 10000:127.0.0.1:10000 ${config.deployment.deploy_to_dstack.ssh_host}\`)`,
+      `\`ssh -L 10000:127.0.0.1:10000 ${config.deployment.deploy_to_server.ssh_host}\`)`,
   );
   console.log(
     chalk.gray(

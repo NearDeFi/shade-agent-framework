@@ -32,7 +32,7 @@ export function isValidSshHost(host) {
   );
 }
 
-export function validateSshHost(host, label = "deploy_to_dstack.ssh_host") {
+export function validateSshHost(host, label = "deploy_to_server.ssh_host") {
   if (!isValidSshHost(host)) {
     console.log(
       chalk.red(

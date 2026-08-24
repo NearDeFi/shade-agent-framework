@@ -65,7 +65,7 @@ build_docker_image:
   dockerfile_path: ./Dockerfile
 
 # Deploy to your own dstack server. Cannot be enabled alongside deploy_to_phala
-deploy_to_dstack:
+deploy_to_server:
   enabled: true
   app_name: my-first-agent
   env_file_path: ./.env

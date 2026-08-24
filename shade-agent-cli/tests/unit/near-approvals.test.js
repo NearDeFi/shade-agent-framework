@@ -58,13 +58,13 @@ const dstackDeployment = (overrides = {}) => ({
   environment: "TEE",
   docker_compose_path: "./docker-compose.yaml",
   tee_target: {
-    backend: "dstack",
+    backend: "server",
     dstack_version: "0.5.8",
     instance_type: "tdx.small",
     public_logs: true,
     public_sysinfo: true,
   },
-  deploy_to_dstack: { ssh_host: "tdx" },
+  deploy_to_server: { ssh_host: "tdx" },
   agent_contract: { contract_id: "agent.testnet" },
   ...overrides,
 });

@@ -89,7 +89,7 @@ function resolveGateway(meta, gatewayDomain) {
   const baseDomain = meta?.gateway?.base_domain;
   if (baseDomain && baseDomain !== gatewayDomain) {
     fail(
-      `deploy_to_dstack.gateway_domain is "${gatewayDomain}" but the gateway on the server serves "${baseDomain}", so the app URL would not resolve`,
+      `deploy_to_server.gateway_domain is "${gatewayDomain}" but the gateway on the server serves "${baseDomain}", so the app URL would not resolve`,
     );
   }
   const configured = (meta?.gateway?.urls || []).filter(Boolean);
@@ -110,7 +110,7 @@ function resolveGateway(meta, gatewayDomain) {
  * @returns {Promise<{ vmId: string, appId: string, appUrl: string, composeHash: string }>}
  */
 export async function deployToDstack(deployment) {
-  const cfg = deployment.deploy_to_dstack;
+  const cfg = deployment.deploy_to_server;
   const target = deployment.tee_target;
   const sshHost = cfg.ssh_host;
   const imageName = `dstack-${target.dstack_version}`;

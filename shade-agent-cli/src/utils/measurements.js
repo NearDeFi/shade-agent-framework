@@ -41,7 +41,7 @@ export function getMeasurements(
   if (!dstackVersion || !instanceType) {
     console.log(
       chalk.red(
-        "Error: dstack_version and instance_type (from deploy_to_phala or deploy_to_dstack) are required to calculate TEE measurements",
+        "Error: dstack_version and instance_type (from deploy_to_phala or deploy_to_server) are required to calculate TEE measurements",
       ),
     );
     process.exit(1);
@@ -50,7 +50,7 @@ export function getMeasurements(
   if (typeof publicLogs !== "boolean" || typeof publicSysinfo !== "boolean") {
     console.log(
       chalk.red(
-        "Error: public_logs and public_sysinfo (from deploy_to_phala or deploy_to_dstack) are required to calculate TEE measurements",
+        "Error: public_logs and public_sysinfo (from deploy_to_phala or deploy_to_server) are required to calculate TEE measurements",
       ),
     );
     process.exit(1);

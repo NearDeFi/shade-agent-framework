@@ -1285,19 +1285,19 @@ describe("parseDeploymentConfig", () => {
     });
   });
 
-  describe("deploy_to_dstack", () => {
+  describe("deploy_to_server", () => {
     // A self-hosted deployment replaces deploy_to_phala rather than sitting
     // alongside it, so the baseline drops the phala block.
     const dstackYaml = (overrides = {}) =>
       validYaml({
         deploy_to_phala: undefined,
-        deploy_to_dstack: deepMerge(validDeployToDstack, overrides),
+        deploy_to_server: deepMerge(validDeployToDstack, overrides),
       });
 
     describe("validation", () => {
       it("exits 1 when both backends are enabled", () => {
         expectExit(
-          validYaml({ deploy_to_dstack: validDeployToDstack }),
+          validYaml({ deploy_to_server: validDeployToDstack }),
           "cannot both be enabled",
         );
       });
@@ -1308,7 +1308,7 @@ describe("parseDeploymentConfig", () => {
         expectExit(
           validYaml({
             deploy_to_phala: { enabled: false },
-            deploy_to_dstack: { ...validDeployToDstack, enabled: false },
+            deploy_to_server: { ...validDeployToDstack, enabled: false },
           }),
           "neither is enabled",
         );
@@ -1318,17 +1318,17 @@ describe("parseDeploymentConfig", () => {
         const config = parse(
           validYaml({
             deploy_to_phala: { enabled: false },
-            deploy_to_dstack: validDeployToDstack,
+            deploy_to_server: validDeployToDstack,
           }),
         );
         expect(exitSpy).not.toHaveBeenCalled();
-        expect(config.tee_target.backend).toBe("dstack");
+        expect(config.tee_target.backend).toBe("server");
       });
 
       it("exits 1 when enabled is not a boolean", () => {
         expectExit(
           dstackYaml({ enabled: "yes" }),
-          "deploy_to_dstack.enabled must be a boolean",
+          "deploy_to_server.enabled must be a boolean",
         );
       });
 
@@ -1336,7 +1336,7 @@ describe("parseDeploymentConfig", () => {
         it(`exits 1 when ${field} is missing`, () => {
           expectExit(
             dstackYaml({ [field]: undefined }),
-            `deploy_to_dstack.${field} is required`,
+            `deploy_to_server.${field} is required`,
           );
         });
       }
@@ -1364,14 +1364,14 @@ describe("parseDeploymentConfig", () => {
       it("accepts a user@host ssh_host", () => {
         const config = parse(dstackYaml({ ssh_host: "ubuntu@203.0.113.10" }));
         expect(exitSpy).not.toHaveBeenCalled();
-        expect(config.deploy_to_dstack.ssh_host).toBe("ubuntu@203.0.113.10");
+        expect(config.deploy_to_server.ssh_host).toBe("ubuntu@203.0.113.10");
       });
 
       for (const domain of [undefined, "", "notadomain", "http://x.example.com", "-x.example.com"]) {
         it(`exits 1 for a gateway_domain of ${JSON.stringify(domain)}`, () => {
           expectExit(
             dstackYaml({ gateway_domain: domain === undefined ? undefined : domain }),
-            "deploy_to_dstack.gateway_domain is required",
+            "deploy_to_server.gateway_domain is required",
           );
         });
       }
@@ -1380,7 +1380,7 @@ describe("parseDeploymentConfig", () => {
         it(`exits 1 for a disk_size_gb of ${JSON.stringify(size)}`, () => {
           expectExit(
             dstackYaml({ disk_size_gb: size === undefined ? undefined : size }),
-            "deploy_to_dstack.disk_size_gb is required",
+            "deploy_to_server.disk_size_gb is required",
           );
         });
       }
@@ -1388,28 +1388,28 @@ describe("parseDeploymentConfig", () => {
       it("exits 1 for an unsupported dstack_version, naming the block", () => {
         expectExit(
           dstackYaml({ dstack_version: "0.4.0" }),
-          'deploy_to_dstack.dstack_version "0.4.0" is not supported',
+          'deploy_to_server.dstack_version "0.4.0" is not supported',
         );
       });
 
       it("exits 1 for an unsupported instance_type, naming the block", () => {
         expectExit(
           dstackYaml({ instance_type: "tdx.enormous" }),
-          'deploy_to_dstack.instance_type "tdx.enormous" is not supported',
+          'deploy_to_server.instance_type "tdx.enormous" is not supported',
         );
       });
 
       it("exits 1 when public_logs is missing", () => {
         expectExit(
           dstackYaml({ public_logs: undefined }),
-          "deploy_to_dstack.public_logs is required",
+          "deploy_to_server.public_logs is required",
         );
       });
 
       it("exits 1 when public_sysinfo is missing", () => {
         expectExit(
           dstackYaml({ public_sysinfo: undefined }),
-          "deploy_to_dstack.public_sysinfo is required",
+          "deploy_to_server.public_sysinfo is required",
         );
       });
     });
@@ -1417,7 +1417,7 @@ describe("parseDeploymentConfig", () => {
     describe("mapping", () => {
       it("maps every field through", () => {
         const config = parse(dstackYaml());
-        expect(config.deploy_to_dstack).toEqual({
+        expect(config.deploy_to_server).toEqual({
           enabled: true,
           app_name: "my-agent",
           env_file_path: "./.env",
@@ -1431,9 +1431,9 @@ describe("parseDeploymentConfig", () => {
         });
       });
 
-      it("returns deploy_to_dstack === undefined when the section is omitted", () => {
+      it("returns deploy_to_server === undefined when the section is omitted", () => {
         const config = parse(validYaml());
-        expect(config.deploy_to_dstack).toBeUndefined();
+        expect(config.deploy_to_server).toBeUndefined();
       });
     });
   });
@@ -1450,11 +1450,11 @@ describe("parseDeploymentConfig", () => {
       });
     });
 
-    it("reads them off deploy_to_dstack for the dstack backend", () => {
+    it("reads them off deploy_to_server for the dstack backend", () => {
       const config = parse(
         validYaml({
           deploy_to_phala: undefined,
-          deploy_to_dstack: {
+          deploy_to_server: {
             ...validDeployToDstack,
             instance_type: "tdx.medium",
             public_logs: false,
@@ -1462,7 +1462,7 @@ describe("parseDeploymentConfig", () => {
         }),
       );
       expect(config.tee_target).toEqual({
-        backend: "dstack",
+        backend: "server",
         dstack_version: "0.5.8",
         instance_type: "tdx.medium",
         public_logs: false,
@@ -1476,11 +1476,11 @@ describe("parseDeploymentConfig", () => {
       const config = parse(
         validYaml({
           deploy_to_phala: undefined,
-          deploy_to_dstack: { ...validDeployToDstack, enabled: false },
+          deploy_to_server: { ...validDeployToDstack, enabled: false },
           approve_measurements: validApproveMeasurements,
         }),
       );
-      expect(config.tee_target.backend).toBe("dstack");
+      expect(config.tee_target.backend).toBe("server");
       expect(config.tee_target.instance_type).toBe("tdx.small");
     });
 
@@ -1509,15 +1509,15 @@ describe("parseDeploymentConfig", () => {
             args: '{\n  "measurements": <MEASUREMENTS>\n}\n',
           },
         }),
-        "a deploy_to_phala or deploy_to_dstack block is required",
+        "a deploy_to_phala or deploy_to_server block is required",
       );
     });
 
-    it("accepts a disabled deploy_to_dstack block as the source", () => {
+    it("accepts a disabled deploy_to_server block as the source", () => {
       const config = parse(
         validYaml({
           deploy_to_phala: undefined,
-          deploy_to_dstack: { ...validDeployToDstack, enabled: false },
+          deploy_to_server: { ...validDeployToDstack, enabled: false },
           approve_measurements: {
             enabled: true,
             method_name: "approve_measurements",
@@ -1526,7 +1526,7 @@ describe("parseDeploymentConfig", () => {
         }),
       );
       expect(exitSpy).not.toHaveBeenCalled();
-      expect(config.tee_target.backend).toBe("dstack");
+      expect(config.tee_target.backend).toBe("server");
     });
   });
 });

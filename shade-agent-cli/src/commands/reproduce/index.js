@@ -42,15 +42,15 @@ function readReproducePaths() {
     process.exit(1);
   }
   const teeBlock =
-    doc.deploy_to_dstack && doc.deploy_to_dstack.enabled !== false
-      ? doc.deploy_to_dstack
-      : (doc.deploy_to_phala ?? doc.deploy_to_dstack);
+    doc.deploy_to_server && doc.deploy_to_server.enabled !== false
+      ? doc.deploy_to_server
+      : (doc.deploy_to_phala ?? doc.deploy_to_server);
   const publicLogs = teeBlock?.public_logs;
   const publicSysinfo = teeBlock?.public_sysinfo;
   if (typeof publicLogs !== "boolean" || typeof publicSysinfo !== "boolean") {
     console.log(
       chalk.red(
-        "deployment.yaml must set public_logs and public_sysinfo (boolean) under deploy_to_phala or deploy_to_dstack for `shade reproduce` (both affect the app compose hash).",
+        "deployment.yaml must set public_logs and public_sysinfo (boolean) under deploy_to_phala or deploy_to_server for `shade reproduce` (both affect the app compose hash).",
       ),
     );
     process.exit(1);

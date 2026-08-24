@@ -51,7 +51,7 @@ export function parseDeploymentConfig(deploymentPath) {
     approve_measurements,
     approve_ppids,
     deploy_to_phala,
-    deploy_to_dstack,
+    deploy_to_server,
     whitelist_agent_for_local,
   } = doc;
 
@@ -283,46 +283,46 @@ export function parseDeploymentConfig(deploymentPath) {
     mustBeMultilineString(approve_ppids.args, "approve_ppids.args");
   }
 
-  // deploy_to_phala / deploy_to_dstack validations. Exactly one deploy backend
+  // deploy_to_phala / deploy_to_server validations. Exactly one deploy backend
   // may be enabled; whichever is the target also supplies the measurement
   // fields, even when its own deploy step is disabled.
   if (deploy_to_phala) {
     mustBeBooleanOrOmitted(deploy_to_phala.enabled, "deploy_to_phala.enabled");
   }
-  if (deploy_to_dstack) {
+  if (deploy_to_server) {
     mustBeBooleanOrOmitted(
-      deploy_to_dstack.enabled,
-      "deploy_to_dstack.enabled",
+      deploy_to_server.enabled,
+      "deploy_to_server.enabled",
     );
   }
 
   const phalaEnabled = !!deploy_to_phala && deploy_to_phala.enabled !== false;
-  const dstackEnabled = !!deploy_to_dstack && deploy_to_dstack.enabled !== false;
+  const dstackEnabled = !!deploy_to_server && deploy_to_server.enabled !== false;
   requireField(
     !(phalaEnabled && dstackEnabled),
-    "deploy_to_phala and deploy_to_dstack cannot both be enabled — pick one deploy backend",
+    "deploy_to_phala and deploy_to_server cannot both be enabled — pick one deploy backend",
   );
-  if (deploy_to_phala && deploy_to_dstack) {
+  if (deploy_to_phala && deploy_to_server) {
     requireField(
       phalaEnabled || dstackEnabled,
-      "deploy_to_phala and deploy_to_dstack are both present but neither is enabled — remove one so the measurement fields have a single source",
+      "deploy_to_phala and deploy_to_server are both present but neither is enabled — remove one so the measurement fields have a single source",
     );
   }
 
   // The backend whose block supplies dstack_version / instance_type /
   // public_logs / public_sysinfo.
   const teeBackend = dstackEnabled
-    ? "dstack"
+    ? "server"
     : phalaEnabled
       ? "phala"
-      : deploy_to_dstack
-        ? "dstack"
+      : deploy_to_server
+        ? "server"
         : deploy_to_phala
           ? "phala"
           : null;
-  const teeBlock = teeBackend === "dstack" ? deploy_to_dstack : deploy_to_phala;
+  const teeBlock = teeBackend === "server" ? deploy_to_server : deploy_to_phala;
   const teeBlockLabel =
-    teeBackend === "dstack" ? "deploy_to_dstack" : "deploy_to_phala";
+    teeBackend === "server" ? "deploy_to_server" : "deploy_to_phala";
 
   // Only require measurement fields when <MEASUREMENTS> is in the args.
   const needsMeasurementFields =
@@ -344,31 +344,31 @@ export function parseDeploymentConfig(deploymentPath) {
   }
   if (dstackEnabled) {
     requireField(
-      !!deploy_to_dstack.env_file_path,
-      "deploy_to_dstack.env_file_path is required",
+      !!deploy_to_server.env_file_path,
+      "deploy_to_server.env_file_path is required",
     );
     requireField(
-      !!deploy_to_dstack.app_name,
-      "deploy_to_dstack.app_name is required",
+      !!deploy_to_server.app_name,
+      "deploy_to_server.app_name is required",
     );
     requireField(
-      typeof deploy_to_dstack.ssh_host === "string" &&
-        deploy_to_dstack.ssh_host.length > 0,
-      "deploy_to_dstack.ssh_host is required",
+      typeof deploy_to_server.ssh_host === "string" &&
+        deploy_to_server.ssh_host.length > 0,
+      "deploy_to_server.ssh_host is required",
     );
     requireField(
-      isValidSshHost(deploy_to_dstack.ssh_host),
-      `deploy_to_dstack.ssh_host "${deploy_to_dstack.ssh_host}" is not a valid ssh destination — use [user@]host with only letters, digits, dot, dash and underscore, and it must not start with "-"`,
+      isValidSshHost(deploy_to_server.ssh_host),
+      `deploy_to_server.ssh_host "${deploy_to_server.ssh_host}" is not a valid ssh destination — use [user@]host with only letters, digits, dot, dash and underscore, and it must not start with "-"`,
     );
     requireField(
-      typeof deploy_to_dstack.gateway_domain === "string" &&
-        HOSTNAME_PATTERN.test(deploy_to_dstack.gateway_domain),
-      "deploy_to_dstack.gateway_domain is required and must be a dotted hostname (e.g. shade.example.com)",
+      typeof deploy_to_server.gateway_domain === "string" &&
+        HOSTNAME_PATTERN.test(deploy_to_server.gateway_domain),
+      "deploy_to_server.gateway_domain is required and must be a dotted hostname (e.g. shade.example.com)",
     );
     requireField(
-      Number.isInteger(deploy_to_dstack.disk_size_gb) &&
-        deploy_to_dstack.disk_size_gb > 0,
-      "deploy_to_dstack.disk_size_gb is required and must be a positive integer (GB)",
+      Number.isInteger(deploy_to_server.disk_size_gb) &&
+        deploy_to_server.disk_size_gb > 0,
+      "deploy_to_server.disk_size_gb is required and must be a positive integer (GB)",
     );
   }
 
@@ -378,7 +378,7 @@ export function parseDeploymentConfig(deploymentPath) {
   if (phalaEnabled || dstackEnabled || needsMeasurementFields) {
     requireField(
       !!teeBlock,
-      "a deploy_to_phala or deploy_to_dstack block is required (needs dstack_version, instance_type, public_logs, public_sysinfo)",
+      "a deploy_to_phala or deploy_to_server block is required (needs dstack_version, instance_type, public_logs, public_sysinfo)",
     );
     requireField(
       typeof teeBlock?.public_logs === "boolean",
@@ -511,18 +511,18 @@ export function parseDeploymentConfig(deploymentPath) {
           public_sysinfo: deploy_to_phala.public_sysinfo,
         }
       : undefined,
-    deploy_to_dstack: deploy_to_dstack
+    deploy_to_server: deploy_to_server
       ? {
-          enabled: deploy_to_dstack.enabled !== false,
-          env_file_path: deploy_to_dstack.env_file_path,
-          app_name: deploy_to_dstack.app_name,
-          dstack_version: deploy_to_dstack.dstack_version,
-          instance_type: deploy_to_dstack.instance_type,
-          public_logs: deploy_to_dstack.public_logs,
-          public_sysinfo: deploy_to_dstack.public_sysinfo,
-          ssh_host: deploy_to_dstack.ssh_host,
-          gateway_domain: deploy_to_dstack.gateway_domain,
-          disk_size_gb: deploy_to_dstack.disk_size_gb,
+          enabled: deploy_to_server.enabled !== false,
+          env_file_path: deploy_to_server.env_file_path,
+          app_name: deploy_to_server.app_name,
+          dstack_version: deploy_to_server.dstack_version,
+          instance_type: deploy_to_server.instance_type,
+          public_logs: deploy_to_server.public_logs,
+          public_sysinfo: deploy_to_server.public_sysinfo,
+          ssh_host: deploy_to_server.ssh_host,
+          gateway_domain: deploy_to_server.gateway_domain,
+          disk_size_gb: deploy_to_server.disk_size_gb,
         }
       : undefined,
     // The single place the rest of the CLI reads the TEE target from, so

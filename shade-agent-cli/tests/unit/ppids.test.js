@@ -26,8 +26,8 @@ const local = { environment: "local" };
 const phala = { environment: "TEE", tee_target: { backend: "phala" } };
 const dstack = {
   environment: "TEE",
-  tee_target: { backend: "dstack" },
-  deploy_to_dstack: { ssh_host: "tdx" },
+  tee_target: { backend: "server" },
+  deploy_to_server: { ssh_host: "tdx" },
 };
 
 describe("getPpids", () => {

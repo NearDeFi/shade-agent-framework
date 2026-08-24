@@ -310,9 +310,9 @@ export function planCommand() {
               publicSysinfo: deployment.tee_target?.public_sysinfo,
               keyProviderEventDigest:
                 deployment.environment === "TEE" &&
-                deployment.tee_target?.backend === "dstack"
+                deployment.tee_target?.backend === "server"
                   ? getKeyProviderEventDigest(
-                      deployment.deploy_to_dstack.ssh_host,
+                      deployment.deploy_to_server.ssh_host,
                     )
                   : undefined,
             },
@@ -391,11 +391,11 @@ export function planCommand() {
       }
 
       // 4. TEE Deployment
-      const dstackCfg = deployment.deploy_to_dstack;
+      const dstackCfg = deployment.deploy_to_server;
       const dstackEnabled = dstackCfg?.enabled === true;
       console.log(
         chalk.cyan.bold(
-          deployment.tee_target?.backend === "dstack"
+          deployment.tee_target?.backend === "server"
             ? "🖥️  Self-Hosted dstack Deployment"
             : "☁️  Phala Cloud Deployment",
         ),
@@ -455,7 +455,7 @@ export function planCommand() {
         } else {
           logWrapped(
             chalk.gray(
-              deployment.tee_target?.backend === "dstack"
+              deployment.tee_target?.backend === "server"
                 ? "• The agent won't be deployed to the self-hosted dstack server."
                 : "• The agent won't be deployed to Phala Cloud.",
             ),

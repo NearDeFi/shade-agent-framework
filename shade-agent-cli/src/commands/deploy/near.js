@@ -392,9 +392,9 @@ export async function approveMeasurements() {
       // computed from it rather than pinned to Phala's.
       const keyProviderEventDigest =
         config.deployment.environment === "TEE" &&
-        teeTarget?.backend === "dstack"
+        teeTarget?.backend === "server"
           ? getKeyProviderEventDigest(
-              config.deployment.deploy_to_dstack.ssh_host,
+              config.deployment.deploy_to_server.ssh_host,
             )
           : undefined;
       // Pass the object directly, replacePlaceholders will handle JSON stringification

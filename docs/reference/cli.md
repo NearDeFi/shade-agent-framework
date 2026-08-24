@@ -82,8 +82,8 @@ CLI configurations are read from a single `deployment.yaml` file in the project 
 | **approve_measurements** | No | If enabled, sets allowed measurements in the agent contract. |
 | **approve_ppids** | No | If enabled, sets allowed PPIDs in the agent contract.|
 | **build_docker_image** | No (TEE only) | If enabled and environment is TEE, builds a new Docker image for your agent, publishes it, and updates the Docker Compose with the new image.  |
-| **deploy_to_phala** | No (TEE only) | If enabled and environment is TEE, deploys the Docker Compose to Phala Cloud. Mutually exclusive with `deploy_to_dstack`. |
-| **deploy_to_dstack** | No (TEE only) | If enabled and environment is TEE, deploys the Docker Compose to your own self-hosted dstack server over SSH. Mutually exclusive with `deploy_to_phala`. |
+| **deploy_to_phala** | No (TEE only) | If enabled and environment is TEE, deploys the Docker Compose to Phala Cloud. Mutually exclusive with `deploy_to_server`. |
+| **deploy_to_server** | No (TEE only) | If enabled and environment is TEE, deploys the Docker Compose to your own self-hosted dstack server over SSH. Mutually exclusive with `deploy_to_phala`. |
 | **whitelist_agent_for_local** | No | Config for the `shade whitelist` command to whitelist an agent's account ID whilst in local mode (not used by the shade deploy command). |
 | **os** | No | Override OS for tooling: `mac` or `linux`. If omitted, the CLI auto-detects from the current platform. |
 
@@ -149,9 +149,9 @@ Placeholders in args:
 
 - `<MEASUREMENTS>` — Resolves to real calculated measurements for the application for TEE and mock measurements for local. For TEE, the measurements depend on the docker compose file, the dstack version and instance type.
 
-> **Note:** When `args` contains `<MEASUREMENTS>` in TEE mode, the placeholder is computed from `dstack_version`, `instance_type`, `public_logs`, and `public_sysinfo` on whichever deploy block is present — `deploy_to_phala` or `deploy_to_dstack`. The CLI reads these fields even when that block has `enabled: false`, so it must still be present with valid values. If `args` doesn't reference `<MEASUREMENTS>`, neither block is required.
+> **Note:** When `args` contains `<MEASUREMENTS>` in TEE mode, the placeholder is computed from `dstack_version`, `instance_type`, `public_logs`, and `public_sysinfo` on whichever deploy block is present — `deploy_to_phala` or `deploy_to_server`. The CLI reads these fields even when that block has `enabled: false`, so it must still be present with valid values. If `args` doesn't reference `<MEASUREMENTS>`, neither block is required.
 >
-> With `deploy_to_dstack`, the `key_provider_event_digest` in the measurements is computed from your own KMS over SSH rather than pinned to Phala's, so both `shade deploy` and `shade plan` need the server to be reachable to resolve `<MEASUREMENTS>`. On the Phala backend the measurements are computed entirely locally.
+> With `deploy_to_server`, the `key_provider_event_digest` in the measurements is computed from your own KMS over SSH rather than pinned to Phala's, so both `shade deploy` and `shade plan` need the server to be reachable to resolve `<MEASUREMENTS>`. On the Phala backend the measurements are computed entirely locally.
 
 ### approve_ppids
 
@@ -164,7 +164,7 @@ Placeholders in args:
 
 Placeholders in args:
 
-- `<PPIDS>` — Resolves to a mock PPID for local. For TEE the source depends on the deploy backend: with `deploy_to_phala` it is the list of all PPIDs of devices on Phala Cloud; with `deploy_to_dstack` it is the single PPID of your server's CPU package, read out of the PCK certificate embedded in its KMS's bootstrap attestation, so the server must be reachable for `shade deploy` and `shade plan` alike. A literal PPID written into `args` instead of the placeholder keeps working either way.
+- `<PPIDS>` — Resolves to a mock PPID for local. For TEE the source depends on the deploy backend: with `deploy_to_phala` it is the list of all PPIDs of devices on Phala Cloud; with `deploy_to_server` it is the single PPID of your server's CPU package, read out of the PCK certificate embedded in its KMS's bootstrap attestation, so the server must be reachable for `shade deploy` and `shade plan` alike. A literal PPID written into `args` instead of the placeholder keeps working either way.
 
 ### build_docker_image (TEE Only)
 
@@ -188,7 +188,7 @@ Placeholders in args:
 | **public_logs** | Yes | Boolean. If `true`, the dstack guest-agent's `GET /logs/<container>` endpoint is publicly reachable on port 8090, exposing all container logs. |
 | **public_sysinfo** | Yes | Boolean. If `true`, the dstack guest-agent's `GET /metrics` endpoint is publicly reachable on port 8090, exposing OS, CPU, memory, swap, uptime, load, and disk telemetry. |
 
-### deploy_to_dstack (TEE Only)
+### deploy_to_server (TEE Only)
 
 Deploys to your own dstack server instead of Phala Cloud, over SSH. Mutually exclusive with `deploy_to_phala` — enabling both is an error, and so is having both blocks present with neither enabled, since the measurement fields would have no single source. The server must already be set up with `dstack-vmm`, a KMS CVM and a gateway CVM, and the VM shape must match one of the `instance_type` rows below.
 
@@ -242,7 +242,7 @@ The Shade Agent CLI supports specific Phala Cloud / Dstack configurations, as li
 
 `tdx.small`, `tdx.medium`, `tdx.large`, `tdx.xlarge`, `tdx.2xlarge`, `tdx.4xlarge`, `tdx.8xlarge`
 
-The vCPU/memory each type maps to (1 vCPU / 2 GB for `tdx.small`, doubling upward) is what `deploy_to_dstack` provisions, because `rtmr0` measures both. Only `tdx.small` is documented by Phala; check a larger type with `dstack-mr measure` against the row's `rtmr0` before its first self-hosted use.
+The vCPU/memory each type maps to (1 vCPU / 2 GB for `tdx.small`, doubling upward) is what `deploy_to_server` provisions, because `rtmr0` measures both. Only `tdx.small` is documented by Phala; check a larger type with `dstack-mr measure` against the row's `rtmr0` before its first self-hosted use.
 
 **QEMU versions:**
 
