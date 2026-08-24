@@ -172,7 +172,11 @@ function rpc(host, baseUrl, method, params, { insecure = false } = {}) {
         `Error: ${method} on ${baseUrl} returned HTTP ${httpCode || "(no status)"}`,
       ),
     );
-    if (responseBody) console.log(chalk.gray(responseBody.trim()));
+    // Capped like the parse-failure path below; a prpc error body is short but
+    // a misrouted response need not be.
+    if (responseBody) {
+      console.log(chalk.gray(responseBody.trim().slice(0, 500)));
+    }
     process.exit(1);
   }
 

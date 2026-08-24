@@ -137,6 +137,38 @@ describe("validateGuestEnvLimits", () => {
     expect(logged()).toContain("total");
   });
 
+  // The guest's limits are UTF-8 byte counts (Rust String::len), not character
+  // counts. A multi-byte value that fits in code units but not in bytes must
+  // fail here, otherwise it fails at boot — the exact thing this check exists
+  // to pre-empt.
+  it("counts value bytes, not UTF-16 code units", () => {
+    // 60k CJK chars: 60,000 code units but 180,000 UTF-8 bytes.
+    const value = "密".repeat(60000);
+    expect(value.length).toBeLessThan(128 * 1024);
+    expect(Buffer.byteLength(value, "utf8")).toBeGreaterThan(128 * 1024);
+    expect(() =>
+      validateGuestEnvLimits([{ key: "BIG", value }], "/tmp/.env"),
+    ).toThrow("exit:1");
+  });
+
+  it("counts total bytes, not UTF-16 code units", () => {
+    // 10 × 40k CJK chars: 400,000 code units but 1,200,000 UTF-8 bytes. Each
+    // value is 120,000 bytes so the per-value cap does not fire first; only the
+    // 1 MB total does.
+    const envs = Array.from({ length: 10 }, (_, i) => ({
+      key: `V${i}`,
+      value: "密".repeat(40000),
+    }));
+    const codeUnits = envs.reduce((n, e) => n + e.key.length + e.value.length, 0);
+    const bytes = envs.reduce(
+      (n, e) => n + Buffer.byteLength(e.key, "utf8") + Buffer.byteLength(e.value, "utf8"),
+      0,
+    );
+    expect(codeUnits).toBeLessThan(1024 * 1024);
+    expect(bytes).toBeGreaterThan(1024 * 1024);
+    expect(() => validateGuestEnvLimits(envs, "/tmp/.env")).toThrow("exit:1");
+  });
+
   it("exits 1 above 128 KB in a single value", () => {
     expect(() =>
       validateGuestEnvLimits(

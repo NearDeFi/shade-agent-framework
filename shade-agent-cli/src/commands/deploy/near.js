@@ -5,7 +5,7 @@ import { NEAR } from "@near-js/tokens";
 import chalk from "chalk";
 import bs58 from "bs58";
 import { getConfig } from "../../utils/config.js";
-import { replacePlaceholders } from "../../utils/placeholders.js";
+import { replacePlaceholders, hasPlaceholder } from "../../utils/placeholders.js";
 import { tgasToGas } from "../../utils/near.js";
 import { checkTransactionOutcome } from "../../utils/transaction-outcome.js";
 import { dockerExec, runWithSudoOnLinux } from "../../utils/docker-utils.js";
@@ -381,28 +381,35 @@ export async function approveMeasurements() {
   try {
     const approveCfg = config.deployment.approve_measurements;
 
-    // Resolve measurements placeholder in args
+    // Resolve measurements placeholder in args. Args carrying literal
+    // measurements need nothing computed, and for the dstack backend the
+    // key-provider digest costs an SSH round trip to the KMS, so only reach for
+    // it when the placeholder is actually there.
     const replacements = {};
-    const teeTarget = config.deployment.tee_target;
-    // A self-hosted server has its own KMS, so the key-provider digest is
-    // computed from it rather than pinned to Phala's.
-    const keyProviderEventDigest =
-      config.deployment.environment === "TEE" && teeTarget?.backend === "dstack"
-        ? getKeyProviderEventDigest(config.deployment.deploy_to_dstack.ssh_host)
-        : undefined;
-    const measurements = getMeasurements(
-      config.deployment.environment === "TEE",
-      config.deployment.docker_compose_path,
-      teeTarget?.dstack_version,
-      teeTarget?.instance_type,
-      {
-        publicLogs: teeTarget?.public_logs,
-        publicSysinfo: teeTarget?.public_sysinfo,
-        keyProviderEventDigest,
-      },
-    );
-    // Pass the object directly, replacePlaceholders will handle JSON stringification
-    replacements["<MEASUREMENTS>"] = measurements;
+    if (hasPlaceholder(approveCfg.args, "<MEASUREMENTS>")) {
+      const teeTarget = config.deployment.tee_target;
+      // A self-hosted server has its own KMS, so the key-provider digest is
+      // computed from it rather than pinned to Phala's.
+      const keyProviderEventDigest =
+        config.deployment.environment === "TEE" &&
+        teeTarget?.backend === "dstack"
+          ? getKeyProviderEventDigest(
+              config.deployment.deploy_to_dstack.ssh_host,
+            )
+          : undefined;
+      // Pass the object directly, replacePlaceholders will handle JSON stringification
+      replacements["<MEASUREMENTS>"] = getMeasurements(
+        config.deployment.environment === "TEE",
+        config.deployment.docker_compose_path,
+        teeTarget?.dstack_version,
+        teeTarget?.instance_type,
+        {
+          publicLogs: teeTarget?.public_logs,
+          publicSysinfo: teeTarget?.public_sysinfo,
+          keyProviderEventDigest,
+        },
+      );
+    }
 
     const args = replacePlaceholders(approveCfg.args, replacements);
 
@@ -438,9 +445,12 @@ export async function approvePpids() {
   try {
     const approveCfg = config.deployment.approve_ppids;
 
+    // Same as measurements: a literal PPID in args needs no lookup, and for the
+    // dstack backend the lookup is an SSH round trip to the server's KMS.
     const replacements = {};
-    const ppids = await getPpids(config.deployment);
-    replacements["<PPIDS>"] = ppids;
+    if (hasPlaceholder(approveCfg.args, "<PPIDS>")) {
+      replacements["<PPIDS>"] = await getPpids(config.deployment);
+    }
 
     const args = replacePlaceholders(approveCfg.args, replacements);
 

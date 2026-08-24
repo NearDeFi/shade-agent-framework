@@ -190,7 +190,7 @@ Placeholders in args:
 
 ### deploy_to_dstack (TEE Only)
 
-Deploys to your own dstack server instead of Phala Cloud, over SSH. Mutually exclusive with `deploy_to_phala` — enabling both is an error. The server must already be set up with `dstack-vmm`, a KMS CVM and a gateway CVM, and the VM shape must match one of the `instance_type` rows below.
+Deploys to your own dstack server instead of Phala Cloud, over SSH. Mutually exclusive with `deploy_to_phala` — enabling both is an error, and so is having both blocks present with neither enabled, since the measurement fields would have no single source. The server must already be set up with `dstack-vmm`, a KMS CVM and a gateway CVM, and the VM shape must match one of the `instance_type` rows below.
 
 | Key | Required | Description |
 |-----|----------|-------------|

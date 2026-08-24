@@ -367,8 +367,12 @@ export function planCommand() {
           2,
         );
 
-        const ppids = await getPpids(deployment);
-        const replacements = { "<PPIDS>": ppids };
+        // Only look the PPIDs up when the placeholder is there — for the dstack
+        // backend that is a live SSH call to the server's KMS.
+        const replacements = {};
+        if (hasPlaceholder(approveCfg.args, "<PPIDS>")) {
+          replacements["<PPIDS>"] = await getPpids(deployment);
+        }
         const args = replacePlaceholders(approveCfg.args, replacements);
 
         const jsonLines = formatArgs(args).split("\n");

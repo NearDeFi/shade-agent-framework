@@ -30,17 +30,21 @@ export function validateGuestEnvLimits(envVars, envFilePath) {
         `environment variable name "${key}" in ${envFilePath} is rejected by the dstack guest (must match ${KEY_PATTERN.source})`,
       );
     }
-    if (key.length > MAX_KEY_LENGTH) {
+    // The guest measures UTF-8 bytes (Rust String::len), so a multi-byte value
+    // can fit in JS string length and still be rejected at boot.
+    const keyBytes = Buffer.byteLength(key, "utf8");
+    const valueBytes = Buffer.byteLength(value, "utf8");
+    if (keyBytes > MAX_KEY_LENGTH) {
       fail(
-        `environment variable name "${key}" in ${envFilePath} is ${key.length} characters, but the dstack guest rejects more than ${MAX_KEY_LENGTH}`,
+        `environment variable name "${key}" in ${envFilePath} is ${keyBytes} bytes, but the dstack guest rejects more than ${MAX_KEY_LENGTH}`,
       );
     }
-    if (value.length > MAX_VALUE_LENGTH) {
+    if (valueBytes > MAX_VALUE_LENGTH) {
       fail(
-        `the value of "${key}" in ${envFilePath} is ${value.length} bytes, but the dstack guest rejects more than ${MAX_VALUE_LENGTH}`,
+        `the value of "${key}" in ${envFilePath} is ${valueBytes} bytes, but the dstack guest rejects more than ${MAX_VALUE_LENGTH}`,
       );
     }
-    totalSize += key.length + value.length;
+    totalSize += keyBytes + valueBytes;
   }
   if (totalSize > MAX_TOTAL_SIZE) {
     fail(
