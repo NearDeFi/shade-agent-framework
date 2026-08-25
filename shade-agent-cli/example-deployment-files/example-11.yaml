@@ -64,7 +64,7 @@ build_docker_image:
   cache: true
   dockerfile_path: ./Dockerfile
 
-# Deploy to your own dstack server. Cannot be enabled alongside deploy_to_phala
+# Cannot enable both tee_config.phala and tee_config.server
 tee_config:
   # The dstack OS version the agent is deployed with, and used to
   # calculate the measurements

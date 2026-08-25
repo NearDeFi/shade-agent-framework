@@ -36,8 +36,7 @@ export function getInstanceShape(instanceType) {
 // missing published port has no single routable value, so it yields null.
 function hostPortOf(entry) {
   if (entry && typeof entry === "object") {
-    const published = entry.published ?? entry.target;
-    return /^\d+$/.test(String(published)) ? String(published) : null;
+    return /^\d+$/.test(String(entry.published)) ? String(entry.published) : null;
   }
   const parts = String(entry).split("/")[0].split(":");
   const port = parts.length > 1 ? parts[parts.length - 2] : parts[0];
@@ -147,10 +146,13 @@ export async function deployToDstack(deployment) {
     `Deploying to the self-hosted dstack server ${sshHost} as app ${appId}`,
   );
 
-  // Fetch and pin the env encryption key before the allowlist write too: an
-  // unverifiable signature or a signer that isn't this KMS must abort while the
-  // server is still untouched.
+  // Fetch and pin the env encryption key, then encrypt, before the allowlist
+  // write: both must abort while the server is still untouched — an
+  // unverifiable signature or a signer that isn't this KMS, or an encryption
+  // failure — so neither leaves an allowlist entry nothing prunes.
   const envPubKey = getAppEnvEncryptPubKey(sshHost, appId);
+  const encryptedEnv =
+    envVars.length > 0 ? await encryptEnvVars(envVars, envPubKey) : "";
 
   const marker = `${cfg.app_name} ${new Date().toISOString()}`;
   const { written } = allowlistApp(sshHost, appId, composeHash, marker);
@@ -167,12 +169,6 @@ export async function deployToDstack(deployment) {
     (vmId
       ? `It also left the CVM ${vmId}, which you should delete (vmm-cli.py stop ${vmId} then vmm-cli.py remove ${vmId}).`
       : `CreateVm may have left a CVM too — check vmm-cli.py list.`);
-
-  const encryptedEnv =
-    envVars.length > 0 ? await encryptEnvVars(envVars, envPubKey) : "";
-  console.log(
-    `Encrypted ${envVars.length} environment variable(s) to the KMS key for this app`,
-  );
 
   const params = {
     name: cfg.app_name,
@@ -226,10 +222,6 @@ export async function deployToDstack(deployment) {
   if (vm.boot_error) {
     failLeaving(`the CVM failed to boot: ${vm.boot_error}`);
   }
-  if (vm.boot_progress) {
-    console.log(chalk.gray(`Boot progress: ${vm.boot_progress}`));
-  }
-
   const appUrls = appPorts.map(
     (port) => `https://${appId}-${port}.${cfg.gateway_domain}`,
   );

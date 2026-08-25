@@ -237,7 +237,7 @@ describe("deploy command orchestration", () => {
     expect(approvePpids).toHaveBeenCalledOnce();
   });
 
-  // Phala deploy is gated on TEE env AND deploy_to_phala.enabled.
+  // Phala deploy is gated on TEE env AND tee_config.deploy.enabled with the phala target.
   it("calls deployPhalaWorkflow when tee_config.deploy is enabled with the phala target", async () => {
     vi.mocked(getConfig).mockResolvedValue(
       baseConfig({

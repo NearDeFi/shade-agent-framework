@@ -450,6 +450,11 @@ describe("getAppPorts", () => {
     ).toEqual(["8080"]);
   });
 
+  // No published port means an ephemeral host port with no routable value.
+  it("skips a long mapping with no published port", () => {
+    expect(getAppPorts(write("    ports:\n      - target: 3000\n"))).toEqual([]);
+  });
+
   it("returns every published port across all services, de-duplicated", () => {
     const p = path.join(tmpDir, "docker-compose.yaml");
     fs.writeFileSync(
