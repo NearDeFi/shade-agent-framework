@@ -197,7 +197,7 @@ Enabling both targets is an error.
 |-----|----------|-------------|
 | **enabled** | No | If `false`, nothing is deployed. |
 | **app_name** | Yes if enabled | The name the CVM is given on dashboards. Not measured — the app compose always carries an empty name, so renaming does not change your measurements. |
-| **env_file_path** | Yes if enabled | Path to the environment variables file (e.g. `./.env`) used in deployment. Only the variable *names* are measured, and they come from the `${VAR}` references in your docker-compose, so changing this file path does not affect the measurements. |
+| **env_file_path** | Yes if enabled | Path to the environment variables file (e.g. `./.env`) used in deployment. Your docker-compose decides which variables are sent: only the names it references as `${VAR}` are passed to the CVM, and a compose that references none sends nothing. Those names are the only measured part, so changing this file path does not affect the measurements. |
 
 #### tee_config.phala
 

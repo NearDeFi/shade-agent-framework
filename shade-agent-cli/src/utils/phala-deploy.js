@@ -51,7 +51,7 @@ function removeUndefined(obj) {
  * @param {string} docker_compose_yml - Raw docker-compose YAML string
  * @param {Array<{ key: string, value: string }>} env_vars - Environment variables to inject
  * @param {object} args - Parsed CLI-style args, e.g. from arg(spec): --name, --instance-type, --disk-size, --region, --os-image, --kms, --private-key, --rpc-url, --env, --uuid
- * @param {string[]} [allowedEnvKeys] - Ordered env key names from docker-compose (used for allowed_envs in compose object to match measurement hash ordering). Falls back to env_vars key order if not provided.
+ * @param {string[]} allowedEnvKeys - Ordered env key names from docker-compose (used for allowed_envs in compose object to match measurement hash ordering).
  * @param {{ publicLogs: boolean, publicSysinfo: boolean }} appComposeOptions - Toggles for public_logs and public_sysinfo (both required to keep compose_hash deterministic)
  */
 async function deploy_new_cvm(client, docker_compose_yml, env_vars, args, allowedEnvKeys, appComposeOptions) {
@@ -90,13 +90,10 @@ async function deploy_new_cvm(client, docker_compose_yml, env_vars, args, allowe
   // Use the same app compose structure as measurements.js so Phala's compose_hash
   // matches the hash used for agent contract approved measurements.
   //
-  const allowed_envs = Array.isArray(allowedEnvKeys) && allowedEnvKeys.length > 0
-    ? allowedEnvKeys
-    : env_vars.map((e) => e.key);
   const { appCompose: compose_file, composeHash: localComposeHash } =
     prepareAppComposeFromParts(
       docker_compose_yml,
-      allowed_envs,
+      allowedEnvKeys,
       appComposeOptions,
     );
 
@@ -218,7 +215,7 @@ async function deploy_new_cvm(client, docker_compose_yml, env_vars, args, allowe
  * @param {string} options.apiKey - Phala Cloud API key
  * @param {string} options.composePath - Path to docker-compose file
  * @param {string} [options.envFilePath] - Path to .env file (optional)
- * @param {string[]} [options.allowedEnvKeys] - Env keys to pass (optional; if omitted, all keys from env file are used)
+ * @param {string[]} options.allowedEnvKeys - Env keys the docker-compose references; nothing outside this list is sent
  * @param {string} options.dstackVersion - dstack OS image version (e.g. "0.5.8")
  * @param {string} options.instanceType - Hardware instance type (e.g. "tdx.small")
  * @param {boolean} options.publicLogs - AppCompose public_logs flag
@@ -231,7 +228,7 @@ async function deployToPhala(options) {
     apiKey,
     composePath,
     envFilePath,
-    allowedEnvKeys = null,
+    allowedEnvKeys = [],
     dstackVersion,
     instanceType,
     publicLogs,

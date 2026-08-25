@@ -6,7 +6,8 @@
  * boots and then dies, so they are checked locally instead.
  *
  * Coverage:
- *  - only keys the compose allows are sent, in file order.
+ *  - only keys the compose allows are sent, in file order; an empty allow list
+ *    sends nothing.
  *  - a missing file is tolerated by default and fatal with requireFile.
  *  - the guest's limits: >1024 vars, >1 MB total, >128 KB value, >255-char key,
  *    and keys failing ^[a-zA-Z_][a-zA-Z0-9_]*$ all fail locally.
@@ -52,9 +53,11 @@ describe("loadEnvVarsForDeploy", () => {
     ]);
   });
 
-  it("keeps everything when no allow list is given", () => {
+  // A docker-compose with no ${VAR} references allows nothing, so the env file
+  // must not widen it: the guest would drop these anyway.
+  it("sends nothing when the compose allows nothing", () => {
     write("A=1\nB=2\n");
-    expect(loadEnvVarsForDeploy(envPath, null)).toHaveLength(2);
+    expect(loadEnvVarsForDeploy(envPath, [])).toEqual([]);
   });
 
   it("returns [] for a missing file by default", () => {

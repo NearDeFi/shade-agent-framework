@@ -55,10 +55,10 @@ export function validateGuestEnvLimits(envVars, envFilePath) {
 
 /**
  * Read an env file and keep only the keys the app compose allows, in the order
- * the file lists them.
+ * the file lists them. An empty allow list sends nothing.
  *
  * @param {string | undefined} envFilePath
- * @param {string[] | null} allowedEnvKeys
+ * @param {string[]} allowedEnvKeys - the ${VAR} names from docker-compose
  * @param {{ requireFile?: boolean }} [options] - hard fail when the file is missing
  * @returns {Array<{ key: string, value: string }>}
  */
@@ -76,10 +76,9 @@ export function loadEnvVarsForDeploy(envFilePath, allowedEnvKeys, { requireFile 
     return [];
   }
 
-  let envVars = parseEnvVars(fs.readFileSync(resolved, "utf8"));
-  if (Array.isArray(allowedEnvKeys) && allowedEnvKeys.length > 0) {
-    envVars = envVars.filter((e) => allowedEnvKeys.includes(e.key));
-  }
+  const envVars = parseEnvVars(fs.readFileSync(resolved, "utf8")).filter((e) =>
+    allowedEnvKeys.includes(e.key),
+  );
   validateGuestEnvLimits(envVars, resolved);
   return envVars;
 }
