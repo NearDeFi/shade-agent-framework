@@ -160,6 +160,14 @@ export async function deployToDstack(deployment) {
       : `App already allowlisted in ${AUTH_CONFIG_PATH}`,
   );
 
+  // The allowlist entry is written before the CVM exists, so from here on every
+  // failure leaves server state that nothing prunes.
+  const leftBehind = (vmId) =>
+    `This left an entry for app ${appId} in ${AUTH_CONFIG_PATH} on ${sshHost}. ` +
+    (vmId
+      ? `It also left the CVM ${vmId}, which you should delete (vmm-cli.py stop ${vmId} then vmm-cli.py remove ${vmId}).`
+      : `CreateVm may have left a CVM too — check vmm-cli.py list.`);
+
   const encryptedEnv =
     envVars.length > 0 ? await encryptEnvVars(envVars, envPubKey) : "";
   console.log(
@@ -187,29 +195,36 @@ export async function deployToDstack(deployment) {
   const created = vmmRpc(sshHost, "CreateVm", params);
   const vmId = created?.id;
   if (!vmId) {
-    fail(`CreateVm on ${VMM_URL} returned no VM id`, JSON.stringify(created));
+    fail(
+      `CreateVm on ${VMM_URL} returned no VM id`,
+      `${JSON.stringify(created)}\n${leftBehind(null)}`,
+    );
   }
   console.log(`Created CVM ${vmId}`);
 
+  const failLeaving = (message) => fail(message, leftBehind(vmId));
+
   const info = vmmRpc(sshHost, "GetInfo", { id: vmId });
   if (!info?.found || !info.info) {
-    fail(`the VMM does not report a CVM with id ${vmId} after creating it`);
+    failLeaving(
+      `the VMM does not report a CVM with id ${vmId} after creating it`,
+    );
   }
   const vm = info.info;
   if (vm.app_id !== appId) {
-    fail(
+    failLeaving(
       `the CVM was created with app id ${vm.app_id}, but ${appId} is the one allowlisted and approved`,
     );
   }
   const provisionedVcpu = vm.configuration?.vcpu;
   const provisionedMemory = vm.configuration?.memory;
   if (provisionedVcpu !== shape.vcpu || provisionedMemory !== shape.memoryMb) {
-    fail(
-      `the CVM was provisioned with ${provisionedVcpu} vcpu / ${provisionedMemory} MB, but the approved measurements for ${target.instance_type} are for ${shape.vcpu} vcpu / ${shape.memoryMb} MB`,
+    failLeaving(
+      `the CVM was provisioned with ${provisionedVcpu} vcpu / ${provisionedMemory} MB, but ${target.instance_type} is expected to deploy ${shape.vcpu} vcpu / ${shape.memoryMb} MB`,
     );
   }
   if (vm.boot_error) {
-    fail(`the CVM failed to boot: ${vm.boot_error}`);
+    failLeaving(`the CVM failed to boot: ${vm.boot_error}`);
   }
   if (vm.boot_progress) {
     console.log(chalk.gray(`Boot progress: ${vm.boot_progress}`));
