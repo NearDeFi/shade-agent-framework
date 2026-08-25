@@ -81,8 +81,8 @@ tee_config:
   # If true metrics are public
   public_sysinfo: true
 
-  # Deploy the agent. If disabled the measurements and PPIDs are still
-  # computed and approved, but nothing is deployed
+  # Deploy the agent. If disabled, the PPIDs are still computed
+  # and approved, but nothing is deployed
   deploy:
     enabled: false
     app_name: my-first-agent

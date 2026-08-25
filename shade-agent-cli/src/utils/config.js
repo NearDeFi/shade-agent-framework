@@ -310,20 +310,21 @@ export function parseDeploymentConfig(deploymentPath) {
     !!tee_config?.server && tee_config.server.enabled !== false;
   const deployEnabled = !!tee_config?.deploy && tee_config.deploy.enabled !== false;
 
-  // The measurement fields are only needed when <MEASUREMENTS> is in the args.
-  const needsMeasurementFields =
+  const usesMeasurementsPlaceholder =
     environment === "TEE" &&
     approve_measurements &&
     approve_measurements.enabled !== false &&
     hasPlaceholder(approve_measurements.args, "<MEASUREMENTS>");
-  // <PPIDS> needs the target too, since the PPID source differs per backend.
-  const needsPpidTarget =
+  const usesPpidsPlaceholder =
     environment === "TEE" &&
     approve_ppids &&
     approve_ppids.enabled !== false &&
     hasPlaceholder(approve_ppids.args, "<PPIDS>");
-  const needsTeeConfig =
-    deployEnabled || needsMeasurementFields || needsPpidTarget;
+  // The measurement inputs are read whenever measurements are computed — a
+  // deploy or a <MEASUREMENTS> placeholder. <PPIDS> resolves from the target
+  // alone, so it needs none of them.
+  const needsMeasurementInputs =
+    environment === "TEE" && (deployEnabled || usesMeasurementsPlaceholder);
 
   // Two targets are never both right, whatever else is going on.
   if (tee_config) {
@@ -336,10 +337,10 @@ export function parseDeploymentConfig(deploymentPath) {
   // A target is only needed when something depends on which TEE this is: the
   // <MEASUREMENTS> / <PPIDS> placeholders resolve differently per target, and a
   // deploy has to know where to go. Literal values in the args need no target.
-  if (needsMeasurementFields || needsPpidTarget) {
+  if (usesMeasurementsPlaceholder || usesPpidsPlaceholder) {
     requireField(
       !!tee_config,
-      "tee_config is required to resolve <MEASUREMENTS> / <PPIDS> (needs dstack_version, instance_type, public_logs, public_sysinfo, and a phala or server target)",
+      "tee_config is required to resolve <MEASUREMENTS> / <PPIDS> (needs a phala or server target)",
     );
     requireField(
       phalaSelected || serverSelected,
@@ -355,9 +356,9 @@ export function parseDeploymentConfig(deploymentPath) {
 
   const teeBackend = serverSelected ? "server" : phalaSelected ? "phala" : null;
 
-  // public_logs / public_sysinfo feed the compose hash, so they are needed
-  // whenever measurements are computed, not only when deploying.
-  if (needsTeeConfig) {
+  // public_logs / public_sysinfo feed the compose hash; dstack_version /
+  // instance_type feed the OS and hardware measurements.
+  if (needsMeasurementInputs) {
     requireField(
       typeof tee_config?.public_logs === "boolean",
       "tee_config.public_logs is required and must be a boolean (true or false)",
@@ -366,10 +367,7 @@ export function parseDeploymentConfig(deploymentPath) {
       typeof tee_config?.public_sysinfo === "boolean",
       "tee_config.public_sysinfo is required and must be a boolean (true or false)",
     );
-  }
 
-  // dstack_version / instance_type are TEE-specific (compose hash + measurement).
-  if (needsTeeConfig && environment === "TEE") {
     const supportedVersions = Object.keys(hardwareAndOSMeasurements);
     requireField(
       typeof tee_config?.dstack_version === "string" &&

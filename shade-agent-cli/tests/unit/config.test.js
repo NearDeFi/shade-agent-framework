@@ -1121,6 +1121,24 @@ describe("parseDeploymentConfig", () => {
         expect(config.tee_config.backend).toBeNull();
       });
 
+      it("exits 1 when <PPIDS> needs a target and none is enabled", () => {
+        expectExit(
+          validYaml({
+            tee_config: deepMerge(serverTarget, {
+              deploy: { enabled: false },
+              phala: { enabled: false },
+              server: { enabled: false },
+            }),
+            approve_ppids: {
+              enabled: true,
+              method_name: "approve_ppids",
+              args: '{\n  "ppids": <PPIDS>\n}\n',
+            },
+          }),
+          "to resolve <MEASUREMENTS> / <PPIDS>",
+        );
+      });
+
       it("exits 1 when tee_config is missing entirely but measurements need it", () => {
         expectExit(
           validYaml({
@@ -1308,6 +1326,43 @@ describe("parseDeploymentConfig", () => {
         const config = parse(teeYaml({ public_logs: false, public_sysinfo: false }));
         expect(config.tee_config.public_logs).toBe(false);
         expect(config.tee_config.public_sysinfo).toBe(false);
+      });
+
+      // <PPIDS> resolves from the target alone, so a PPIDs-only run reads none
+      // of the measurement inputs and must not be asked for them.
+      it("requires none of them for a <PPIDS>-only run", () => {
+        const config = parse(
+          validYaml({
+            tee_config: {
+              dstack_version: undefined,
+              instance_type: undefined,
+              public_logs: undefined,
+              public_sysinfo: undefined,
+              deploy: { enabled: false },
+              phala: { enabled: true },
+            },
+            approve_ppids: {
+              enabled: true,
+              method_name: "approve_ppids",
+              args: '{\n  "ppids": <PPIDS>\n}\n',
+            },
+          }),
+        );
+        expect(exitSpy).not.toHaveBeenCalled();
+        expect(config.tee_config.backend).toBe("phala");
+        expect(config.tee_config.dstack_version).toBeUndefined();
+      });
+
+      // Local mode computes nothing from them, whatever tee_config carries.
+      it("requires none of them in local mode", () => {
+        const config = parse(
+          validYaml({
+            environment: "local",
+            tee_config: { public_logs: undefined, public_sysinfo: undefined },
+          }),
+        );
+        expect(exitSpy).not.toHaveBeenCalled();
+        expect(config.tee_config.public_logs).toBeUndefined();
       });
     });
 
