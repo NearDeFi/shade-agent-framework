@@ -1,9 +1,6 @@
 import crypto from "crypto";
 import chalk from "chalk";
-import {
-  verifyEnvEncryptPublicKey,
-  verifyEnvEncryptPublicKeyLegacy,
-} from "@phala/dstack-sdk";
+import { verifyEnvEncryptPublicKey } from "@phala/dstack-sdk";
 import { kmsRpc, KMS_URL } from "./dstack-transport.js";
 
 // dstack's runtime event type, extended into RTMR3 for the key-provider event
@@ -134,6 +131,11 @@ export function getPpidFromKmsQuote(sshHost) {
  * The app's env encryption public key, with the KMS signature over it verified
  * *and* the recovered signer pinned to the KMS's own k256 public key. Recovery
  * alone proves nothing — any well-formed signature recovers some key.
+ *
+ * Only the timestamped signature_v1 is accepted. The KMS signs both it and the
+ * legacy signature on every response (kms/src/main_service.rs), so a fallback
+ * could only ever run when signature_v1 failed to verify — and the legacy
+ * message carries no timestamp to replay-check.
  */
 export function getAppEnvEncryptPubKey(sshHost, appId) {
   const meta = getMeta(sshHost);
@@ -148,22 +150,18 @@ export function getAppEnvEncryptPubKey(sshHost, appId) {
   }
   const publicKey = Uint8Array.from(Buffer.from(response.public_key, "hex"));
 
-  let signer = null;
-  if (response.signature_v1 && response.timestamp !== undefined) {
-    signer = verifyEnvEncryptPublicKey(
-      publicKey,
-      Uint8Array.from(Buffer.from(response.signature_v1, "hex")),
-      appId,
-      response.timestamp,
+  if (!response.signature_v1 || response.timestamp === undefined) {
+    fail(
+      `KMS.GetAppEnvEncryptPubKey returned no timestamped signature for app ${appId}; ` +
+        `the KMS is too old to protect against replay`,
     );
   }
-  if (!signer && response.signature) {
-    signer = verifyEnvEncryptPublicKeyLegacy(
-      publicKey,
-      Uint8Array.from(Buffer.from(response.signature, "hex")),
-      appId,
-    );
-  }
+  const signer = verifyEnvEncryptPublicKey(
+    publicKey,
+    Uint8Array.from(Buffer.from(response.signature_v1, "hex")),
+    appId,
+    response.timestamp,
+  );
 
   if (!signer) {
     fail(

@@ -19,6 +19,8 @@
  *    accepted; attacker key, cross-app-id, pubkey substitution, stale, future,
  *    lying timestamp, 64-byte signature, missing signature, and a KMS with no
  *    k256_pubkey are all rejected.
+ *  - only the timestamped signature_v1 is accepted: a legacy-only response is
+ *    refused, and a valid legacy signature does not rescue a stale v1.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import crypto from "crypto";
@@ -356,9 +358,9 @@ describe("getAppEnvEncryptPubKey signer pinning", () => {
     expect(() => getAppEnvEncryptPubKey("tdx", appId)).toThrow("exit:1");
   });
 
-  // signature_v1 is preferred, but a KMS old enough to only send the legacy
-  // signature still has to clear the same pin.
-  it("falls back to the legacy signature and still pins the signer", () => {
+  // The legacy signature has no timestamp, so accepting it would undo the
+  // replay checks above. A KMS that only sends it is refused outright.
+  it("refuses a response carrying only the legacy signature", () => {
     const legacyHash = keccak_256(
       concat(
         Buffer.from("dstack-env-encrypt-pubkey"),
@@ -371,10 +373,14 @@ describe("getAppEnvEncryptPubKey signer pinning", () => {
       public_key: envPubKey,
       signature: signRecoverable(kmsKey.privateKey, legacyHash),
     });
-    expect(getAppEnvEncryptPubKey("tdx", appId)).toBe(envPubKey);
+    const logSpy = vi.spyOn(console, "log");
+    expect(() => getAppEnvEncryptPubKey("tdx", appId)).toThrow("exit:1");
+    expect(logSpy.mock.calls.flat().join(" ")).toMatch(/too old/);
   });
 
-  it("rejects a legacy signature from an attacker's key", () => {
+  // A stale signature_v1 must not be rescued by a valid legacy one.
+  it("does not fall back to the legacy signature when signature_v1 is stale", () => {
+    const stale = now - 4000;
     const legacyHash = keccak_256(
       concat(
         Buffer.from("dstack-env-encrypt-pubkey"),
@@ -385,7 +391,9 @@ describe("getAppEnvEncryptPubKey signer pinning", () => {
     );
     respond(meta(), {
       public_key: envPubKey,
-      signature: signRecoverable(attacker.privateKey, legacyHash),
+      timestamp: stale,
+      signature_v1: signed(kmsKey, { timestamp: stale }),
+      signature: signRecoverable(kmsKey.privateKey, legacyHash),
     });
     expect(() => getAppEnvEncryptPubKey("tdx", appId)).toThrow("exit:1");
   });
