@@ -16,12 +16,20 @@
  *  - The prelaunch script is read from disk at module load — that file is
  *    real (committed in this repo), so we don't need to mock it here.
  *  - fs.readFileSync is spied per-test for the docker-compose content.
+ *  - dstack-kms is mocked, so the self-hosted digest lookup is observable
+ *    without a server.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import fs from "fs";
 import crypto from "crypto";
 import path from "path";
 import os from "os";
+
+const getKeyProviderEventDigest = vi.fn(() => "cd".repeat(48));
+vi.mock("../../src/utils/dstack-kms.js", () => ({
+  getKeyProviderEventDigest: (...args) => getKeyProviderEventDigest(...args),
+}));
+
 import {
   hashAppCompose,
   buildAppComposeForDeploy,
@@ -296,6 +304,7 @@ describe("prepareAppCompose", () => {
 
 describe("key_provider_event_digest", () => {
   beforeEach(() => {
+    getKeyProviderEventDigest.mockClear();
     vi.spyOn(console, "log").mockImplementation(() => {});
     vi.spyOn(process, "exit").mockImplementation((code) => {
       throw new Error(`exit:${code}`);
@@ -305,17 +314,24 @@ describe("key_provider_event_digest", () => {
 
   const composeContent = "services:\n  app:\n    image: x";
 
-  // Regression guard: the Phala path must stay byte-identical now that the
-  // digest is threadable.
-  it("defaults to Phala's constant when none is passed", () => {
+  const tee = (backend) => ({
+    environment: "TEE",
+    docker_compose_path: "/fake/path",
+    tee_config: {
+      backend,
+      dstack_version: "0.5.8",
+      instance_type: "tdx.small",
+      public_logs: true,
+      public_sysinfo: true,
+      server: { ssh_host: "tdx" },
+    },
+  });
+
+  // Regression guard: the Phala path must stay byte-identical, and Phala's
+  // digest is a pinned constant, so it must not reach for a server.
+  it("uses Phala's constant for the phala backend, without an SSH call", () => {
     const spy = vi.spyOn(fs, "readFileSync").mockReturnValue(composeContent);
-    const measurements = getMeasurements(
-      true,
-      "/fake/path",
-      "0.5.8",
-      "tdx.small",
-      { publicLogs: true, publicSysinfo: true },
-    );
+    const measurements = getMeasurements(tee("phala"));
     spy.mockRestore();
     expect(measurements.key_provider_event_digest).toBe(
       PHALA_KEY_PROVIDER_EVENT_DIGEST,
@@ -323,33 +339,31 @@ describe("key_provider_event_digest", () => {
     expect(measurements.rtmrs.rtmr0).toBe(
       "68102e7b524af310f7b7d426ce75481e36c40f5d513a9009c046e9d37e31551f0134d954b496a3357fd61d03f07ffe96",
     );
+    expect(getKeyProviderEventDigest).not.toHaveBeenCalled();
   });
 
   // A self-hosted server has its own KMS, so the digest is per-operator.
-  it("uses the supplied digest when one is passed", () => {
+  it("reads the digest off the server's KMS for the server backend", () => {
     const spy = vi.spyOn(fs, "readFileSync").mockReturnValue(composeContent);
-    const digest = "ab".repeat(48);
-    const measurements = getMeasurements(
-      true,
-      "/fake/path",
-      "0.5.8",
-      "tdx.small",
-      {
-        publicLogs: true,
-        publicSysinfo: true,
-        keyProviderEventDigest: digest,
-      },
-    );
+    const measurements = getMeasurements(tee("server"));
     spy.mockRestore();
-    expect(measurements.key_provider_event_digest).toBe(digest);
+    expect(measurements.key_provider_event_digest).toBe("cd".repeat(48));
+    expect(getKeyProviderEventDigest).toHaveBeenCalledWith("tdx");
   });
 
-  // Local mode is all zeros regardless.
-  it("ignores the digest in local mode", () => {
-    const measurements = getMeasurements(false, undefined, undefined, undefined, {
-      keyProviderEventDigest: "ab".repeat(48),
-    });
+  // Local mode is all zeros, and has no KMS to ask.
+  it("returns zeros in local mode without an SSH call", () => {
+    const measurements = getMeasurements({ environment: "LOCAL" });
     expect(measurements.key_provider_event_digest).toBe("0".repeat(96));
+    expect(getKeyProviderEventDigest).not.toHaveBeenCalled();
+  });
+
+  // A bad deployment.yaml must fail before anything waits on the server.
+  it("rejects a missing instance_type before touching the KMS", () => {
+    const deployment = tee("server");
+    delete deployment.tee_config.instance_type;
+    expect(() => getMeasurements(deployment)).toThrow("exit:1");
+    expect(getKeyProviderEventDigest).not.toHaveBeenCalled();
   });
 });
 

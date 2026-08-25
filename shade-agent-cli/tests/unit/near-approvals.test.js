@@ -9,7 +9,7 @@
  * server to be up.
  *
  * Coverage:
- *  - <MEASUREMENTS> absent  → getMeasurements and getKeyProviderEventDigest not called
+ *  - <MEASUREMENTS> absent  → getMeasurements not called, so no KMS lookup
  *  - <MEASUREMENTS> present → both called, value substituted
  *  - <PPIDS> absent         → getPpids not called
  *  - <PPIDS> present        → called, value substituted
@@ -19,7 +19,6 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const getMeasurements = vi.fn(() => ({ rtmrs: {}, mock: true }));
 const getPpids = vi.fn(async () => ["deadbeef"]);
-const getKeyProviderEventDigest = vi.fn(() => "ab".repeat(48));
 const callFunctionRaw = vi.fn(async () => ({}));
 
 vi.mock("../../src/utils/measurements.js", () => ({
@@ -27,9 +26,6 @@ vi.mock("../../src/utils/measurements.js", () => ({
 }));
 vi.mock("../../src/utils/ppids.js", () => ({
   getPpids: (...a) => getPpids(...a),
-}));
-vi.mock("../../src/utils/dstack-kms.js", () => ({
-  getKeyProviderEventDigest: (...a) => getKeyProviderEventDigest(...a),
 }));
 vi.mock("../../src/utils/transaction-outcome.js", () => ({
   checkTransactionOutcome: () => true,
@@ -75,7 +71,6 @@ describe("approveMeasurements placeholder guard", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     getMeasurements.mockReturnValue({ rtmrs: {}, mock: true });
-    getKeyProviderEventDigest.mockReturnValue("ab".repeat(48));
     vi.spyOn(console, "log").mockImplementation(() => {});
   });
   afterEach(() => vi.restoreAllMocks());
@@ -91,7 +86,6 @@ describe("approveMeasurements placeholder guard", () => {
       },
     });
     await approveMeasurements();
-    expect(getKeyProviderEventDigest).not.toHaveBeenCalled();
     expect(getMeasurements).not.toHaveBeenCalled();
     expect(sentArgs()).toEqual({ measurements: { rtmrs: { mrtd: "aa" } } });
   });
@@ -105,7 +99,6 @@ describe("approveMeasurements placeholder guard", () => {
       },
     });
     await approveMeasurements();
-    expect(getKeyProviderEventDigest).toHaveBeenCalledWith("tdx");
     expect(getMeasurements).toHaveBeenCalled();
     expect(sentArgs()).toEqual({ measurements: { rtmrs: {}, mock: true } });
   });

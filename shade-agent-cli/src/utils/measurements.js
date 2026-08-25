@@ -4,6 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import chalk from "chalk";
 import { parse } from "yaml";
+import { getKeyProviderEventDigest } from "./dstack-kms.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -20,25 +21,31 @@ try {
   process.exit(1);
 }
 
-export function getMeasurements(
-  isTee,
-  dockerComposePath,
-  dstackVersion,
-  instanceType,
-  { publicLogs, publicSysinfo, keyProviderEventDigest } = {},
-) {
-  if (!isTee) {
+/**
+ * The measurements to approve for a deployment. Local mode gets zeros; a
+ * self-hosted dstack server has its own key provider, whose digest is computed
+ * from its KMS; Phala Cloud's is a pinned constant.
+ *
+ * @param {object} deployment - Parsed deployment.yaml
+ */
+export function getMeasurements(deployment) {
+  if (deployment?.environment !== "TEE") {
     return localMeasurements;
   }
 
+  const dockerComposePath = deployment.docker_compose_path;
+  const teeConfig = deployment.tee_config;
+
   if (!dockerComposePath) {
     console.log(
-      chalk.red("Error: dockerComposePath is required when isTee is true"),
+      chalk.red(
+        "Error: docker_compose_path is required to calculate TEE measurements",
+      ),
     );
     process.exit(1);
   }
 
-  if (!dstackVersion || !instanceType) {
+  if (!teeConfig?.dstack_version || !teeConfig?.instance_type) {
     console.log(
       chalk.red(
         "Error: dstack_version and instance_type (from tee_config) are required to calculate TEE measurements",
@@ -47,7 +54,10 @@ export function getMeasurements(
     process.exit(1);
   }
 
-  if (typeof publicLogs !== "boolean" || typeof publicSysinfo !== "boolean") {
+  if (
+    typeof teeConfig.public_logs !== "boolean" ||
+    typeof teeConfig.public_sysinfo !== "boolean"
+  ) {
     console.log(
       chalk.red(
         "Error: public_logs and public_sysinfo (from tee_config) are required to calculate TEE measurements",
@@ -56,11 +66,18 @@ export function getMeasurements(
     process.exit(1);
   }
 
+  // Only a self-hosted target needs the server, and only after the config is
+  // known good, so a bad deployment.yaml never waits on an SSH round trip.
   return createTeeMeasurements(
-    calculateAppComposeHash(dockerComposePath, { publicLogs, publicSysinfo }),
-    dstackVersion,
-    instanceType,
-    keyProviderEventDigest,
+    calculateAppComposeHash(dockerComposePath, {
+      publicLogs: teeConfig.public_logs,
+      publicSysinfo: teeConfig.public_sysinfo,
+    }),
+    teeConfig.dstack_version,
+    teeConfig.instance_type,
+    teeConfig.backend === "server"
+      ? getKeyProviderEventDigest(teeConfig.server.ssh_host)
+      : PHALA_KEY_PROVIDER_EVENT_DIGEST,
   );
 }
 
@@ -94,8 +111,7 @@ function createTeeMeasurements(
 
   return {
     rtmrs: hwMeasurements.rtmrs,
-    key_provider_event_digest:
-      keyProviderEventDigest || PHALA_KEY_PROVIDER_EVENT_DIGEST,
+    key_provider_event_digest: keyProviderEventDigest,
     app_compose_hash_payload: appComposeHash,
   };
 }

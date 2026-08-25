@@ -9,7 +9,6 @@ import { replacePlaceholders, hasPlaceholder } from "../../utils/placeholders.js
 import { createCommandErrorHandler } from "../../utils/error-handler.js";
 import { getMeasurements } from "../../utils/measurements.js";
 import { getPpids } from "../../utils/ppids.js";
-import { getKeyProviderEventDigest } from "../../utils/dstack-kms.js";
 import { getInstanceShape } from "../../utils/dstack-deploy.js";
 import { AUTH_CONFIG_PATH } from "../../utils/dstack-transport.js";
 
@@ -300,23 +299,7 @@ export function planCommand() {
           lines.forEach((line) => console.log("  " + line));
         } else if (argsHasMeasurements) {
           const replacements = {};
-          const measurements = getMeasurements(
-            deployment.environment === "TEE",
-            deployment.docker_compose_path,
-            deployment.tee_config?.dstack_version,
-            deployment.tee_config?.instance_type,
-            {
-              publicLogs: deployment.tee_config?.public_logs,
-              publicSysinfo: deployment.tee_config?.public_sysinfo,
-              keyProviderEventDigest:
-                deployment.environment === "TEE" &&
-                deployment.tee_config?.backend === "server"
-                  ? getKeyProviderEventDigest(
-                      deployment.tee_config.server.ssh_host,
-                    )
-                  : undefined,
-            },
-          );
+          const measurements = getMeasurements(deployment);
           replacements["<MEASUREMENTS>"] = measurements;
           const args = replacePlaceholders(approveCfg.args, replacements);
           const jsonLines = formatArgs(args).split("\n");

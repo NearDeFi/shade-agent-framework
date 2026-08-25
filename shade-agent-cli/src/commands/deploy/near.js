@@ -11,7 +11,6 @@ import { checkTransactionOutcome } from "../../utils/transaction-outcome.js";
 import { dockerExec, runWithSudoOnLinux } from "../../utils/docker-utils.js";
 import { getMeasurements } from "../../utils/measurements.js";
 import { getPpids } from "../../utils/ppids.js";
-import { getKeyProviderEventDigest } from "../../utils/dstack-kms.js";
 import { wipeContractState } from "../../utils/state-cleanup.js";
 
 // Sleep for the specified number of milliseconds for nonce problems
@@ -387,28 +386,8 @@ export async function approveMeasurements() {
     // it when the placeholder is actually there.
     const replacements = {};
     if (hasPlaceholder(approveCfg.args, "<MEASUREMENTS>")) {
-      const teeTarget = config.deployment.tee_config;
-      // A self-hosted server has its own KMS, so the key-provider digest is
-      // computed from it rather than pinned to Phala's.
-      const keyProviderEventDigest =
-        config.deployment.environment === "TEE" &&
-        teeTarget?.backend === "server"
-          ? getKeyProviderEventDigest(
-              config.deployment.tee_config.server.ssh_host,
-            )
-          : undefined;
       // Pass the object directly, replacePlaceholders will handle JSON stringification
-      replacements["<MEASUREMENTS>"] = getMeasurements(
-        config.deployment.environment === "TEE",
-        config.deployment.docker_compose_path,
-        teeTarget?.dstack_version,
-        teeTarget?.instance_type,
-        {
-          publicLogs: teeTarget?.public_logs,
-          publicSysinfo: teeTarget?.public_sysinfo,
-          keyProviderEventDigest,
-        },
-      );
+      replacements["<MEASUREMENTS>"] = getMeasurements(config.deployment);
     }
 
     const args = replacePlaceholders(approveCfg.args, replacements);
