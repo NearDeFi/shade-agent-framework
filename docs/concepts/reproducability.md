@@ -442,7 +442,7 @@ The Key Provider in the Shade Agent Framework is not used in the derivation of t
 - Encrypting disk data
 - Deriving TLS keys
 
-The framework uses Phala's centralized key provider; its event digest has the value `83368b43a0fc6f824f5a9220592df85fd30e2d405ecbd253a5c6354af63e6c9b41aec557c38a38e348ab87f9ac8fc68c`. Any application should use this value for the key provider event digest unless there is a sufficient reason to use a different key provider.
+The framework uses Phala's centralized key provider; its event digest on Phala Cloud has the value `83368b43a0fc6f824f5a9220592df85fd30e2d405ecbd253a5c6354af63e6c9b41aec557c38a38e348ab87f9ac8fc68c`. When deploying to your own server, the same KMS software runs there, set up by the host, and it has a different key provider digest.
 
 ---
 

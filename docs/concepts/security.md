@@ -2,7 +2,7 @@
 
 A note on how to calibrate the considerations below: several are framed against a malicious host that tampers with what the application
 sees (env vars, network, time, disk). TEE confidentiality is not absolute — recent disclosures like TEE.fail have shown that a host with 
-physical access can extract secrets from Intel TDX through hardware side-channel attacks, including an agent's private keys. So defending against a malicious host may not be worth the time depending on your security tolerance. All considerations based on a malicious host are marked **host**.
+physical access can extract secrets from Intel TDX through hardware side-channel attacks, which could include an agent's private keys. So defending against a malicious host may not be worth the time depending on your security tolerance. All considerations based on a malicious host are marked **host**.
 
 ## Restricting Actions
 
@@ -134,15 +134,15 @@ When you do need wall time for a security decision (e.g. "is it 03:00 UTC yet?",
 
 ## Environment Variables
 
-## Relying on Environment Variables 
+### Relying on Environment Variables
 
 Do not let your application's logic be dictated by environment variables in hazardous ways. Environment variable values themselves are not measured, therefore can be changed from instance to instance while passing attestation verification. If an application relied on an RPC URL provided by an environment variable, an operator could provide a malicious RPC URL that produces whatever values they like.
 
-## Host Changing Environment Variables
+### Host Control of Environment Variables
 
 **host**
 
-The host can change environment variables. They cannot change them to specific values since they are encrypted but they can change them to values you did not submit. As such you should sense check your environment variables. For example, does the CONTRACT_ID env end in ".near", does the PRIVATE_KEY env start with "ed25519:"?
+The host must be trusted to submit your environment variables to your CVM correctly and to not leak them. The host can approve any app compose for a given app ID, so it can boot a CVM of its own to read the environment variables you submitted. It can also fetch the encryption key for any app ID, so it can replace your values with any it likes.
 
 ---
 
@@ -183,4 +183,3 @@ Even with TLS, the host can record a valid response and **replay it later**. An 
 **host**
 
 The host can pause, throttle, or refuse to schedule the CVM at any time. Wall time may jump arbitrarily across a pause, signed transactions may never be relayed, and outbound RPC calls may be silently dropped. None of this is detectable from inside the CVM in real time. Design the agent so **denial of execution is safe**, not catastrophic.
-
