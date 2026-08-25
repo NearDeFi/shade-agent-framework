@@ -68,7 +68,7 @@ while (true) {
     console.error("Error:", error);
   }
   console.log("Whitelist the agent account ID");
-  await new Promise((resolve) => setTimeout(resolve, 60000));
+  await new Promise((resolve) => setTimeout(resolve, 10000));
 }
 
 // Re-register every 6 days
