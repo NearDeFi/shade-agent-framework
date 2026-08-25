@@ -297,12 +297,7 @@ export const PHALA_KEY_PROVIDER_EVENT_DIGEST =
 
 // vCPU / memory each Phala instance type is provisioned with. rtmr0 measures
 // both, so a self-hosted CVM has to be created in the shape the row above was
-// measured for. Only tdx.small is documented; the rest follow the doubling and
-// want a `dstack-mr` check before first use.
-//
-// Memory is in MB because that is the unit CreateVm.memory takes on the wire
-// and the unit GetInfo reports back — 2048 here is the "2G" you would hand
-// `vmm-cli deploy --memory`, which converts to MB before sending.
+// measured for.
 export const INSTANCE_TYPE_SHAPES = {
   "tdx.small": { vcpu: 1, memoryMb: 2048 },
   "tdx.medium": { vcpu: 2, memoryMb: 4096 },
