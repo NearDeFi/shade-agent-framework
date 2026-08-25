@@ -14,7 +14,7 @@
  *  - key_provider_event_digest reproduces the value the live box put on chain,
  *    from a committed CA certificate fixture (a public key).
  *  - PPID extraction from the KMS bootstrap attestation fixture, plus the
- *    wrong-length and no-certificate failures.
+ *    no-certificate, disagreeing-certificates and wrong-length failures.
  *  - 10 signature cases with the signer pinned: the honest signature is
  *    accepted; attacker key, cross-app-id, pubkey substitution, stale, future,
  *    lying timestamp, 64-byte signature, missing signature, and a KMS with no
@@ -137,31 +137,66 @@ describe("getKeyProviderEventDigest", () => {
 });
 
 describe("extractPpidFromQuote", () => {
-  it("reads the 16-byte PPID out of the KMS bootstrap attestation", () => {
-    const { ppid, reason } = extractPpidFromQuote(Buffer.from(ATTESTATION_HEX, "hex"));
-    expect(reason).toBeNull();
-    expect(ppid).toBe(EXPECTED_PPID);
-  });
+  const OID = "060a2a864886f84d010d0101";
 
-  it("reports when no certificate carries the SGX extension", () => {
-    const { ppid, reason } = extractPpidFromQuote(Buffer.from("deadbeef", "hex"));
-    expect(ppid).toBeNull();
-    expect(reason).toMatch(/no PCK certificate/);
-  });
-
-  // A different-length value means the wrong extension was read; the contract's
-  // HexBytes<16> would reject it on chain, so catch it here.
-  it("rejects a PPID extension that is not 16 bytes", () => {
-    const oid = "060a2a864886f84d010d0101";
-    const der = Buffer.from(`3010${oid}0402aabb`, "hex");
-    const pem = [
+  // A certificate carrying just the SGX PPID extension. The parser byte-scans
+  // for the OID, so the surrounding SEQUENCE is only there for realism.
+  function certWithPpid(valueHex) {
+    const value = `04${(valueHex.length / 2).toString(16).padStart(2, "0")}${valueHex}`;
+    const inner = `${OID}${value}`;
+    const der = Buffer.from(
+      `30${(inner.length / 2).toString(16).padStart(2, "0")}${inner}`,
+      "hex",
+    );
+    return [
       "-----BEGIN CERTIFICATE-----",
       der.toString("base64"),
       "-----END CERTIFICATE-----",
     ].join("\n");
-    const { ppid, reason } = extractPpidFromQuote(Buffer.from(pem));
-    expect(ppid).toBeNull();
-    expect(reason).toMatch(/2 bytes, expected 16/);
+  }
+
+  let logSpy;
+  beforeEach(() => {
+    logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(process, "exit").mockImplementation((code) => {
+      throw new Error(`exit:${code}`);
+    });
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  // Every failure exits, so the reason only survives in the rendered line.
+  const rendered = () => logSpy.mock.calls.flat().join("\n");
+
+  it("reads the 16-byte PPID out of the KMS bootstrap attestation", () => {
+    expect(extractPpidFromQuote(Buffer.from(ATTESTATION_HEX, "hex"))).toBe(
+      EXPECTED_PPID,
+    );
+  });
+
+  it("exits 1 when no certificate carries the SGX extension", () => {
+    expect(() => extractPpidFromQuote(Buffer.from("deadbeef", "hex"))).toThrow(
+      "exit:1",
+    );
+    expect(rendered()).toMatch(/no PCK certificate/);
+  });
+
+  // A spliced chain must not resolve to whichever PPID was found first — that
+  // value is what gets approved on chain.
+  it("exits 1 when the embedded certificates disagree", () => {
+    const quote = Buffer.from(
+      [certWithPpid("aa".repeat(16)), certWithPpid("bb".repeat(16))].join("\n"),
+    );
+    expect(() => extractPpidFromQuote(quote)).toThrow("exit:1");
+    expect(rendered()).toMatch(/disagree on the PPID/);
+  });
+
+  // A different-length value means the wrong extension was read; the contract's
+  // HexBytes<16> would reject it on chain, so catch it here.
+  it("exits 1 for a PPID extension that is not 16 bytes", () => {
+    expect(() =>
+      extractPpidFromQuote(Buffer.from(certWithPpid("aabb"))),
+    ).toThrow("exit:1");
+    expect(rendered()).toMatch(/2 bytes, expected 16/);
   });
 });
 

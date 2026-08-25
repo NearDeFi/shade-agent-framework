@@ -61,6 +61,13 @@ export function getKeyProviderEventDigest(sshHost) {
   return keyProviderEventDigestFromCaCert(meta.ca_cert);
 }
 
+function failPpid(reason) {
+  fail(
+    `could not read a PPID out of the KMS bootstrap attestation: ${reason}. ` +
+      `Put the PPID directly in approve_ppids.args instead.`,
+  );
+}
+
 /**
  * Read the PPID out of the PCK certificates embedded in a TDX quote. Only the
  * leaf PCK cert carries the SGX extension; the intermediates do not, and every
@@ -89,21 +96,21 @@ export function extractPpidFromQuote(quoteBytes) {
     ppids.add(der.subarray(valueAt + 2, valueAt + 2 + length).toString("hex"));
   }
 
-  if (ppids.size === 0) return { ppid: null, reason: "no PCK certificate with an SGX PPID extension" };
+  if (ppids.size === 0) {
+    failPpid("no PCK certificate with an SGX PPID extension");
+  }
   if (ppids.size > 1) {
-    return {
-      ppid: null,
-      reason: `the embedded PCK certificates disagree on the PPID (${[...ppids].join(", ")})`,
-    };
+    failPpid(
+      `the embedded PCK certificates disagree on the PPID (${[...ppids].join(", ")})`,
+    );
   }
   const ppid = [...ppids][0];
   if (ppid.length !== PPID_LENGTH * 2) {
-    return {
-      ppid: null,
-      reason: `the PPID extension held ${ppid.length / 2} bytes, expected ${PPID_LENGTH}`,
-    };
+    failPpid(
+      `the PPID extension held ${ppid.length / 2} bytes, expected ${PPID_LENGTH}`,
+    );
   }
-  return { ppid, reason: null };
+  return ppid;
 }
 
 /**
@@ -120,14 +127,7 @@ export function getPpidFromKmsQuote(sshHost) {
         `Put the PPID directly in approve_ppids.args instead.`,
     );
   }
-  const { ppid, reason } = extractPpidFromQuote(Buffer.from(attestation, "hex"));
-  if (!ppid) {
-    fail(
-      `could not read a PPID out of the KMS bootstrap attestation: ${reason}. ` +
-        `Put the PPID directly in approve_ppids.args instead.`,
-    );
-  }
-  return ppid;
+  return extractPpidFromQuote(Buffer.from(attestation, "hex"));
 }
 
 /**
