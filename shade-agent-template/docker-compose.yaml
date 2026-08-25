@@ -5,7 +5,7 @@ services:
       SPONSOR_ACCOUNT_ID: ${SPONSOR_ACCOUNT_ID}
       SPONSOR_PRIVATE_KEY: ${SPONSOR_PRIVATE_KEY}
     platform: linux/amd64
-    image: pivortex/my-test-agent@sha256:d4e445ab9258038e5fa9cf2a751ae2aaf7aca0997729376b935532f9b4857bd3
+    image: pivortex/my-first-agent@sha256:21fc5184342ea6932c4538115cf6a34cd51db679d9b70b3ead5cba54141b0047
     container_name: shade-agent-app
     ports:
       - 3000:3000
