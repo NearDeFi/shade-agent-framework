@@ -393,15 +393,15 @@ describe("dstack deploy", () => {
     expect(vmmRpc.mock.calls.some((c) => c[1] === "CreateVm")).toBe(false);
   });
 
-  it("bails before touching the server when the compose publishes no port", async () => {
+  it("deploys with no app URL when the compose publishes no port", async () => {
     mockVmm();
     fs.writeFileSync(
       composePath,
       COMPOSE_YAML.replace(/    ports:\n      - 3000:3000\n/, ""),
     );
-    await expect(deployToDstack(deployment())).rejects.toThrow("exit:1");
-    expect(allowlistApp).not.toHaveBeenCalled();
-    expect(vmmRpc.mock.calls.some((c) => c[1] === "CreateVm")).toBe(false);
+    const result = await deployToDstack(deployment());
+    expect(result.appUrls).toEqual([]);
+    expect(vmmRpc.mock.calls.some((c) => c[1] === "CreateVm")).toBe(true);
   });
 });
 
@@ -467,8 +467,8 @@ describe("getAppPorts", () => {
     ).toEqual(["8080"]);
   });
 
-  it("exits 1 when nothing is published", () => {
-    expect(() => getAppPorts(write("    restart: always\n"))).toThrow("exit:1");
+  it("returns empty when nothing is published", () => {
+    expect(getAppPorts(write("    restart: always\n"))).toEqual([]);
   });
 });
 

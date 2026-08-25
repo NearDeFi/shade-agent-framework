@@ -46,7 +46,8 @@ function hostPortOf(entry) {
 
 // Every host port published across the compose, in order and de-duplicated.
 // The gateway routes by app id, so any published port of any service is
-// reachable at `<app_id>-<port>.<domain>`, not just the agent's.
+// reachable at `<app_id>-<port>.<domain>`, not just the agent's. May be empty:
+// an agent with no inbound API publishes nothing and needs no gateway URL.
 export function getAppPorts(dockerComposePath) {
   const compose = parseYaml(fs.readFileSync(dockerComposePath, "utf8")) || {};
   const services = compose.services || {};
@@ -57,11 +58,6 @@ export function getAppPorts(dockerComposePath) {
       const port = hostPortOf(entry);
       if (port && !ports.includes(port)) ports.push(port);
     }
-  }
-  if (ports.length === 0) {
-    fail(
-      `no host ports are published in ${dockerComposePath}, so the gateway has nothing to route to`,
-    );
   }
   return ports;
 }
@@ -139,9 +135,8 @@ export async function deployToDstack(deployment) {
   }
 
   const { allowedEnvs, composeJson, composeHash } = prepareAppCompose(deployment);
-  // Read the env file and resolve the served port before touching the server,
-  // so neither a missing env file nor an unroutable compose can leave a stale
-  // allowlist entry or an orphaned CVM behind.
+  // Read the env file before touching the server, so a missing env file can't
+  // leave a stale allowlist entry or an orphaned CVM behind.
   const envVars = loadEnvVarsForDeploy(cfg.env_file_path, allowedEnvs, {
     requireFile: true,
   });
