@@ -8,7 +8,10 @@ export async function deployServerWorkflow() {
   const config = await getConfig();
   const result = await deployToDstack(config.deployment);
 
-  console.log(`\nYour app is live at:\n  ${result.appUrl}`);
+  console.log(`\nYour app is live at:`);
+  result.appUrls.forEach((url, index) => {
+    console.log(`  ${index + 1}. ${url}`);
+  });
   console.log(
     `\nCVM management: ${VMM_URL}/ (tunnel it with ` +
       `\`ssh -L 10000:127.0.0.1:10000 ${config.deployment.tee_config.server.ssh_host}\`)`,

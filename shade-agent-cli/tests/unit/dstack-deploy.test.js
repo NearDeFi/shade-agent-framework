@@ -42,7 +42,7 @@ vi.mock("../../src/utils/dstack-kms.js", () => ({
   getAppEnvEncryptPubKey: (...args) => getAppEnvEncryptPubKey(...args),
 }));
 
-const { deployToDstack, getAppPort, getInstanceShape } = await import(
+const { deployToDstack, getAppPorts, getInstanceShape } = await import(
   "../../src/utils/dstack-deploy.js"
 );
 const { hashAppCompose } = await import("../../src/utils/measurements.js");
@@ -241,12 +241,12 @@ describe("dstack deploy", () => {
     expect(createParams().ports).toEqual([]);
   });
 
-  it("reports the app URL on the published container port", async () => {
+  it("reports an app URL per published port", async () => {
     mockVmm();
     const result = await deployToDstack(deployment());
-    expect(result.appUrl).toBe(
+    expect(result.appUrls).toEqual([
       `https://${result.appId}-3000.shade.example.com`,
-    );
+    ]);
   });
 
   // Inheriting vmm.toml's gateway_urls keeps the VMM console's dashboard link
@@ -405,7 +405,7 @@ describe("dstack deploy", () => {
   });
 });
 
-describe("getAppPort", () => {
+describe("getAppPorts", () => {
   beforeEach(() => {
     tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "shade-port-"));
     vi.spyOn(console, "log").mockImplementation(() => {});
@@ -428,30 +428,47 @@ describe("getAppPort", () => {
   }
 
   it("reads the host side of a short mapping", () => {
-    expect(getAppPort(write("    ports:\n      - 3000:3000\n"))).toBe("3000");
-    expect(getAppPort(write("    ports:\n      - 8080:3000\n"))).toBe("8080");
+    expect(getAppPorts(write("    ports:\n      - 3000:3000\n"))).toEqual(["3000"]);
+    expect(getAppPorts(write("    ports:\n      - 8080:3000\n"))).toEqual(["8080"]);
   });
 
   it("reads the host side of an ip-qualified mapping", () => {
-    expect(getAppPort(write("    ports:\n      - 0.0.0.0:8080:3000\n"))).toBe("8080");
+    expect(getAppPorts(write("    ports:\n      - 0.0.0.0:8080:3000\n"))).toEqual(["8080"]);
   });
 
   it("ignores a protocol suffix", () => {
-    expect(getAppPort(write("    ports:\n      - 3000:3000/tcp\n"))).toBe("3000");
+    expect(getAppPorts(write("    ports:\n      - 3000:3000/tcp\n"))).toEqual(["3000"]);
   });
 
   it("accepts a container-only port", () => {
-    expect(getAppPort(write('    ports:\n      - "3000"\n'))).toBe("3000");
+    expect(getAppPorts(write('    ports:\n      - "3000"\n'))).toEqual(["3000"]);
   });
 
-  it("exits 1 when the service publishes no ports", () => {
-    expect(() => getAppPort(write("    restart: always\n"))).toThrow("exit:1");
+  it("reads the published port of a long mapping", () => {
+    expect(
+      getAppPorts(write("    ports:\n      - target: 3000\n        published: 8080\n")),
+    ).toEqual(["8080"]);
   });
 
-  it("exits 1 when the service is missing", () => {
-    const p = path.join(tmpDir, "other.yaml");
-    fs.writeFileSync(p, "services:\n  other:\n    image: x\n");
-    expect(() => getAppPort(p)).toThrow("exit:1");
+  it("returns every published port across all services, de-duplicated", () => {
+    const p = path.join(tmpDir, "docker-compose.yaml");
+    fs.writeFileSync(
+      p,
+      "services:\n" +
+        "  shade-agent-app:\n    image: x\n    ports:\n      - 3000:3000\n      - 3000:3000\n" +
+        "  sidecar:\n    image: y\n    ports:\n      - 9090:9090\n",
+    );
+    expect(getAppPorts(p)).toEqual(["3000", "9090"]);
+  });
+
+  it("skips a range that has no single routable port", () => {
+    expect(
+      getAppPorts(write("    ports:\n      - 8080:3000\n      - 4000-4005:4000-4005\n")),
+    ).toEqual(["8080"]);
+  });
+
+  it("exits 1 when nothing is published", () => {
+    expect(() => getAppPorts(write("    restart: always\n"))).toThrow("exit:1");
   });
 });
 

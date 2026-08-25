@@ -30,28 +30,40 @@ export function getInstanceShape(instanceType) {
   return shape;
 }
 
-// The port the gateway routes `<app_id>-<port>.<domain>` to is the port the
-// container publishes on the CVM, i.e. the host side of the compose mapping.
-export function getAppPort(dockerComposePath) {
-  const compose = parseYaml(fs.readFileSync(dockerComposePath, "utf8")) || {};
-  const service = compose.services?.["shade-agent-app"];
-  if (!service) {
-    fail(`could not find services.shade-agent-app in ${dockerComposePath}`);
+// The host side of one compose port mapping — the port the gateway routes
+// `<app_id>-<port>.<domain>` to. Short (`8080:3000`, `0.0.0.0:8080:3000`,
+// `3000/tcp`, `3000`) and long (`{ published, target }`) forms; a range or a
+// missing published port has no single routable value, so it yields null.
+function hostPortOf(entry) {
+  if (entry && typeof entry === "object") {
+    const published = entry.published ?? entry.target;
+    return /^\d+$/.test(String(published)) ? String(published) : null;
   }
-  const first = Array.isArray(service.ports) ? service.ports[0] : undefined;
-  if (first === undefined) {
-    fail(
-      `services.shade-agent-app in ${dockerComposePath} publishes no ports, so the gateway has nothing to route to`,
-    );
-  }
-  const parts = String(first).split("/")[0].split(":");
+  const parts = String(entry).split("/")[0].split(":");
   const port = parts.length > 1 ? parts[parts.length - 2] : parts[0];
-  if (!/^\d+$/.test(port)) {
+  return /^\d+$/.test(port) ? port : null;
+}
+
+// Every host port published across the compose, in order and de-duplicated.
+// The gateway routes by app id, so any published port of any service is
+// reachable at `<app_id>-<port>.<domain>`, not just the agent's.
+export function getAppPorts(dockerComposePath) {
+  const compose = parseYaml(fs.readFileSync(dockerComposePath, "utf8")) || {};
+  const services = compose.services || {};
+  const ports = [];
+  for (const service of Object.values(services)) {
+    if (!Array.isArray(service?.ports)) continue;
+    for (const entry of service.ports) {
+      const port = hostPortOf(entry);
+      if (port && !ports.includes(port)) ports.push(port);
+    }
+  }
+  if (ports.length === 0) {
     fail(
-      `could not read a port out of services.shade-agent-app.ports[0] ("${first}") in ${dockerComposePath}`,
+      `no host ports are published in ${dockerComposePath}, so the gateway has nothing to route to`,
     );
   }
-  return port;
+  return ports;
 }
 
 // Confirm the image exists and the requested shape fits before anything is
@@ -107,7 +119,7 @@ function resolveGateway(meta, gatewayDomain) {
  * same as the Phala backend — existing CVMs are managed at the VMM console.
  *
  * @param {object} deployment - Parsed deployment.yaml
- * @returns {Promise<{ vmId: string, appId: string, appUrl: string, composeHash: string }>}
+ * @returns {Promise<{ vmId: string, appId: string, appUrls: string[], composeHash: string, gatewayUrl: string }>}
  */
 export async function deployToDstack(deployment) {
   const tee = deployment.tee_config;
@@ -133,7 +145,7 @@ export async function deployToDstack(deployment) {
   const envVars = loadEnvVarsForDeploy(cfg.env_file_path, allowedEnvs, {
     requireFile: true,
   });
-  const appPort = getAppPort(deployment.docker_compose_path);
+  const appPorts = getAppPorts(deployment.docker_compose_path);
 
   const appId = crypto.randomBytes(20).toString("hex");
   console.log(
@@ -208,6 +220,8 @@ export async function deployToDstack(deployment) {
     console.log(chalk.gray(`Boot progress: ${vm.boot_progress}`));
   }
 
-  const appUrl = `https://${appId}-${appPort}.${cfg.gateway_domain}`;
-  return { vmId, appId, appUrl, composeHash, gatewayUrl: gateway.url };
+  const appUrls = appPorts.map(
+    (port) => `https://${appId}-${port}.${cfg.gateway_domain}`,
+  );
+  return { vmId, appId, appUrls, composeHash, gatewayUrl: gateway.url };
 }
