@@ -201,27 +201,18 @@ export function buildAppComposeForDeploy(
  * Calculate the SHA-256 of the AppCompose for a given docker-compose path.
  *
  * @param {string} dockerComposePath - Path to the docker-compose YAML on disk
- * @param {{ allowedEnvsOverride?: string[] | null, publicLogs?: boolean, publicSysinfo?: boolean }} [options]
- *   - allowedEnvsOverride: explicit allowed_envs list (else extracted from compose)
- *   - publicLogs / publicSysinfo: required AppCompose toggles
+ * @param {{ publicLogs?: boolean, publicSysinfo?: boolean }} [options] - required AppCompose toggles
  * @returns {string} hex SHA-256 of the canonical AppCompose JSON
  */
 export function calculateAppComposeHash(
   dockerComposePath,
-  { allowedEnvsOverride = null, publicLogs, publicSysinfo } = {},
+  { publicLogs, publicSysinfo } = {},
 ) {
-  const dockerComposeFile = fs.readFileSync(dockerComposePath, "utf8");
-
-  // If override is provided, use it; otherwise extract from docker-compose
-  const allowedEnvs =
-    allowedEnvsOverride !== null
-      ? allowedEnvsOverride
-      : extractAllowedEnvs(dockerComposePath);
-
-  return prepareAppComposeFromParts(dockerComposeFile, allowedEnvs, {
-    publicLogs,
-    publicSysinfo,
-  }).composeHash;
+  return prepareAppComposeFromParts(
+    fs.readFileSync(dockerComposePath, "utf8"),
+    extractAllowedEnvs(dockerComposePath),
+    { publicLogs, publicSysinfo },
+  ).composeHash;
 }
 
 /**
