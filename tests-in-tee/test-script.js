@@ -23,7 +23,6 @@ import { JsonRpcProvider } from "@near-js/providers";
 import { NEAR } from "@near-js/tokens";
 import {
   getMeasurements,
-  calculateAppComposeHash,
   extractAllowedEnvs,
 } from "../shade-agent-cli/src/utils/measurements.js";
 import { getPpids } from "../shade-agent-cli/src/utils/ppids.js";
@@ -951,10 +950,16 @@ async function callTestEndpoint(baseUrl, testName, options = {}) {
 
 // Get correct measurements
 function getCorrectMeasurements() {
-  const composePath = resolve(__dirname, "docker-compose.yaml");
-  return getMeasurements(true, composePath, "0.5.8", "tdx.small", {
-    publicLogs: true,
-    publicSysinfo: true,
+  return getMeasurements({
+    environment: "TEE",
+    docker_compose_path: resolve(__dirname, "docker-compose.yaml"),
+    tee_config: {
+      backend: "phala",
+      dstack_version: "0.5.8",
+      instance_type: "tdx.small",
+      public_logs: true,
+      public_sysinfo: true,
+    },
   });
 }
 
@@ -962,7 +967,7 @@ function getCorrectMeasurements() {
 async function getCorrectPpids() {
   return await getPpids({
     environment: "TEE",
-    tee_target: { backend: "phala" },
+    tee_config: { backend: "phala" },
   });
 }
 
@@ -990,27 +995,10 @@ function getWrongMeasurementsKeyProvider() {
 // Create wrong measurements (wrong app compose)
 function getWrongMeasurementsAppCompose() {
   const correct = getCorrectMeasurements();
-  const composePath = resolve(__dirname, "docker-compose.yaml");
-
-  // Extract allowed envs and remove one
-  const allowedEnvs = extractAllowedEnvs(composePath);
-  if (allowedEnvs.length === 0) {
-    throw new Error("No environment variables found in docker-compose.yaml");
-  }
-
-  // Remove the first env variable (or last, doesn't matter - just need to change the hash)
-  const modifiedEnvs = allowedEnvs.slice(1); // Remove first env
-
-  // Calculate hash with modified envs
-  const wrongAppComposeHash = calculateAppComposeHash(composePath, {
-    allowedEnvsOverride: modifiedEnvs,
-    publicLogs: true,
-    publicSysinfo: true,
-  });
-
   return {
     ...correct,
-    app_compose_hash_payload: wrongAppComposeHash, // Wrong app compose (missing one env)
+    // A hash the real CVM's compose can't match, so registration is rejected.
+    app_compose_hash_payload: "0".repeat(correct.app_compose_hash_payload.length),
   };
 }
 
