@@ -41,12 +41,12 @@ function readReproducePaths() {
     );
     process.exit(1);
   }
-  const publicLogs = doc.deploy_to_phala?.public_logs;
-  const publicSysinfo = doc.deploy_to_phala?.public_sysinfo;
+  const publicLogs = doc.tee_config?.public_logs;
+  const publicSysinfo = doc.tee_config?.public_sysinfo;
   if (typeof publicLogs !== "boolean" || typeof publicSysinfo !== "boolean") {
     console.log(
       chalk.red(
-        "deployment.yaml must set deploy_to_phala.public_logs and deploy_to_phala.public_sysinfo (boolean) for `shade reproduce` (both affect the app compose hash).",
+        "deployment.yaml must set tee_config.public_logs and tee_config.public_sysinfo (boolean) for `shade reproduce` (both affect the app compose hash).",
       ),
     );
     process.exit(1);

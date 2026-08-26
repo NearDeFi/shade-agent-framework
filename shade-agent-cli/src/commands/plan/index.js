@@ -9,6 +9,8 @@ import { replacePlaceholders, hasPlaceholder } from "../../utils/placeholders.js
 import { createCommandErrorHandler } from "../../utils/error-handler.js";
 import { getMeasurements } from "../../utils/measurements.js";
 import { getPpids } from "../../utils/ppids.js";
+import { getInstanceShape } from "../../utils/dstack-deploy.js";
+import { AUTH_CONFIG_PATH } from "../../utils/dstack-transport.js";
 
 // Format JSON args nicely
 function formatArgs(args) {
@@ -297,16 +299,7 @@ export function planCommand() {
           lines.forEach((line) => console.log("  " + line));
         } else if (argsHasMeasurements) {
           const replacements = {};
-          const measurements = getMeasurements(
-            deployment.environment === "TEE",
-            deployment.docker_compose_path,
-            deployment.deploy_to_phala?.dstack_version,
-            deployment.deploy_to_phala?.instance_type,
-            {
-              publicLogs: deployment.deploy_to_phala?.public_logs,
-              publicSysinfo: deployment.deploy_to_phala?.public_sysinfo,
-            },
-          );
+          const measurements = getMeasurements(deployment);
           replacements["<MEASUREMENTS>"] = measurements;
           const args = replacePlaceholders(approveCfg.args, replacements);
           const jsonLines = formatArgs(args).split("\n");
@@ -357,8 +350,12 @@ export function planCommand() {
           2,
         );
 
-        const ppids = await getPpids(deployment.environment === "TEE");
-        const replacements = { "<PPIDS>": ppids };
+        // Only look the PPIDs up when the placeholder is there — for the dstack
+        // backend that is a live SSH call to the server's KMS.
+        const replacements = {};
+        if (hasPlaceholder(approveCfg.args, "<PPIDS>")) {
+          replacements["<PPIDS>"] = await getPpids(deployment);
+        }
         const args = replacePlaceholders(approveCfg.args, replacements);
 
         const jsonLines = formatArgs(args).split("\n");
@@ -376,45 +373,75 @@ export function planCommand() {
         console.log("");
       }
 
-      // 4. Phala Deployment
-      console.log(chalk.cyan.bold("☁️  Phala Cloud Deployment"));
+      // 4. Deployment. One section whose body names the target, so the
+      // heading can never disagree with what follows it.
+      const tee = deployment.tee_config;
+      const willDeploy =
+        deployment.environment === "TEE" && tee?.deploy?.enabled === true;
+      console.log(chalk.cyan.bold("🚀 Agent Deployment"));
       console.log(chalk.gray("─".repeat(70)));
       console.log("");
-      if (deployment.environment === "TEE") {
-        if (deployment.deploy_to_phala?.enabled) {
-          const dockerStatus = deployment.build_docker_image
-            ? "new"
-            : "existing";
+      if (!willDeploy) {
+        logWrapped(
+          chalk.gray(
+            deployment.environment !== "TEE"
+              ? "• The agent won't be deployed because the environment is local. Run it yourself from your docker-compose."
+              : "• The agent won't be deployed. Set tee_config.deploy.enabled to true to deploy it, or run it yourself from your docker-compose.",
+          ),
+          70,
+          2,
+        );
+      } else {
+        const dockerStatus = deployment.build_docker_image ? "new" : "existing";
+        if (tee.backend === "server") {
+          const shape = getInstanceShape(tee.instance_type);
           logWrapped(
-            `• The ${chalk.yellow(dockerStatus)} docker image will be published to Phala Cloud with the name ${chalk.yellow(deployment.deploy_to_phala.app_name)} and the environment variables contained within ${chalk.yellow(deployment.deploy_to_phala.env_file_path)}.`,
+            `• The ${chalk.yellow(dockerStatus)} docker image will be deployed to your own server ${chalk.yellow(tee.server.ssh_host)} as a CVM named ${chalk.yellow(tee.deploy.app_name)}, with the environment variables contained within ${chalk.yellow(tee.deploy.env_file_path)} encrypted to the server's KMS before they leave this machine.`,
             70,
             2,
           );
           logWrapped(
-            `• OS image: ${chalk.yellow(`dstack-${deployment.deploy_to_phala.dstack_version}`)}  Instance type: ${chalk.yellow(deployment.deploy_to_phala.instance_type)}`,
+            `• OS image: ${chalk.yellow(`dstack-${tee.dstack_version}`)}  Instance type: ${chalk.yellow(tee.instance_type)}  Shape: ${chalk.yellow(`${shape.vcpu} vcpu / ${shape.memoryMb} MB / ${tee.server.disk_size_gb} GB`)}`,
             70,
             2,
           );
           logWrapped(
-            `• Public logs: ${chalk.yellow(deployment.deploy_to_phala.public_logs ? "enabled" : "disabled")}  Public sysinfo: ${chalk.yellow(deployment.deploy_to_phala.public_sysinfo ? "enabled" : "disabled")}`,
+            `• Public logs: ${chalk.yellow(tee.public_logs ? "enabled" : "disabled")}  Public sysinfo: ${chalk.yellow(tee.public_sysinfo ? "enabled" : "disabled")}`,
+            70,
+            2,
+          );
+          logWrapped(
+            `• A random app id is generated at deploy time, and an entry for it plus this image's compose hash is added to ${chalk.yellow(AUTH_CONFIG_PATH)} on the server so its KMS will hand out keys.`,
+            70,
+            2,
+          );
+          logWrapped(
+            `• The app will be served at ${chalk.yellow(`https://<app-id>-<port>.${tee.server.gateway_domain}`)}, so the URL changes on every deploy and the CVM starts with a fresh encrypted disk.`,
+            70,
+            2,
+          );
+          logWrapped(
+            `• The ${chalk.magenta("key_provider_event_digest")} in the measurements above is computed from the server's own KMS, not Phala's.`,
             70,
             2,
           );
         } else {
           logWrapped(
-            chalk.gray("• The agent won't be deployed to Phala Cloud."),
+            `• The ${chalk.yellow(dockerStatus)} docker image will be published to Phala Cloud with the name ${chalk.yellow(tee.deploy.app_name)} and the environment variables contained within ${chalk.yellow(tee.deploy.env_file_path)}.`,
+            70,
+            2,
+          );
+          logWrapped(
+            `• OS image: ${chalk.yellow(`dstack-${tee.dstack_version}`)}  Instance type: ${chalk.yellow(tee.instance_type)}`,
+            70,
+            2,
+          );
+          logWrapped(
+            `• Public logs: ${chalk.yellow(tee.public_logs ? "enabled" : "disabled")}  Public sysinfo: ${chalk.yellow(tee.public_sysinfo ? "enabled" : "disabled")}`,
             70,
             2,
           );
         }
-      } else {
-        logWrapped(
-          chalk.gray(
-            "• The agent won't be deployed to Phala Cloud because the environment is local.",
-          ),
-          70,
-          2,
-        );
       }
       console.log("");
 
@@ -436,13 +463,15 @@ export function planCommand() {
 
       if (
         deployment.environment === "TEE" &&
-        deployment.deploy_to_phala?.enabled &&
+        deployment.tee_config?.backend === "phala" &&
+        deployment.tee_config?.deploy?.enabled &&
         !phalaKey
       ) {
         missingCredentials.push("Phala API key");
       } else if (
         deployment.environment === "TEE" &&
-        deployment.deploy_to_phala?.enabled
+        deployment.tee_config?.backend === "phala" &&
+        deployment.tee_config?.deploy?.enabled
       ) {
         console.log("✓ Phala API key: configured");
       }

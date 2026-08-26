@@ -9,10 +9,10 @@ const fetchFn = globalThis.fetch;
 // Get the app name from the deployment.yaml file
 async function getAppNameFromDeployment() {
   const config = await getConfig();
-  const appName = config.deployment?.deploy_to_phala?.app_name;
+  const appName = config.deployment?.tee_config?.deploy?.app_name;
   if (!appName || typeof appName !== "string") {
     console.log(
-      chalk.red("deploy_to_phala.app_name is required in deployment.yaml"),
+      chalk.red("tee_config.deploy.app_name is required in deployment.yaml"),
     );
     process.exit(1);
   }
@@ -42,11 +42,11 @@ export async function deployToPhala() {
     }
 
     const composePath = config.deployment.docker_compose_path;
-    const envFilePath = config.deployment?.deploy_to_phala?.env_file_path;
-    const dstackVersion = config.deployment?.deploy_to_phala?.dstack_version;
-    const instanceType = config.deployment?.deploy_to_phala?.instance_type;
-    const publicLogs = config.deployment?.deploy_to_phala?.public_logs;
-    const publicSysinfo = config.deployment?.deploy_to_phala?.public_sysinfo;
+    const envFilePath = config.deployment?.tee_config?.deploy?.env_file_path;
+    const dstackVersion = config.deployment?.tee_config?.dstack_version;
+    const instanceType = config.deployment?.tee_config?.instance_type;
+    const publicLogs = config.deployment?.tee_config?.public_logs;
+    const publicSysinfo = config.deployment?.tee_config?.public_sysinfo;
     const allowedEnvs = extractAllowedEnvs(composePath);
 
     const deployResult = await deployToPhalaSdk({

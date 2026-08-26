@@ -60,14 +60,27 @@ build_docker_image:
   cache: true
   dockerfile_path: ./Dockerfile
 
-deploy_to_phala:
-  enabled: false
-  app_name: my-first-agent
-  env_file_path: ./.env
+tee_config:
+  # The dstack OS version the agent is deployed with, and used to
+  # calculate the measurements
   dstack_version: 0.5.8
+  # The virtual hardware given to the TEE, also measured
   instance_type: tdx.small
+  # If true TEE logs are public
   public_logs: true
+  # If true metrics are public
   public_sysinfo: true
+
+  # Deploy the agent. If disabled the measurements and PPIDs are still
+  # computed and approved, but nothing is deployed
+  deploy:
+    enabled: false
+    app_name: my-first-agent
+    env_file_path: ./.env
+
+  # Exactly one target must be enabled
+  phala:
+    enabled: true
 
 whitelist_agent_for_local:
   method_name: whitelist_agent_for_local

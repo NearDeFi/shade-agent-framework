@@ -2,7 +2,7 @@
  * Unit tests for src/utils/config.js — parseDeploymentConfig.
  *
  * Three concerns:
- *   - examples:   every committed example-{1..10}.yaml parses without exit.
+ *   - examples:   every committed example-{1..11}.yaml parses without exit.
  *                 Regression guard: catches the case where a future required
  *                 field is added but an example isn't updated.
  *   - validation: missing / wrong-shape inputs in *generated* YAML fixtures
@@ -57,14 +57,13 @@ const validBase = () => ({
     deploy_custom: { enabled: false },
   },
   build_docker_image: { enabled: false },
-  deploy_to_phala: {
-    enabled: true,
-    app_name: "my-agent",
-    env_file_path: "./.env",
+  tee_config: {
     dstack_version: "0.5.8",
     instance_type: "tdx.small",
     public_logs: true,
     public_sysinfo: true,
+    deploy: { enabled: true, app_name: "my-agent", env_file_path: "./.env" },
+    phala: { enabled: true },
   },
 });
 
@@ -158,12 +157,23 @@ const validBuildDockerImage = {
   dockerfile_path: "./Dockerfile",
 };
 
+const serverTarget = {
+  deploy: { enabled: true, app_name: "my-agent", env_file_path: "./.env" },
+  phala: { enabled: false },
+  server: {
+    enabled: true,
+    ssh_host: "tdx",
+    gateway_domain: "shade.example.com",
+    disk_size_gb: 20,
+  },
+};
+
 describe("parseDeploymentConfig", () => {
   // Regression guard: every committed example must remain parser-valid. If a
   // future required field is added without updating an example, this fails.
   describe("examples", () => {
     const exampleFiles = Array.from(
-      { length: 10 },
+      { length: 11 },
       (_, i) => `example-${i + 1}.yaml`,
     );
     it.each(exampleFiles)("%s parses without exit", (name) => {
@@ -1058,216 +1068,330 @@ describe("parseDeploymentConfig", () => {
     });
   });
 
-  describe("deploy_to_phala", () => {
-    describe("validation", () => {
-      it("exits 1 when env_file_path is missing", () => {
+  describe("tee_config", () => {
+    const teeYaml = (overrides = {}) =>
+      validYaml({ tee_config: deepMerge(serverTarget, overrides) });
+
+    describe("target selection", () => {
+      it("exits 1 when both targets are enabled", () => {
         expectExit(
-          validYaml({ deploy_to_phala: { env_file_path: null } }),
-          "deploy_to_phala.env_file_path is required",
+          teeYaml({ phala: { enabled: true } }),
+          "cannot both be enabled",
         );
       });
 
-      it("exits 1 when app_name is missing", () => {
+      // A deploy has to know where to go, or it would silently do nothing.
+      it("exits 1 when deploying with neither target enabled", () => {
         expectExit(
-          validYaml({ deploy_to_phala: { app_name: null } }),
-          "deploy_to_phala.app_name is required",
+          teeYaml({ phala: { enabled: false }, server: { enabled: false } }),
+          "tee_config.deploy is enabled but no target is",
         );
       });
 
-      it("exits 1 when dstack_version is missing on TEE", () => {
-        expectExit(
-          validYaml({ deploy_to_phala: { dstack_version: null } }),
-          "deploy_to_phala.dstack_version is required",
-        );
-      });
-
-      it("exits 1 when dstack_version is unsupported on TEE", () => {
-        expectExit(
-          validYaml({ deploy_to_phala: { dstack_version: "9.9.9" } }),
-          'deploy_to_phala.dstack_version "9.9.9" is not supported',
-        );
-      });
-
-      it("exits 1 when instance_type is missing on TEE", () => {
-        expectExit(
-          validYaml({ deploy_to_phala: { instance_type: null } }),
-          "deploy_to_phala.instance_type is required",
-        );
-      });
-
-      it("exits 1 when instance_type is unsupported for the dstack_version on TEE", () => {
-        expectExit(
-          validYaml({ deploy_to_phala: { instance_type: "tdx.bogus" } }),
-          'deploy_to_phala.instance_type "tdx.bogus" is not supported',
-        );
-      });
-
-      it("exits 1 when public_logs is missing", () => {
-        expectExit(
-          validYaml({ deploy_to_phala: { public_logs: null } }),
-          "deploy_to_phala.public_logs is required and must be a boolean",
-        );
-      });
-
-      it("exits 1 when public_sysinfo is missing", () => {
-        expectExit(
-          validYaml({ deploy_to_phala: { public_sysinfo: null } }),
-          "deploy_to_phala.public_sysinfo is required and must be a boolean",
-        );
-      });
-
-      it("exits 1 when public_logs is a non-boolean string", () => {
-        expectExit(
-          validYaml({ deploy_to_phala: { public_logs: "true" } }),
-          "deploy_to_phala.public_logs is required and must be a boolean",
-        );
-      });
-
-      it("exits 1 when public_sysinfo is a non-boolean number", () => {
-        expectExit(
-          validYaml({ deploy_to_phala: { public_sysinfo: 1 } }),
-          "deploy_to_phala.public_sysinfo is required and must be a boolean",
-        );
-      });
-
-      it("still requires public_logs / public_sysinfo when environment is local", () => {
+      // <MEASUREMENTS> and <PPIDS> resolve differently per target, so they
+      // need one even when nothing is deployed.
+      it("exits 1 when a placeholder needs a target and none is enabled", () => {
         expectExit(
           validYaml({
-            environment: "local",
-            deploy_to_phala: { public_logs: null },
-          }),
-          "deploy_to_phala.public_logs is required and must be a boolean",
-        );
-      });
-
-      it("exits 1 when deploy_to_phala.enabled is non-boolean", () => {
-        expectExit(
-          validYaml({ deploy_to_phala: { enabled: "yes" } }),
-          "deploy_to_phala.enabled must be a boolean",
-        );
-      });
-    });
-
-    describe("mapping", () => {
-      it("propagates every field into config.deploy_to_phala", () => {
-        const config = parse(
-          validYaml({
-            deploy_to_phala: {
-              enabled: true,
-              app_name: "my-other-agent",
-              env_file_path: "./envs/prod.env",
-              dstack_version: "0.5.7",
-              instance_type: "tdx.medium",
-              public_logs: false,
-              public_sysinfo: true,
-            },
-          }),
-        );
-        expect(config.deploy_to_phala).toEqual({
-          enabled: true,
-          app_name: "my-other-agent",
-          env_file_path: "./envs/prod.env",
-          dstack_version: "0.5.7",
-          instance_type: "tdx.medium",
-          public_logs: false,
-          public_sysinfo: true,
-        });
-      });
-
-      // No <MEASUREMENTS> placeholder → measurement fields aren't required,
-      // so parse should succeed even with the deploy_to_phala block missing.
-      it("skips measurement-field validation when args omit <MEASUREMENTS>", () => {
-        parse(
-          validYaml({
-            approve_measurements: {
-              enabled: true,
-              method_name: "approve_measurements",
-              args: '{ "list": [] }\n',
-            },
-            deploy_to_phala: undefined,
-          }),
-        );
-        expect(exitSpy).not.toHaveBeenCalled();
-      });
-
-      // approve_measurements in TEE still needs valid dstack_version,
-      // instance_type, and public_* even when deploy_to_phala.enabled is
-      // false — those fields feed the measurement calculation.
-      it("validates measurement fields when phala is off but approve_measurements is on in TEE", () => {
-        expectExit(
-          validYaml({
+            tee_config: deepMerge(serverTarget, {
+              deploy: { enabled: false },
+              phala: { enabled: false },
+              server: { enabled: false },
+            }),
             approve_measurements: {
               enabled: true,
               method_name: "approve_measurements",
               args: '{\n  "measurements": <MEASUREMENTS>\n}\n',
             },
-            deploy_to_phala: {
-              enabled: false,
-              dstack_version: "9.9.9",
-            },
           }),
-          'deploy_to_phala.dstack_version "9.9.9" is not supported',
+          "to resolve <MEASUREMENTS> / <PPIDS>",
         );
       });
 
-      // When the block is present with enabled=false, the parser still
-      // emits the measurement-related fields (dstack_version, instance_type,
-      // public_*) so `approve_measurements` can read them; only `enabled`
-      // is flipped so the phala deploy workflow itself is skipped.
-      it("returns enabled=false when enabled is false but keeps the fields", () => {
+      // Literal values need no target at all, even with a full tee_config.
+      it("allows no target when the args carry literal values and nothing deploys", () => {
         const config = parse(
-          validYaml({
-            deploy_to_phala: {
-              enabled: false,
-              app_name: "x",
-              env_file_path: "./.env",
-              dstack_version: "0.5.7",
-              instance_type: "tdx.medium",
-              public_logs: false,
-              public_sysinfo: true,
-            },
+          teeYaml({
+            deploy: { enabled: false },
+            phala: { enabled: false },
+            server: { enabled: false },
           }),
         );
-        expect(config.deploy_to_phala).toEqual({
-          enabled: false,
-          app_name: "x",
-          env_file_path: "./.env",
-          dstack_version: "0.5.7",
-          instance_type: "tdx.medium",
-          public_logs: false,
-          public_sysinfo: true,
-        });
+        expect(exitSpy).not.toHaveBeenCalled();
+        expect(config.tee_config.backend).toBeNull();
       });
 
-      it("returns deploy_to_phala === undefined when the section is omitted", () => {
-        const config = parse(validYaml({ deploy_to_phala: undefined }));
-        expect(config.deploy_to_phala).toBeUndefined();
+      it("exits 1 when <PPIDS> needs a target and none is enabled", () => {
+        expectExit(
+          validYaml({
+            tee_config: deepMerge(serverTarget, {
+              deploy: { enabled: false },
+              phala: { enabled: false },
+              server: { enabled: false },
+            }),
+            approve_ppids: {
+              enabled: true,
+              method_name: "approve_ppids",
+              args: '{\n  "ppids": <PPIDS>\n}\n',
+            },
+          }),
+          "to resolve <MEASUREMENTS> / <PPIDS>",
+        );
       });
 
-      it("local environment skips dstack_version / instance_type validation but still maps them", () => {
+      it("exits 1 when tee_config is missing entirely but measurements need it", () => {
+        expectExit(
+          validYaml({
+            tee_config: undefined,
+            approve_measurements: {
+              enabled: true,
+              method_name: "approve_measurements",
+              args: '{\n  "measurements": <MEASUREMENTS>\n}\n',
+            },
+          }),
+          "tee_config is required to resolve",
+        );
+      });
+
+      it("resolves backend=server", () => {
+        const config = parse(teeYaml());
+        expect(config.tee_config.backend).toBe("server");
+      });
+
+      it("resolves backend=phala", () => {
+        const config = parse(validYaml());
+        expect(config.tee_config.backend).toBe("phala");
+      });
+
+      it("exits 1 when a target enabled flag is non-boolean", () => {
+        expectExit(
+          teeYaml({ server: { enabled: "yes" } }),
+          "tee_config.server.enabled must be a boolean",
+        );
+      });
+    });
+
+    // The whole point of the restructure: pre-approve without deploying.
+    describe("deploy disabled", () => {
+      const noDeploy = (overrides = {}) =>
+        teeYaml(deepMerge({ deploy: { enabled: false } }, overrides));
+
+      it("still computes a target and the measurement fields", () => {
+        const config = parse(noDeploy());
+        expect(config.tee_config.backend).toBe("server");
+        expect(config.tee_config.instance_type).toBe("tdx.small");
+        expect(config.tee_config.deploy.enabled).toBe(false);
+      });
+
+      it("does not require app_name or env_file_path", () => {
+        const config = parse(
+          noDeploy({ deploy: { app_name: null, env_file_path: null } }),
+        );
+        expect(exitSpy).not.toHaveBeenCalled();
+        expect(config.tee_config.deploy.app_name).toBeNull();
+      });
+
+      // ssh_host is how the CLI reaches the KMS for the digest and PPID, so it
+      // is needed even when nothing is deployed.
+      it("still requires ssh_host for the server target", () => {
+        expectExit(
+          noDeploy({ server: { ssh_host: null } }),
+          "tee_config.server.ssh_host is required",
+        );
+      });
+
+      // These two are only read by the deploy itself.
+      it("does not require gateway_domain or disk_size_gb", () => {
+        const config = parse(
+          noDeploy({ server: { gateway_domain: null, disk_size_gb: null } }),
+        );
+        expect(exitSpy).not.toHaveBeenCalled();
+        expect(config.tee_config.server.ssh_host).toBe("tdx");
+      });
+
+      it("needs no target at all when the args carry literal values", () => {
         const config = parse(
           validYaml({
-            environment: "local",
-            docker_compose_path: undefined,
-            deploy_to_phala: {
-              dstack_version: undefined,
-              instance_type: undefined,
+            tee_config: undefined,
+            approve_measurements: {
+              enabled: true,
+              method_name: "approve_measurements",
+              args: '{\n  "measurements": {}\n}\n',
+            },
+            approve_ppids: {
+              enabled: true,
+              method_name: "approve_ppids",
+              args: '{\n  "ppids": ["00"]\n}\n',
             },
           }),
         );
         expect(exitSpy).not.toHaveBeenCalled();
-        expect(config.deploy_to_phala.public_logs).toBe(true);
-        expect(config.deploy_to_phala.public_sysinfo).toBe(true);
+        expect(config.tee_config.backend).toBeNull();
+      });
+    });
+
+    describe("deploy enabled", () => {
+      for (const field of ["app_name", "env_file_path"]) {
+        it(`exits 1 when deploy.${field} is missing`, () => {
+          expectExit(
+            teeYaml({ deploy: { [field]: null } }),
+            `tee_config.deploy.${field} is required`,
+          );
+        });
+      }
+
+      for (const field of ["gateway_domain", "disk_size_gb"]) {
+        it(`exits 1 when server.${field} is missing`, () => {
+          expectExit(
+            teeYaml({ server: { [field]: null } }),
+            `tee_config.server.${field} is required when deploying`,
+          );
+        });
+      }
+
+      for (const size of [0, -5, 20.5, "20"]) {
+        it(`exits 1 for a disk_size_gb of ${JSON.stringify(size)}`, () => {
+          expectExit(
+            teeYaml({ server: { disk_size_gb: size } }),
+            "tee_config.server.disk_size_gb is required",
+          );
+        });
+      }
+
+      for (const domain of ["notadomain", "http://x.example.com", "-x.example.com"]) {
+        it(`exits 1 for a gateway_domain of ${JSON.stringify(domain)}`, () => {
+          expectExit(
+            teeYaml({ server: { gateway_domain: domain } }),
+            "tee_config.server.gateway_domain is required",
+          );
+        });
+      }
+    });
+
+    // ssh is arbitrary local command execution if a hostile host reaches argv.
+    describe("ssh_host hardening", () => {
+      const hostile = [
+        "-oProxyCommand=touch /tmp/pwned",
+        "tdx;touch /tmp/pwned",
+        "tdx$(id)",
+        "tdx`whoami`",
+        "tdx box",
+        "tdx|sh",
+        "tdx/../x",
+      ];
+      for (const host of hostile) {
+        it(`exits 1 for ${JSON.stringify(host)}`, () => {
+          expectExit(
+            teeYaml({ server: { ssh_host: host } }),
+            "is not a valid ssh destination",
+          );
+        });
+      }
+
+      it("accepts user@host", () => {
+        const config = parse(teeYaml({ server: { ssh_host: "ubuntu@203.0.113.10" } }));
+        expect(config.tee_config.server.ssh_host).toBe("ubuntu@203.0.113.10");
+      });
+    });
+
+    describe("measurement fields", () => {
+      for (const field of ["public_logs", "public_sysinfo"]) {
+        it(`exits 1 when ${field} is missing`, () => {
+          expectExit(
+            teeYaml({ [field]: null }),
+            `tee_config.${field} is required`,
+          );
+        });
+
+        it(`exits 1 when ${field} is a non-boolean`, () => {
+          expectExit(teeYaml({ [field]: "true" }), `tee_config.${field} is required`);
+        });
+      }
+
+      it("exits 1 for an unsupported dstack_version", () => {
+        expectExit(
+          teeYaml({ dstack_version: "9.9.9" }),
+          'tee_config.dstack_version "9.9.9" is not supported',
+        );
       });
 
-      it("preserves both flags as false (ensuring boolean false isn't coerced)", () => {
+      it("exits 1 for an unsupported instance_type", () => {
+        expectExit(
+          teeYaml({ instance_type: "tdx.bogus" }),
+          'tee_config.instance_type "tdx.bogus" is not supported',
+        );
+      });
+
+      it("preserves both public flags as false", () => {
+        const config = parse(teeYaml({ public_logs: false, public_sysinfo: false }));
+        expect(config.tee_config.public_logs).toBe(false);
+        expect(config.tee_config.public_sysinfo).toBe(false);
+      });
+
+      // <PPIDS> resolves from the target alone, so a PPIDs-only run reads none
+      // of the measurement inputs and must not be asked for them.
+      it("requires none of them for a <PPIDS>-only run", () => {
         const config = parse(
           validYaml({
-            deploy_to_phala: { public_logs: false, public_sysinfo: false },
+            tee_config: {
+              dstack_version: undefined,
+              instance_type: undefined,
+              public_logs: undefined,
+              public_sysinfo: undefined,
+              deploy: { enabled: false },
+              phala: { enabled: true },
+            },
+            approve_ppids: {
+              enabled: true,
+              method_name: "approve_ppids",
+              args: '{\n  "ppids": <PPIDS>\n}\n',
+            },
           }),
         );
-        expect(config.deploy_to_phala.public_logs).toBe(false);
-        expect(config.deploy_to_phala.public_sysinfo).toBe(false);
+        expect(exitSpy).not.toHaveBeenCalled();
+        expect(config.tee_config.backend).toBe("phala");
+        expect(config.tee_config.dstack_version).toBeUndefined();
+      });
+
+      // Local mode computes nothing from them, whatever tee_config carries.
+      it("requires none of them in local mode", () => {
+        const config = parse(
+          validYaml({
+            environment: "local",
+            tee_config: { public_logs: undefined, public_sysinfo: undefined },
+          }),
+        );
+        expect(exitSpy).not.toHaveBeenCalled();
+        expect(config.tee_config.public_logs).toBeUndefined();
+      });
+    });
+
+    describe("mapping", () => {
+      it("maps the server target through", () => {
+        const config = parse(teeYaml());
+        expect(config.tee_config).toEqual({
+          backend: "server",
+          dstack_version: "0.5.8",
+          instance_type: "tdx.small",
+          public_logs: true,
+          public_sysinfo: true,
+          deploy: {
+            enabled: true,
+            app_name: "my-agent",
+            env_file_path: "./.env",
+          },
+          server: {
+            ssh_host: "tdx",
+            gateway_domain: "shade.example.com",
+            disk_size_gb: 20,
+          },
+        });
+      });
+
+      it("leaves server undefined for the phala target", () => {
+        const config = parse(validYaml());
+        expect(config.tee_config.backend).toBe("phala");
+        expect(config.tee_config.server).toBeUndefined();
       });
     });
   });

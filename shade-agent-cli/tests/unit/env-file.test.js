@@ -1,0 +1,202 @@
+/**
+ * Unit tests for src/utils/env-file.js
+ *
+ * The guest re-parses the decrypted env before boot and enforces hard limits
+ * (dstack-util/src/parse_env_file.rs). Breaking one of those means a CVM that
+ * boots and then dies, so they are checked locally instead.
+ *
+ * Coverage:
+ *  - only keys the compose allows are sent, in file order; an empty allow list
+ *    sends nothing.
+ *  - a missing file is tolerated by default and fatal with requireFile.
+ *  - the guest's limits: >1024 vars, >1 MB total, >128 KB value, >255-char key,
+ *    and keys failing ^[a-zA-Z_][a-zA-Z0-9_]*$ all fail locally.
+ */
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import fs from "fs";
+import os from "os";
+import path from "path";
+
+const { loadEnvVarsForDeploy, validateGuestEnvLimits } = await import(
+  "../../src/utils/env-file.js"
+);
+
+let tmpDir;
+let envPath;
+
+function write(content) {
+  fs.writeFileSync(envPath, content);
+  return envPath;
+}
+
+describe("loadEnvVarsForDeploy", () => {
+  beforeEach(() => {
+    tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "shade-env-"));
+    envPath = path.join(tmpDir, ".env");
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(process, "exit").mockImplementation((code) => {
+      throw new Error(`exit:${code}`);
+    });
+  });
+  afterEach(() => {
+    vi.restoreAllMocks();
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  // Anything not in allowed_envs is dropped by the guest anyway, and sending it
+  // would count against the guest's limits for nothing.
+  it("keeps only the allowed keys, in file order", () => {
+    write("B=2\nA=1\nSECRET=x\n");
+    expect(loadEnvVarsForDeploy(envPath, ["A", "B"])).toEqual([
+      { key: "B", value: "2" },
+      { key: "A", value: "1" },
+    ]);
+  });
+
+  // A docker-compose with no ${VAR} references allows nothing, so the env file
+  // must not widen it: the guest would drop these anyway.
+  it("sends nothing when the compose allows nothing", () => {
+    write("A=1\nB=2\n");
+    expect(loadEnvVarsForDeploy(envPath, [])).toEqual([]);
+  });
+
+  it("returns [] for a missing file by default", () => {
+    expect(loadEnvVarsForDeploy(path.join(tmpDir, "nope"), ["A"])).toEqual([]);
+  });
+
+  it("returns [] when no path is given", () => {
+    expect(loadEnvVarsForDeploy(undefined, ["A"])).toEqual([]);
+  });
+
+  // A self-hosted deploy names env_file_path as required, so a missing file is
+  // a mistake rather than "no secrets".
+  it("exits 1 for a missing file when requireFile is set", () => {
+    expect(() =>
+      loadEnvVarsForDeploy(path.join(tmpDir, "nope"), ["A"], {
+        requireFile: true,
+      }),
+    ).toThrow("exit:1");
+  });
+
+  it("exits 1 when no path is given and requireFile is set", () => {
+    expect(() =>
+      loadEnvVarsForDeploy(undefined, ["A"], { requireFile: true }),
+    ).toThrow("exit:1");
+  });
+
+  it("applies the guest limits to what it loads", () => {
+    write("BAD-KEY=1\n");
+    expect(() => loadEnvVarsForDeploy(envPath, ["BAD-KEY"])).toThrow("exit:1");
+  });
+});
+
+describe("validateGuestEnvLimits", () => {
+  beforeEach(() => {
+    vi.spyOn(console, "log").mockImplementation(() => {});
+    vi.spyOn(process, "exit").mockImplementation((code) => {
+      throw new Error(`exit:${code}`);
+    });
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  const logged = () => console.log.mock.calls.flat().join(" ");
+
+  it("accepts a normal env set", () => {
+    validateGuestEnvLimits(
+      [
+        { key: "AGENT_CONTRACT_ID", value: "agent.testnet" },
+        { key: "_LEADING_UNDERSCORE", value: "ok" },
+        { key: "MiXeD9", value: "ok" },
+      ],
+      "/tmp/.env",
+    );
+    expect(process.exit).not.toHaveBeenCalled();
+  });
+
+  it("exits 1 above 1024 variables", () => {
+    const envs = Array.from({ length: 1025 }, (_, i) => ({
+      key: `V${i}`,
+      value: "x",
+    }));
+    expect(() => validateGuestEnvLimits(envs, "/tmp/.env")).toThrow("exit:1");
+    expect(logged()).toContain("1025");
+  });
+
+  it("accepts exactly 1024 variables", () => {
+    const envs = Array.from({ length: 1024 }, (_, i) => ({
+      key: `V${i}`,
+      value: "x",
+    }));
+    validateGuestEnvLimits(envs, "/tmp/.env");
+    expect(process.exit).not.toHaveBeenCalled();
+  });
+
+  it("exits 1 above 1 MB in total", () => {
+    const envs = Array.from({ length: 16 }, (_, i) => ({
+      key: `V${i}`,
+      value: "x".repeat(70 * 1024),
+    }));
+    expect(() => validateGuestEnvLimits(envs, "/tmp/.env")).toThrow("exit:1");
+    expect(logged()).toContain("total");
+  });
+
+  // The guest's limits are UTF-8 byte counts (Rust String::len), not character
+  // counts. A multi-byte value that fits in code units but not in bytes must
+  // fail here, otherwise it fails at boot — the exact thing this check exists
+  // to pre-empt.
+  it("counts value bytes, not UTF-16 code units", () => {
+    // 60k CJK chars: 60,000 code units but 180,000 UTF-8 bytes.
+    const value = "密".repeat(60000);
+    expect(value.length).toBeLessThan(128 * 1024);
+    expect(Buffer.byteLength(value, "utf8")).toBeGreaterThan(128 * 1024);
+    expect(() =>
+      validateGuestEnvLimits([{ key: "BIG", value }], "/tmp/.env"),
+    ).toThrow("exit:1");
+  });
+
+  it("counts total bytes, not UTF-16 code units", () => {
+    // 10 × 40k CJK chars: 400,000 code units but 1,200,000 UTF-8 bytes. Each
+    // value is 120,000 bytes so the per-value cap does not fire first; only the
+    // 1 MB total does.
+    const envs = Array.from({ length: 10 }, (_, i) => ({
+      key: `V${i}`,
+      value: "密".repeat(40000),
+    }));
+    const codeUnits = envs.reduce((n, e) => n + e.key.length + e.value.length, 0);
+    const bytes = envs.reduce(
+      (n, e) => n + Buffer.byteLength(e.key, "utf8") + Buffer.byteLength(e.value, "utf8"),
+      0,
+    );
+    expect(codeUnits).toBeLessThan(1024 * 1024);
+    expect(bytes).toBeGreaterThan(1024 * 1024);
+    expect(() => validateGuestEnvLimits(envs, "/tmp/.env")).toThrow("exit:1");
+  });
+
+  it("exits 1 above 128 KB in a single value", () => {
+    expect(() =>
+      validateGuestEnvLimits(
+        [{ key: "BIG", value: "x".repeat(128 * 1024 + 1) }],
+        "/tmp/.env",
+      ),
+    ).toThrow("exit:1");
+    expect(logged()).toContain("BIG");
+  });
+
+  it("exits 1 above a 255-character key", () => {
+    expect(() =>
+      validateGuestEnvLimits(
+        [{ key: `A${"B".repeat(255)}`, value: "x" }],
+        "/tmp/.env",
+      ),
+    ).toThrow("exit:1");
+  });
+
+  const badKeys = ["BAD-KEY", "9LEADING", "HAS SPACE", "has.dot", "", "$INJECT"];
+  for (const key of badKeys) {
+    it(`exits 1 for a key of ${JSON.stringify(key)}`, () => {
+      expect(() =>
+        validateGuestEnvLimits([{ key, value: "x" }], "/tmp/.env"),
+      ).toThrow("exit:1");
+    });
+  }
+});

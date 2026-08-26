@@ -4,7 +4,7 @@ Shade Agent logs can be public or private.
 
 ## Public logs 
 
-When `deploy_to_phala.public_logs` is set to `true` in the `deployment.yaml`, logs are public to everyone. They can be accessed via the following endpoint:
+When `tee_config.public_logs` is set to `true` in the `deployment.yaml`, logs are public to everyone. They can be accessed via the following endpoint:
 
 ```
 https://<app_id>-8090.<gateway-domain>/logs/<container_name>
@@ -12,7 +12,7 @@ https://<app_id>-8090.<gateway-domain>/logs/<container_name>
 
 ## Private logs
 
-When `deploy_to_phala.public_logs` is set to `false`, the previously cited endpoint is closed and you need another way to access logs and data.
+When `tee_config.public_logs` is set to `false`, the previously cited endpoint is closed and you need another way to access logs and data.
 
 Here we show you how to access logs and data using the Grafana stack.
 
@@ -35,7 +35,7 @@ These services need to be included in the Docker compose file. Here is an exampl
 
 If you don't need logs, opt out of Loki and Alloy. If you don't need metrics, opt out of Prometheus. If you don't need traces, opt out of Tempo.
 
-The minimum supported `deploy_to_phala.instance_type` for the full observability stack is `tdx.medium` — six containers don't fit comfortably on `tdx.small` (1 CPU / ~2 GB RAM).
+The minimum supported `tee_config.instance_type` for the full observability stack is `tdx.medium` — six containers don't fit comfortably on `tdx.small` (1 CPU / ~2 GB RAM).
 
 ### App requirements
 
@@ -155,7 +155,7 @@ For full details on how to use logging, metrics and traces in your application r
 ### Deploying 
 
 1) Configure your Docker compose file and make sure your `deployment.yaml` file points at it.
-2) In your `deployment.yaml` file set `deploy_to_phala.public_logs` (and optionally `deploy_to_phala.public_sysinfo`) to `false` .
+2) In your `deployment.yaml` file set `tee_config.public_logs` (and optionally `tee_config.public_sysinfo`) to `false` .
 3) Generate a secret `openssl rand -hex 32`
 4) Add the secret to your `.env` file `GF_SECURITY_ADMIN_PASSWORD=YOUR_SECRET`
 5) Deploy the Shade Agent

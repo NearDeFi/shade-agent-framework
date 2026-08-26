@@ -1,19 +1,18 @@
-# New agent, same agent contract 
-# Use when your agent contract stays the same but you have changed your agent code
+# Self-hosted dstack server: TEE deployment to your own TDX box instead of Phala Cloud
 
-# Uses an existing agent contract that is already deployed to example-contract-123.testnet
-# Approves measurements for the new agent
-# Builds a new agent and deploys it to Phala Cloud
+# Same shape as the first-time TEE deployment in example-2.yaml, but the agent is
+# deployed to a server you run, over SSH. The server needs dstack-vmm, a KMS CVM
+# and a gateway CVM already set up, as per ../../docs/concepts/self-hosted-server.md
 
 environment: TEE
 network: testnet
 docker_compose_path: ./docker-compose.yaml
 
-agent_contract: 
+agent_contract:
   contract_id: example-contract-123.testnet
 
   deploy_custom:
-    enabled: false
+    enabled: true
     funding_amount: 8
     delete_key: false
 
@@ -42,6 +41,7 @@ agent_contract:
 approve_measurements:
   enabled: true
   method_name: approve_measurements
+  # The key_provider_event_digest is computed from your own KMS, not Phala's
   args: |
     {
       "measurements": <MEASUREMENTS>
@@ -51,6 +51,7 @@ approve_measurements:
 approve_ppids:
   enabled: true
   method_name: approve_ppids
+  # <PPIDS> resolves to your server's single PPID, read off its KMS
   args: |
     {
       "ppids": <PPIDS>
@@ -63,6 +64,7 @@ build_docker_image:
   cache: true
   dockerfile_path: ./Dockerfile
 
+# Cannot enable both tee_config.phala and tee_config.server
 tee_config:
   # The dstack OS version the agent is deployed with, and used to
   # calculate the measurements
@@ -83,7 +85,15 @@ tee_config:
 
   # Exactly one target must be enabled
   phala:
+    enabled: false
+  server:
     enabled: true
+    # SSH alias from your ~/.ssh/config, or user@host
+    ssh_host: tdx
+    # The domain your dstack gateway serves under
+    gateway_domain: shade.example.com
+    # Encrypted disk size in GB, not measured
+    disk_size_gb: 20
 
 whitelist_agent_for_local:
   method_name: whitelist_agent_for_local

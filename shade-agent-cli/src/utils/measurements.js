@@ -4,6 +4,7 @@ import path from "path";
 import { fileURLToPath } from "url";
 import chalk from "chalk";
 import { parse } from "yaml";
+import { getKeyProviderEventDigest } from "./dstack-kms.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
@@ -20,50 +21,72 @@ try {
   process.exit(1);
 }
 
-export function getMeasurements(
-  isTee,
-  dockerComposePath,
-  dstackVersion,
-  instanceType,
-  { publicLogs, publicSysinfo } = {},
-) {
-  if (!isTee) {
+/**
+ * The measurements to approve for a deployment. Local mode gets zeros; a
+ * self-hosted dstack server has its own key provider, whose digest is computed
+ * from its KMS; Phala Cloud's is a pinned constant.
+ *
+ * @param {object} deployment - Parsed deployment.yaml
+ */
+export function getMeasurements(deployment) {
+  if (deployment?.environment !== "TEE") {
     return localMeasurements;
   }
 
+  const dockerComposePath = deployment.docker_compose_path;
+  const teeConfig = deployment.tee_config;
+
   if (!dockerComposePath) {
     console.log(
-      chalk.red("Error: dockerComposePath is required when isTee is true"),
-    );
-    process.exit(1);
-  }
-
-  if (!dstackVersion || !instanceType) {
-    console.log(
       chalk.red(
-        "Error: dstack_version and instance_type (from deploy_to_phala) are required to calculate TEE measurements",
+        "Error: docker_compose_path is required to calculate TEE measurements",
       ),
     );
     process.exit(1);
   }
 
-  if (typeof publicLogs !== "boolean" || typeof publicSysinfo !== "boolean") {
+  if (!teeConfig?.dstack_version || !teeConfig?.instance_type) {
     console.log(
       chalk.red(
-        "Error: public_logs and public_sysinfo (from deploy_to_phala) are required to calculate TEE measurements",
+        "Error: dstack_version and instance_type (from tee_config) are required to calculate TEE measurements",
       ),
     );
     process.exit(1);
   }
 
+  if (
+    typeof teeConfig.public_logs !== "boolean" ||
+    typeof teeConfig.public_sysinfo !== "boolean"
+  ) {
+    console.log(
+      chalk.red(
+        "Error: public_logs and public_sysinfo (from tee_config) are required to calculate TEE measurements",
+      ),
+    );
+    process.exit(1);
+  }
+
+  // Only a self-hosted target needs the server, and only after the config is
+  // known good, so a bad deployment.yaml never waits on an SSH round trip.
   return createTeeMeasurements(
-    calculateAppComposeHash(dockerComposePath, { publicLogs, publicSysinfo }),
-    dstackVersion,
-    instanceType,
+    calculateAppComposeHash(dockerComposePath, {
+      publicLogs: teeConfig.public_logs,
+      publicSysinfo: teeConfig.public_sysinfo,
+    }),
+    teeConfig.dstack_version,
+    teeConfig.instance_type,
+    teeConfig.backend === "server"
+      ? getKeyProviderEventDigest(teeConfig.server.ssh_host)
+      : PHALA_KEY_PROVIDER_EVENT_DIGEST,
   );
 }
 
-function createTeeMeasurements(appComposeHash, dstackVersion, instanceType) {
+function createTeeMeasurements(
+  appComposeHash,
+  dstackVersion,
+  instanceType,
+  keyProviderEventDigest,
+) {
   const versionMeasurements = hardwareAndOSMeasurements[dstackVersion];
   if (!versionMeasurements) {
     const supported = Object.keys(hardwareAndOSMeasurements).join(", ");
@@ -88,7 +111,7 @@ function createTeeMeasurements(appComposeHash, dstackVersion, instanceType) {
 
   return {
     rtmrs: hwMeasurements.rtmrs,
-    key_provider_event_digest: KEY_PROVIDER_EVENT_DIGEST,
+    key_provider_event_digest: keyProviderEventDigest,
     app_compose_hash_payload: appComposeHash,
   };
 }
@@ -178,29 +201,74 @@ export function buildAppComposeForDeploy(
  * Calculate the SHA-256 of the AppCompose for a given docker-compose path.
  *
  * @param {string} dockerComposePath - Path to the docker-compose YAML on disk
- * @param {{ allowedEnvsOverride?: string[] | null, publicLogs?: boolean, publicSysinfo?: boolean }} [options]
- *   - allowedEnvsOverride: explicit allowed_envs list (else extracted from compose)
- *   - publicLogs / publicSysinfo: required AppCompose toggles
+ * @param {{ publicLogs?: boolean, publicSysinfo?: boolean }} [options] - required AppCompose toggles
  * @returns {string} hex SHA-256 of the canonical AppCompose JSON
  */
 export function calculateAppComposeHash(
   dockerComposePath,
-  { allowedEnvsOverride = null, publicLogs, publicSysinfo } = {},
+  { publicLogs, publicSysinfo } = {},
 ) {
-  const dockerComposeFile = fs.readFileSync(dockerComposePath, "utf8");
+  return prepareAppComposeFromParts(
+    fs.readFileSync(dockerComposePath, "utf8"),
+    extractAllowedEnvs(dockerComposePath),
+    { publicLogs, publicSysinfo },
+  ).composeHash;
+}
 
-  // If override is provided, use it; otherwise extract from docker-compose
-  const allowedEnvs =
-    allowedEnvsOverride !== null
-      ? allowedEnvsOverride
-      : extractAllowedEnvs(dockerComposePath);
+/**
+ * Build the app compose, its exact JSON encoding, and its hash in one place, so
+ * a deploy can send the same bytes that were hashed rather than re-serialising.
+ *
+ * @param {string} dockerComposeFileContent - Raw docker-compose YAML string
+ * @param {string[]} allowedEnvs - Ordered env key names allowed in the CVM
+ * @param {{ publicLogs: boolean, publicSysinfo: boolean }} options
+ * @returns {{ allowedEnvs: string[], appCompose: object, composeJson: string, composeHash: string }}
+ */
+export function prepareAppComposeFromParts(
+  dockerComposeFileContent,
+  allowedEnvs,
+  { publicLogs, publicSysinfo } = {},
+) {
+  const appCompose = buildAppComposeForDeploy(
+    dockerComposeFileContent,
+    allowedEnvs,
+    { publicLogs, publicSysinfo },
+  );
+  const composeJson = JSON.stringify(appCompose);
+  const composeHash = crypto
+    .createHash("sha256")
+    .update(composeJson)
+    .digest("hex");
+  return { allowedEnvs, appCompose, composeJson, composeHash };
+}
 
-  const appCompose = buildAppComposeForDeploy(dockerComposeFile, allowedEnvs, {
-    publicLogs,
-    publicSysinfo,
-  });
-
-  return hashAppCompose(appCompose);
+/**
+ * Same, driven straight off a parsed deployment config.
+ *
+ * @param {object} deployment - Parsed deployment.yaml (needs docker_compose_path and tee_config)
+ */
+export function prepareAppCompose(deployment) {
+  const composePath = deployment?.docker_compose_path;
+  if (!composePath) {
+    console.log(
+      chalk.red("Error: docker_compose_path is required to build the app compose"),
+    );
+    process.exit(1);
+  }
+  if (!fs.existsSync(composePath)) {
+    console.log(
+      chalk.red(`Error: docker compose file not found: ${composePath}`),
+    );
+    process.exit(1);
+  }
+  return prepareAppComposeFromParts(
+    fs.readFileSync(composePath, "utf8"),
+    extractAllowedEnvs(composePath),
+    {
+      publicLogs: deployment?.tee_config?.public_logs,
+      publicSysinfo: deployment?.tee_config?.public_sysinfo,
+    },
+  );
 }
 
 // SHA-256 of the canonical JSON encoding of an app-compose object.
@@ -222,8 +290,23 @@ const localMeasurements = {
   app_compose_hash_payload: "0".repeat(64),
 };
 
-const KEY_PROVIDER_EVENT_DIGEST =
+// Digest over Phala Cloud's KMS root public key. A self-hosted dstack backend
+// computes its own from the operator's KMS instead.
+export const PHALA_KEY_PROVIDER_EVENT_DIGEST =
   "83368b43a0fc6f824f5a9220592df85fd30e2d405ecbd253a5c6354af63e6c9b41aec557c38a38e348ab87f9ac8fc68c";
+
+// vCPU / memory each Phala instance type is provisioned with. rtmr0 measures
+// both, so a self-hosted CVM has to be created in the shape the row above was
+// measured for.
+export const INSTANCE_TYPE_SHAPES = {
+  "tdx.small": { vcpu: 1, memoryMb: 2048 },
+  "tdx.medium": { vcpu: 2, memoryMb: 4096 },
+  "tdx.large": { vcpu: 4, memoryMb: 8192 },
+  "tdx.xlarge": { vcpu: 8, memoryMb: 16384 },
+  "tdx.2xlarge": { vcpu: 16, memoryMb: 32768 },
+  "tdx.4xlarge": { vcpu: 32, memoryMb: 65536 },
+  "tdx.8xlarge": { vcpu: 64, memoryMb: 131072 },
+};
 
 export const hardwareAndOSMeasurements = {
   "0.5.8": {

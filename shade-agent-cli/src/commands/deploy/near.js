@@ -5,7 +5,7 @@ import { NEAR } from "@near-js/tokens";
 import chalk from "chalk";
 import bs58 from "bs58";
 import { getConfig } from "../../utils/config.js";
-import { replacePlaceholders } from "../../utils/placeholders.js";
+import { replacePlaceholders, hasPlaceholder } from "../../utils/placeholders.js";
 import { tgasToGas } from "../../utils/near.js";
 import { checkTransactionOutcome } from "../../utils/transaction-outcome.js";
 import { dockerExec, runWithSudoOnLinux } from "../../utils/docker-utils.js";
@@ -380,20 +380,15 @@ export async function approveMeasurements() {
   try {
     const approveCfg = config.deployment.approve_measurements;
 
-    // Resolve measurements placeholder in args
+    // Resolve measurements placeholder in args. Args carrying literal
+    // measurements need nothing computed, and for the dstack backend the
+    // key-provider digest costs an SSH round trip to the KMS, so only reach for
+    // it when the placeholder is actually there.
     const replacements = {};
-    const measurements = getMeasurements(
-      config.deployment.environment === "TEE",
-      config.deployment.docker_compose_path,
-      config.deployment.deploy_to_phala?.dstack_version,
-      config.deployment.deploy_to_phala?.instance_type,
-      {
-        publicLogs: config.deployment.deploy_to_phala?.public_logs,
-        publicSysinfo: config.deployment.deploy_to_phala?.public_sysinfo,
-      },
-    );
-    // Pass the object directly, replacePlaceholders will handle JSON stringification
-    replacements["<MEASUREMENTS>"] = measurements;
+    if (hasPlaceholder(approveCfg.args, "<MEASUREMENTS>")) {
+      // Pass the object directly, replacePlaceholders will handle JSON stringification
+      replacements["<MEASUREMENTS>"] = getMeasurements(config.deployment);
+    }
 
     const args = replacePlaceholders(approveCfg.args, replacements);
 
@@ -429,9 +424,12 @@ export async function approvePpids() {
   try {
     const approveCfg = config.deployment.approve_ppids;
 
+    // Same as measurements: a literal PPID in args needs no lookup, and for the
+    // dstack backend the lookup is an SSH round trip to the server's KMS.
     const replacements = {};
-    const ppids = await getPpids(config.deployment.environment === "TEE");
-    replacements["<PPIDS>"] = ppids;
+    if (hasPlaceholder(approveCfg.args, "<PPIDS>")) {
+      replacements["<PPIDS>"] = await getPpids(config.deployment);
+    }
 
     const args = replacePlaceholders(approveCfg.args, replacements);
 

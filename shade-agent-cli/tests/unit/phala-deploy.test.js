@@ -6,6 +6,7 @@
  *    appName from options (no defaults, no implicit substitutions).
  *  - Required fields (dstackVersion, instanceType) throw when missing.
  *  - appName must be longer than 3 chars.
+ *  - allowed_envs comes from the docker-compose, never from the env file.
  *  - When Phala-returned compose_hash mismatches the locally computed hash,
  *    the helper renders a red error and exits 1
  *
@@ -122,6 +123,44 @@ describe("deployToPhala", () => {
     const provisionArgs = mockClient.provisionCvm.mock.calls[0][0];
     expect(provisionArgs.compose_file.public_logs).toBe(false);
     expect(provisionArgs.compose_file.public_sysinfo).toBe(false);
+  });
+
+  // allowed_envs is measured, so only the docker-compose may set it. A compose
+  // with no ${VAR} references allows nothing, and the env file must not widen
+  // that: the guest drops unlisted keys anyway.
+  it("keeps allowed_envs empty when the compose references no env vars", async () => {
+    const { parseEnvVars, encryptEnvVars } = await import("@phala/cloud");
+    parseEnvVars.mockReturnValueOnce([{ key: "SECRET", value: "x" }]);
+    const compose = buildAppComposeForDeploy(composeContent, [], {
+      publicLogs: true,
+      publicSysinfo: true,
+    });
+    mockClient.provisionCvm.mockResolvedValue({
+      app_id: "app-1",
+      app_env_encrypt_pubkey: "pubkey",
+      compose_hash: hashAppCompose(compose),
+    });
+    mockClient.commitCvmProvision.mockResolvedValue({
+      vm_uuid: "vm-abc",
+      name: "my-app",
+      app_id: "app-1",
+    });
+
+    await deployToPhala({
+      appName: "my-app",
+      apiKey: "key",
+      composePath: "./docker-compose.yaml",
+      envFilePath: "./.env",
+      allowedEnvKeys: [],
+      dstackVersion: "0.5.8",
+      instanceType: "tdx.small",
+      publicLogs: true,
+      publicSysinfo: true,
+    });
+
+    const provisionArgs = mockClient.provisionCvm.mock.calls[0][0];
+    expect(provisionArgs.compose_file.allowed_envs).toEqual([]);
+    expect(encryptEnvVars).not.toHaveBeenCalled();
   });
 
   // dstack_version is required.

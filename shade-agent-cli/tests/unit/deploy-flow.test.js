@@ -18,8 +18,8 @@
  *  - delete_key === false         → deleteContractKey NOT called
  *  - approve_measurements         → approveMeasurements called
  *  - approve_ppids                → approvePpids called
- *  - deploy_to_phala + TEE        → deployPhalaWorkflow called
- *  - deploy_to_phala + local      → deployPhalaWorkflow NOT called
+ *  - tee_config.deploy + TEE      → deployPhalaWorkflow called
+ *  - tee_config.deploy + local    → deployPhalaWorkflow NOT called
  *
  * Notes:
  *  - All side-effect helpers are mocked. confirmDestructiveRedeployIfAccountExists
@@ -237,17 +237,17 @@ describe("deploy command orchestration", () => {
     expect(approvePpids).toHaveBeenCalledOnce();
   });
 
-  // Phala deploy is gated on TEE env AND deploy_to_phala.enabled.
-  it("calls deployPhalaWorkflow when deploy_to_phala is enabled and environment is TEE", async () => {
+  // Phala deploy is gated on TEE env AND tee_config.deploy.enabled with the phala target.
+  it("calls deployPhalaWorkflow when tee_config.deploy is enabled with the phala target", async () => {
     vi.mocked(getConfig).mockResolvedValue(
       baseConfig({
-        deploy_to_phala: {
-          enabled: true,
-          app_name: "x",
+        tee_config: {
+          backend: "phala",
           dstack_version: "0.5.8",
           instance_type: "tdx.small",
           public_logs: true,
           public_sysinfo: true,
+          deploy: { enabled: true, app_name: "x" },
         },
       }),
     );
@@ -255,18 +255,18 @@ describe("deploy command orchestration", () => {
     expect(deployPhalaWorkflow).toHaveBeenCalledOnce();
   });
 
-  // Local mode + deploy_to_phala set → never reaches Phala.
+  // Local mode + a deploy target set → never reaches Phala.
   it("does NOT call deployPhalaWorkflow when environment is local", async () => {
     vi.mocked(getConfig).mockResolvedValue(
       baseConfig({
         environment: "local",
-        deploy_to_phala: {
-          enabled: true,
-          app_name: "x",
+        tee_config: {
+          backend: "phala",
           dstack_version: "0.5.8",
           instance_type: "tdx.small",
           public_logs: true,
           public_sysinfo: true,
+          deploy: { enabled: true, app_name: "x" },
         },
       }),
     );

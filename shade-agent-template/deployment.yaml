@@ -8,8 +8,8 @@ network: testnet
 docker_compose_path: ./docker-compose.yaml
 
 agent_contract:
-  # NEAR Account Id of the contract
-  # Fill this out with a unique contract id for your agent contract
+  # NEAR account ID of the contract
+  # Fill this out with a unique contract ID for your agent contract
   # This account should not already be in use
   # For example: example-contract-123.testnet
   contract_id: 
@@ -21,7 +21,7 @@ agent_contract:
     enabled: true
     # Amount to fund the agent contract with in NEAR
     funding_amount: 8
-    # If true the key for contract account will be deleted after deployment locking it
+    # If true, the key for the contract account will be deleted after deployment, locking it
     delete_key: false
 
     # Choose ONE of the following:
@@ -43,7 +43,7 @@ agent_contract:
     init:
       enabled: true
       method_name: new
-      # <REQUIRES_TEE> will be replaced wil true or false depending on the environment selected
+      # <REQUIRES_TEE> will be replaced with true or false depending on the environment selected
       # <7_DAYS> will be replaced with 7 days in milliseconds
       # <MASTER_ACCOUNT_ID> will be replaced with the master account set up in the auth of the CLI
       # <DEFAULT_MPC_CONTRACT_ID> will be replaced with the MPC contract address depending on the network selected
@@ -62,11 +62,10 @@ approve_measurements:
   enabled: true
   method_name: approve_measurements
   # <MEASUREMENTS> will be replaced with calculated measurements
-  # for local it will be set to default measurements (all zeros)
-  # for TEE and docker disabled it will be set to the measurements based on the current docker-compose file
-  # for TEE and docker enabled it will be set to the measurements based on the docker-compose file once it has been updated
-  # and on the configurations in deploy_to_phala (dstack_version, instance_type, public_logs and public_sysinfo)
-  # are required when using the <MEASUREMENTS> tag
+  # For local it is set to default measurements (all zeros)
+  # For TEE with the Docker build disabled, it is based on the current docker-compose file
+  # For TEE with the Docker build enabled, it is based on the docker-compose file after it has been updated,
+  # and on the configuration in tee_config
   args: |
     {
       "measurements": <MEASUREMENTS>
@@ -79,8 +78,9 @@ approve_ppids:
   enabled: true
   method_name: approve_ppids
   # <PPIDS> will be replaced with the PPIDs
-  # for local it will be set to a default PPID (all zeros)
-  # for TEE it will approve PPIDs on Phala Cloud
+  # For local it is set to a default PPID (all zeros)
+  # For TEE it is the PPIDs of Phala Cloud's fleet, or your server's single
+  # PPID, depending on the target
   args: |
     {
       "ppids": <PPIDS>
@@ -88,24 +88,20 @@ approve_ppids:
   # tgas: 30
 
 # Build a new docker image using the specified Dockerfile
-# the docker-compose.yaml will be updated with the new docker image
+# The docker-compose.yaml will be updated with the new Docker image
 # Optional, if not enabled the current docker-compose.yaml file will be used
 # Only applicable if the environment is TEE
 build_docker_image:
   enabled: true
-  # Fill this out with the docker tag you want to use. For example: pivortex/my-first-agent
+  # Fill this out with the Docker tag you want to use. For example: pivortex/my-first-agent
   tag: 
   cache: true
   dockerfile_path: ../Dockerfile
   reproducible_build: false
 
-# Deploy the docker compose file to Phala Cloud with the specified environment variables
-# Optional, if not enabled the app will not be deployed to Phala Cloud
+# Configuration for the TEE the agent is measured for and deployed to
 # Only applicable if the environment is TEE
-deploy_to_phala:
-  enabled: true
-  app_name: my-test-agent
-  env_file_path: ./.env
+tee_config:
   # The dstack OS version the agent is deployed with
   dstack_version: 0.5.8
   # The virtual hardware given to the TEE
@@ -114,6 +110,34 @@ deploy_to_phala:
   public_logs: true
   # If true metrics are public
   public_sysinfo: true
+
+  # Deploy the agent to the target selected below
+  # Optional, if not enabled the measurements and PPIDs are still calculated
+  # and approved, but nothing is deployed
+  deploy:
+    enabled: true
+    # The name the CVM is given
+    app_name: my-test-agent
+    # The environment variables given to the agent
+    env_file_path: ./.env
+
+  # Choose ONE of the following:
+  # Target Phala Cloud
+  # If <MEASUREMENTS> or <PPIDS> are used, they are calculated according to Phala's setup
+  # Deploying needs a Phala API key set via "shade auth"
+  phala:
+    enabled: true
+  # Target your own dstack server, over SSH
+  # If <MEASUREMENTS> or <PPIDS> are used, they are calculated according to your server's setup
+  # The server needs to be configured as per https://github.com/NearDeFi/shade-agent-framework/blob/main/docs/concepts/self-hosted-server.md
+  server:
+    enabled: false
+    # SSH alias from your ~/.ssh/config targeting the server
+    ssh_host: tdx
+    # The domain your dstack gateway serves under
+    gateway_domain: shade.example.com
+    # Disk size in GB
+    disk_size_gb: 20
 
 # Helper command to whitelist an agent for local mode
 # Use the "shade whitelist" command

@@ -12,6 +12,7 @@ import {
   deleteContractKey,
 } from "./near.js";
 import { deployPhalaWorkflow } from "./phala.js";
+import { deployServerWorkflow } from "./server.js";
 import { getConfig } from "../../utils/config.js";
 import { createCommandErrorHandler } from "../../utils/error-handler.js";
 import { confirmDestructiveRedeployIfAccountExists } from "../../utils/destructive-redeploy.js";
@@ -74,11 +75,13 @@ export function deployCommand() {
         await approvePpids();
       }
 
-      if (
-        config.deployment.deploy_to_phala?.enabled &&
-        config.deployment.environment === "TEE"
-      ) {
-        await deployPhalaWorkflow();
+      const tee = config.deployment.tee_config;
+      if (tee?.deploy?.enabled && config.deployment.environment === "TEE") {
+        if (tee.backend === "phala") {
+          await deployPhalaWorkflow();
+        } else if (tee.backend === "server") {
+          await deployServerWorkflow();
+        }
       }
 
       console.log(chalk.green("\n✓ Deployment completed successfully!"));

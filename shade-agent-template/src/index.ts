@@ -50,7 +50,7 @@ console.log("Agent account ID:", agent.accountId());
 // If the agent has low balance, fund it
 const balance = await agent.balance();
 if (balance < 0.2) {
-  await agent.fund(0.3);
+  await agent.fund(0.5);
 }
 
 while (true) {
