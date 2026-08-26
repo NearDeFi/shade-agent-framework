@@ -24,7 +24,7 @@ crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 hex = { version = "=0.4.3", default-features = false, features = ["alloc"] }
-near-sdk = "=5.26.1"
+near-sdk = "=5.28.0"
 serde = { version = "=1.0.228", features = ["derive"] }
 shade-attestation = { path = "../shade-attestation" }
 
@@ -52,7 +52,7 @@ path = "tests/update_contract_tests.rs"
 near-api = "=0.8.6"
 near-api-types = "=0.8.6"
 near-sandbox = "=0.3.11"
-near-sdk = { version = "=5.26.1", features = ["unit-testing"] }
+near-sdk = { version = "=5.28.0", features = ["unit-testing"] }
 serde_json = "=1.0.149"
 shade-attestation = { path = "../shade-attestation" }
 tokio = { version = "=1.52.3", features = ["full"] }
