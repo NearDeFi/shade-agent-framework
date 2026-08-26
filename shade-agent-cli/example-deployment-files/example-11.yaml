@@ -2,7 +2,7 @@
 
 # Same shape as the first-time TEE deployment in example-2.yaml, but the agent is
 # deployed to a server you run, over SSH. The server needs dstack-vmm, a KMS CVM
-# and a gateway CVM already set up
+# and a gateway CVM already set up, as per ../../docs/concepts/self-hosted-server.md
 
 environment: TEE
 network: testnet

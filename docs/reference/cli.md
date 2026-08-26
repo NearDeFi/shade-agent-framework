@@ -207,7 +207,7 @@ Enabling both targets is an error.
 
 #### tee_config.server
 
-Targets your own dstack server over SSH. The server must already be set up with `dstack-vmm`, a KMS CVM and a gateway CVM, and the VM shape must match one of the `instance_type` rows.
+Targets your own dstack server over SSH. The server must already be set up with `dstack-vmm`, a KMS CVM and a gateway CVM, as per the [self-hosted server guide](../concepts/self-hosted-server.md), and the VM shape must match one of the `instance_type` rows.
 
 | Key | Required | Description |
 |-----|----------|-------------|

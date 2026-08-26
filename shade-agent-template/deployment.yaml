@@ -129,7 +129,7 @@ tee_config:
     enabled: true
   # Target your own dstack server, over SSH
   # If <MEASUREMENTS> or <PPIDS> are used, they are calculated according to your server's setup
-  # The server needs to be configured as per TODO add instructions link
+  # The server needs to be configured as per https://github.com/NearDeFi/shade-agent-framework/blob/main/docs/concepts/self-hosted-server.md
   server:
     enabled: false
     # SSH alias from your ~/.ssh/config targeting the server

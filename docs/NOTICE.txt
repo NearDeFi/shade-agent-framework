@@ -1,1 +1,1 @@
-Portions of this documentation are derived from the NEAR MPC repository https://github.com/near/mpc (MIT License) and Phala Cloud documentation https://docs.phala.com/.
+Portions of this documentation are derived from the NEAR MPC repository https://github.com/near/mpc (MIT License), Outlayer repository https://github.com/fastnear/near-outlayer (Apache-2.0 License) and Phala Cloud documentation https://docs.phala.com/.
