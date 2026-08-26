@@ -13,6 +13,20 @@ use shade_attestation::{
 const DEPOSIT_005_NEAR: NearToken = NearToken::from_yoctonear(5_000_000_000_000_000_000_000); // 0.005 NEAR
 const DEPOSIT_003_NEAR: NearToken = NearToken::from_yoctonear(3_000_000_000_000_000_000_000); // 0.003 NEAR
 const DEPOSIT_ZERO: NearToken = NearToken::from_yoctonear(0);
+// Exact first-time storage cost: 486 bytes * 1e19 yocto/byte = 0.00486 NEAR
+const EXACT_STORAGE_DEPOSIT: NearToken = NearToken::from_yoctonear(4_860_000_000_000_000_000_000);
+
+// Amount transferred to `account` by created receipts (e.g. a refund), if any.
+fn refund_to(account: &AccountId) -> Option<NearToken> {
+    near_sdk::test_utils::get_created_receipts()
+        .into_iter()
+        .filter(|r| &r.receiver_id == account)
+        .flat_map(|r| r.actions)
+        .find_map(|a| match a {
+            near_sdk::mock::MockAction::Transfer { deposit, .. } => Some(deposit),
+            _ => None,
+        })
+}
 
 // Helper function to create a mock context
 fn get_context(predecessor: AccountId, is_view: bool) -> VMContextBuilder {
@@ -402,7 +416,7 @@ fn test_register_agent_not_whitelisted() {
 
 // First-time registration requires storage stake: zero attached deposit must fail
 #[test]
-#[should_panic(expected = "Attached deposit must be greater than storage cost")]
+#[should_panic(expected = "Attached deposit must be at least the storage cost")]
 fn test_register_agent_errors_when_storage_deposit_required_but_zero_attached() {
     let mut contract = setup_contract();
     let agent = accounts(2);
@@ -418,7 +432,7 @@ fn test_register_agent_errors_when_storage_deposit_required_but_zero_attached() 
 
 // First-time registration: attached deposit below storage cost must fail
 #[test]
-#[should_panic(expected = "Attached deposit must be greater than storage cost")]
+#[should_panic(expected = "Attached deposit must be at least the storage cost")]
 fn test_register_agent_errors_when_storage_deposit_insufficient() {
     let mut contract = setup_contract();
     let agent = accounts(2);
@@ -430,6 +444,57 @@ fn test_register_agent_errors_when_storage_deposit_insufficient() {
     testing_env!(context.build());
 
     contract.register_agent(create_mock_dstack_attestation());
+}
+
+// First-time registration: deposit above the storage cost is accepted and the excess refunded
+#[test]
+fn test_register_agent_refunds_overpayment() {
+    let mut contract = setup_contract();
+    let agent = accounts(2);
+
+    contract.whitelist_agent_for_local(agent.clone());
+
+    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
+    testing_env!(context.build());
+    assert!(contract.register_agent(create_mock_dstack_attestation()));
+
+    // 0.005 attached - 0.00486 storage cost = 0.00014 NEAR refunded
+    let expected = DEPOSIT_005_NEAR.checked_sub(EXACT_STORAGE_DEPOSIT).unwrap();
+    assert_eq!(refund_to(&agent), Some(expected));
+}
+
+// First-time registration: attaching exactly the storage cost refunds nothing
+#[test]
+fn test_register_agent_exact_deposit_no_refund() {
+    let mut contract = setup_contract();
+    let agent = accounts(2);
+
+    contract.whitelist_agent_for_local(agent.clone());
+
+    let context = get_context_with_deposit(agent.clone(), false, Some(EXACT_STORAGE_DEPOSIT));
+    testing_env!(context.build());
+    assert!(contract.register_agent(create_mock_dstack_attestation()));
+
+    assert_eq!(refund_to(&agent), None);
+}
+
+// Re-registration uses no new storage, so the full attached deposit is refunded
+#[test]
+fn test_register_agent_reregister_refunds_full_deposit() {
+    let mut contract = setup_contract();
+    let agent = accounts(2);
+
+    contract.whitelist_agent_for_local(agent.clone());
+
+    let context = get_context_with_deposit(agent.clone(), false, Some(EXACT_STORAGE_DEPOSIT));
+    testing_env!(context.build());
+    assert!(contract.register_agent(create_mock_dstack_attestation()));
+
+    // Already registered: the contract requires 0, so the whole deposit comes back
+    let context = get_context_with_deposit(agent.clone(), false, Some(DEPOSIT_005_NEAR));
+    testing_env!(context.build());
+    assert!(contract.register_agent(create_mock_dstack_attestation()));
+    assert_eq!(refund_to(&agent), Some(DEPOSIT_005_NEAR));
 }
 
 // Test that owner can update the owner ID
