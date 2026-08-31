@@ -29,9 +29,9 @@
   },
   "dependencies": {
     "@inquirer/confirm": "6.1.1",
-    "@inquirer/input": "5.1.2",
-    "@inquirer/password": "5.1.1",
-    "@inquirer/select": "5.2.1",
+    "@inquirer/input": "5.1.3",
+    "@inquirer/password": "5.1.2",
+    "@inquirer/select": "5.2.2",
     "@napi-rs/keyring": "1.3.0",
     "@near-js/accounts": "2.5.1",
     "@near-js/crypto": "2.5.1",
@@ -51,8 +51,8 @@
   "devDependencies": {
     "@noble/curves": "1.8.1",
     "@noble/hashes": "1.7.1",
-    "@vitest/coverage-v8": "4.1.9",
-    "vitest": "4.1.9"
+    "@vitest/coverage-v8": "4.1.11",
+    "vitest": "4.1.11"
   },
   "keywords": [
     "AI",
