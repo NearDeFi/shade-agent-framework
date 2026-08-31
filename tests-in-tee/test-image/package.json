@@ -22,8 +22,8 @@
     "@near-js/signers": "^2.5.1",
     "@phala/dstack-sdk": "^0.5.5",
     "dotenv": "^16.4.5",
-    "hono": "^4.12.27",
-    "tsx": "^4.22.4"
+    "hono": "^4.13.3",
+    "tsx": "^4.23.12"
   },
   "devDependencies": {
     "@types/node": "^22.19.7",
