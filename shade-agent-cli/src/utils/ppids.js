@@ -43,5 +43,10 @@ export async function getPpids(deployment) {
   // The fleet API can list the same PPID twice. `approve_ppids` absorbs that
   // silently (a set insert), but `remove_ppids` require!s every removal to
   // succeed, so a repeated entry panics the contract on the second pass.
-  return [...new Set(ppids)];
+  // It has also listed values that are not 16-byte PPIDs; the contract
+  // rejects the whole call over one of those, so they are dropped here.
+  const valid = ppids.filter(
+    (ppid) => typeof ppid === "string" && /^[0-9a-fA-F]{32}$/.test(ppid),
+  );
+  return [...new Set(valid)];
 }
