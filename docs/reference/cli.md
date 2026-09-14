@@ -163,7 +163,7 @@ Placeholders in args:
 
 Placeholders in args:
 
-- `<PPIDS>` — Resolves to a mock PPID for local. For TEE the source depends on the deploy backend: with `tee_config.phala` it is the list of all PPIDs of devices on Phala Cloud (entries that are not 16-byte hex PPIDs are dropped with a warning, since the contract would reject the whole call); with `tee_config.server` it is the single PPID of your server. The server must be reachable for `shade deploy` and `shade plan` when using the placeholder. A literal PPID written into `args` instead of the placeholder keeps working either way.
+- `<PPIDS>` — Resolves to a mock PPID for local. For TEE the source depends on the deploy backend: with `tee_config.phala` it is the list of all PPIDs of devices on Phala Cloud; with `tee_config.server` it is the single PPID of your server. The server must be reachable for `shade deploy` and `shade plan` when using the placeholder. A literal PPID written into `args` instead of the placeholder keeps working either way.
 
 ### build_docker_image (TEE Only)
 
