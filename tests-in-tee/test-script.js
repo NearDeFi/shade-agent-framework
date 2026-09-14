@@ -1586,6 +1586,41 @@ async function test12(appUrl) {
   );
 }
 
+// Test 13: Registration with collateral fetched from Phala's PCCS only
+async function test13(appUrl) {
+  const correctMeasurements = getCorrectMeasurements();
+  const correctPpids = await getCorrectPpids();
+
+  await runTest(
+    appUrl,
+    "registration-phala-pccs",
+    async () => {
+      await approveMeasurements(correctMeasurements);
+      await approvePpids(correctPpids);
+    },
+    async (result) => {
+      if (result.registrationError) {
+        throw new Error(
+          `Registration via Phala PCCS should have succeeded, got error: ${result.registrationError}`,
+        );
+      }
+      if (result.callError) {
+        throw new Error(
+          `Call should have succeeded, got error: ${result.callError}`,
+        );
+      }
+
+      const registered = await isAgentRegistered(result.agentAccountId);
+      if (!registered) {
+        throw new Error("Agent should be registered but is not");
+      }
+
+      await removeMeasurements(correctMeasurements);
+      await removePpids(correctPpids);
+    },
+  );
+}
+
 // Test 9: Verify that two agent instances generate different private keys
 async function test9(appUrl) {
   const correctMeasurements = getCorrectMeasurements();
@@ -1699,6 +1734,7 @@ async function main() {
         fn: test11,
       },
       { name: "Test 12: Registration via Intel PCS collateral", fn: test12 },
+      { name: "Test 13: Registration via Phala PCCS collateral", fn: test13 },
     ];
 
     for (let i = 0; i < tests.length; i++) {

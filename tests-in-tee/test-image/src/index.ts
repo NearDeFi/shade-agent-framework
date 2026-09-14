@@ -304,6 +304,25 @@ app.post("/test/registration-intel-pcs", async (c) => {
   }
 });
 
+// Same flow again with Phala's PCCS alone, so each default endpoint is proven
+// on its own rather than hidden behind the ladder's fall-through.
+app.post("/test/registration-phala-pccs", async (c) => {
+  try {
+    const agent = await createAgent(["https://pccs.phala.network"]);
+    const result = await testSuccessfulRegistration(agent);
+    return c.json(result);
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: error.message,
+        stack: error.stack,
+      },
+      500,
+    );
+  }
+});
+
 app.post("/test/unique-keys", async (c) => {
   try {
     const result = await testUniqueKeys();
