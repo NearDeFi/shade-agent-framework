@@ -31,6 +31,7 @@ const agent = await ShadeClient.create({
   rpc: provider, 
   numKeys: 10,
   derivationPath: process.env.SPONSOR_PRIVATE_KEY, // ed25519:4vKz...
+  pccsEndpoints: ["https://pccs.phala.network", "https://api.trustedservices.intel.com"],
 });
 ```
 
@@ -46,7 +47,7 @@ All arguments are optional. Omitting some makes certain methods unavailable.
 | `rpc` | A [near-api-js provider](https://near.github.io/near-api-js/modules/providers.html) object used by the client (defaults to a basic RPC provider based on the network). |
 | `numKeys` | The number of key pairs the agent has (1–100, defaults to 1). More keys increase transaction throughput; the client rotates through them when signing transactions. |
 | `derivationPath` | A string used to derive deterministic agent account IDs when running locally. Lets you avoid re-whitelisting and re-funding the agent on each run. Use a unique secret (e.g. a private key). If two agents share the same derivation path, they get the same account ID and could control contracts they are not authorized for. |
-| `pccsEndpoints` | Ordered list of PCCS endpoint URLs used to fetch TDX attestation collateral. The client tries each entry in order; on per-endpoint failure or stale collateral it falls through to the next. Defaults to `["https://pccs.phala.network", "https://api.trustedservices.intel.com"]` (Phala PCCS, then Intel PCS). Providing a list replaces the defaults entirely — include them explicitly if you want a fallback chain. An empty array is rejected at construction time. |
+| `pccsEndpoints` | Ordered list of PCCS endpoint URLs used to fetch TDX attestation collateral. The client tries each entry in order; on per-endpoint failure or stale collateral it falls through to the next. Defaults to `["https://pccs.phala.network", "https://api.trustedservices.intel.com"]` (Phala PCCS, then Intel PCS). Providing a list replaces the defaults entirely — include them explicitly if you want a fallback chain. An empty array is rejected at construction time. Entries must be `http(s)` URLs without credentials, query or fragment; a self-hosted PCCS with a self-signed certificate needs its CA added via `NODE_EXTRA_CA_CERTS`. If every endpoint fails, the call throws an `AggregateError` with one entry per endpoint in `errors` (a `FreshnessError` for stale collateral). |
 
 ---
 
@@ -130,7 +131,7 @@ All fields are optional. Omit the argument entirely (`register()`) or pass an em
 
 **TEE vs local (attestation):**
 
-- **TEE:** Registers the agent with a real attestation.
+- **TEE:** Registers the agent with a real attestation. Its Intel collateral is fetched from the `pccsEndpoints` ladder, so the TEE needs egress to those hosts (by default `pccs.phala.network`, `api.trustedservices.intel.com` and `certificates.trustedservices.intel.com`).
 - **Local:** Registers the agent with a mock attestation.
 
 Requires `agentContractId` in config.
@@ -178,7 +179,7 @@ const attestation = await agent.getAttestation();
 ```
 
 **TEE vs local:** 
-- TEE: Returns a real attestation. 
+- TEE: Returns a real attestation, fetching its collateral the same way as [Register Agent](#register-agent) (same `pccsEndpoints` ladder and egress hosts).
 - Local: Returns a mock attestation. 
 
 ---
