@@ -48,12 +48,5 @@ export async function getPpids(deployment) {
   const valid = ppids.filter(
     (ppid) => typeof ppid === "string" && /^[0-9a-fA-F]{32}$/.test(ppid),
   );
-  if (valid.length !== ppids.length) {
-    console.log(
-      chalk.yellow(
-        `Ignoring ${ppids.length - valid.length} malformed PPID(s) from the Phala API`,
-      ),
-    );
-  }
   return [...new Set(valid)];
 }

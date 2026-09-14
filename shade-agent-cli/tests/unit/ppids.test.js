@@ -4,7 +4,7 @@
  * Coverage:
  *  - local environment: returns the local-mode placeholder PPID without fetching.
  *  - phala backend on 200 + array: returns the 16-byte hex PPIDs, deduped.
- *  - phala backend: entries that are not 16-byte hex PPIDs are dropped with a warning.
+ *  - phala backend: entries that are not 16-byte hex PPIDs are dropped.
  *  - phala backend on non-OK: chalk.red + process.exit(1).
  *  - phala backend on non-array body: chalk.red + process.exit(1).
  *  - dstack backend: reads the single PPID off the server's KMS, never fetches.
@@ -68,8 +68,8 @@ describe("getPpids", () => {
 
   // The fleet API has listed values that are not 16-byte PPIDs (e.g. 128 hex
   // chars). One such entry makes the contract reject the whole approve_ppids
-  // call, so they are dropped here, with a single warning.
-  it("drops entries that are not 16-byte hex PPIDs and warns once", async () => {
+  // call, so they are dropped here.
+  it("drops entries that are not 16-byte hex PPIDs", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
@@ -85,8 +85,7 @@ describe("getPpids", () => {
       ],
     });
     expect(await getPpids(phala)).toEqual([A, B]);
-    expect(console.log).toHaveBeenCalledTimes(1);
-    expect(console.log.mock.calls[0][0]).toContain("Ignoring 6 malformed PPID(s)");
+    expect(console.log).not.toHaveBeenCalled();
   });
 
   // Uppercase hex is still a valid PPID; the contract decodes it case-insensitively.
