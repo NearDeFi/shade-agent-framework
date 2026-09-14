@@ -3,7 +3,8 @@
  *
  * Coverage:
  *  - local environment: returns the local-mode placeholder PPID without fetching.
- *  - phala backend on 200 + array: returns the array verbatim.
+ *  - phala backend on 200 + array: returns the 16-byte hex PPIDs, deduped.
+ *  - phala backend: entries that are not 16-byte hex PPIDs are dropped.
  *  - phala backend on non-OK: chalk.red + process.exit(1).
  *  - phala backend on non-array body: chalk.red + process.exit(1).
  *  - dstack backend: reads the single PPID off the server's KMS, never fetches.
@@ -29,6 +30,11 @@ const dstack = {
   tee_config: { backend: "server", server: { ssh_host: "tdx" } },
 };
 
+// 16-byte PPIDs as 32 hex chars, the only shape the contract's approve_ppids accepts.
+const A = "1379a7b6ba9b25e05a7a0943250543ef";
+const B = "98d4560c0c8b3be964edbb9310366155";
+const C = "00112233445566778899aabbccddeeff";
+
 describe("getPpids", () => {
   let exitSpy;
   beforeEach(() => {
@@ -49,15 +55,47 @@ describe("getPpids", () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
-  // Happy TEE path: 200 + JSON array → returned verbatim.
-  it("returns the fetched array on a 200 response", async () => {
-    const ppids = ["a", "b"];
+  // Happy TEE path: 200 + JSON array of well-formed PPIDs → returned as-is.
+  it("returns the fetched PPIDs on a 200 response", async () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
-      json: async () => ppids,
+      json: async () => [A, B],
     });
-    expect(await getPpids(phala)).toEqual(ppids);
+    expect(await getPpids(phala)).toEqual([A, B]);
+    expect(console.log).not.toHaveBeenCalled();
+  });
+
+  // The fleet API has listed values that are not 16-byte PPIDs (e.g. 128 hex
+  // chars). One such entry makes the contract reject the whole approve_ppids
+  // call, so they are dropped here.
+  it("drops entries that are not 16-byte hex PPIDs", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => [
+        A,
+        "ab".repeat(64), // 64 bytes
+        B,
+        "zz11223344556677889900aabbccddee", // not hex
+        "1379a7b6ba9b25e05a7a0943250543e", // 31 chars
+        "", // empty
+        42, // not a string
+        null,
+      ],
+    });
+    expect(await getPpids(phala)).toEqual([A, B]);
+    expect(console.log).not.toHaveBeenCalled();
+  });
+
+  // Uppercase hex is still a valid PPID; the contract decodes it case-insensitively.
+  it("accepts uppercase hex PPIDs", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: async () => [A.toUpperCase()],
+    });
+    expect(await getPpids(phala)).toEqual([A.toUpperCase()]);
   });
 
   // 5xx is a hard failure — abort with exit 1 rather than register against
@@ -80,9 +118,9 @@ describe("getPpids", () => {
     global.fetch = vi.fn().mockResolvedValue({
       ok: true,
       status: 200,
-      json: async () => ["b", "a", "b", "c", "a"],
+      json: async () => [B, A, B, C, A],
     });
-    expect(await getPpids(phala)).toEqual(["b", "a", "c"]);
+    expect(await getPpids(phala)).toEqual([B, A, C]);
   });
 
   // Non-array body is a contract break — never silently coerce or wrap.
