@@ -160,7 +160,7 @@ describe("defaultRetryable", () => {
 
   it("retries on any error with a `.type` field (no NEAR type denylist)", () => {
     // `withRetry` is only used for non-NEAR external calls (dstack,
-    // Phala HTTP); NEAR RPC has its own retry inside JsonRpcProvider.
+    // PCCS HTTP); NEAR RPC has its own retry inside JsonRpcProvider.
     // So we don't try to recognise NEAR-specific deterministic types
     // here — any error with an unknown shape just retries by default.
     expect(

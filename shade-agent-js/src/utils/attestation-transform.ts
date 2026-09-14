@@ -7,9 +7,9 @@ import type { Collateral as DcapCollateral } from "@phala/dcap-qvl";
 import { toThrowable } from "./errors";
 
 // @phala/dcap-qvl types each binary collateral field as `number[] | string`.
-// At runtime v0.3.9 always returns `number[]` (Array.from(Buffer)), but the
-// type union is permissive. Encode both forms to a lowercase hex string —
-// a string input is assumed to already be hex.
+// At runtime it returns `number[]` (Array.from(Buffer)), but the type union
+// is permissive. Encode both forms to a lowercase hex string — a string
+// input is assumed to already be hex.
 function bytesToHex(v: number[] | string | undefined): string {
   if (v === undefined) return "";
   if (typeof v === "string") return v;
@@ -72,19 +72,16 @@ export interface DstackAttestationForContract {
   tcb_info: TcbInfo;
 }
 
-// Inputs to attestationForContract: the raw pieces produced by the dstack
-// + PCCS pipeline (quote bytes, dcap-qvl collateral, transformed tcb_info).
-// The function is the single boundary where binary fields are encoded to
-// hex for the contract wire format.
+// Raw pieces from the dstack + PCCS pipeline (quote bytes, dcap-qvl
+// collateral, transformed tcb_info) that attestationForContract encodes
+// into the contract wire shape.
 export interface AttestationInputs {
   quote: number[];
   collateral: DcapCollateral;
   tcb_info: TcbInfo;
 }
 
-// Builds the contract-shaped attestation by hex-encoding dcap-qvl's binary
-// collateral fields and passing through the rest. This is the only place
-// the byte→hex conversion happens in the agent pipeline.
+// The single place binary collateral fields are hex-encoded for the contract.
 export function attestationForContract(
   inputs: AttestationInputs,
 ): DstackAttestationForContract {

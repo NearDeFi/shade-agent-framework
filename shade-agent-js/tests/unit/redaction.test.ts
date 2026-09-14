@@ -62,6 +62,7 @@ vi.mock("@near-js/accounts", async () => {
 const mockGetCollateral = vi.fn();
 vi.mock("@phala/dcap-qvl", () => ({
   getCollateral: (...args: unknown[]) => mockGetCollateral(...args),
+  Quote: { parse: () => ({}) },
   PHALA_PCCS_URL: "https://pccs.phala.network",
   INTEL_PCS_URL: "https://api.trustedservices.intel.com",
 }));

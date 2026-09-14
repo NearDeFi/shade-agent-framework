@@ -89,15 +89,11 @@ export async function internalGetAttestation(
 
     // Transform quote from hex string to bytes array.
     const quote = transformQuote(quote_hex);
-    const quoteBytes = Buffer.from(quote_hex.replace(/^0x/, ""), "hex");
 
-    // Fetch collateral from the configured PCCS fallback ladder. The helper
-    // tries each endpoint in order, treats per-endpoint failure or stale
-    // collateral (>7d old) as fall-through, and aggregates failures if every
-    // endpoint fails. Mirrors mpc's try_each_pccs_endpoint behaviour.
+    // Collateral comes from the configured PCCS ladder (see collateral.ts).
     const collateral = await fetchCollateralWithFallback(
       pccsEndpoints,
-      quoteBytes,
+      Buffer.from(quote),
       new Date(),
     );
 

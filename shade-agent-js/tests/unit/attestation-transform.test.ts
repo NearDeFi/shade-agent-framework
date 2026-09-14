@@ -208,6 +208,24 @@ describe("attestation-transform", () => {
       expect(result.tcb_info).toEqual(attestation.tcb_info);
     });
 
+    it("should pass through binary fields that already arrive as hex strings", () => {
+      const attestation = createMockAttestation({
+        collateral: {
+          root_ca_crl: "dead",
+          pck_crl: [202, 254],
+          tcb_info_signature: "",
+          qe_identity_signature: "beef",
+        },
+      });
+
+      const result = attestationForContract(attestation);
+
+      expect(result.collateral.root_ca_crl).toBe("dead");
+      expect(result.collateral.pck_crl).toBe("cafe");
+      expect(result.collateral.tcb_info_signature).toBe("");
+      expect(result.collateral.qe_identity_signature).toBe("beef");
+    });
+
     it("should convert empty byte arrays to empty hex strings", () => {
       const attestation = createMockAttestation();
 

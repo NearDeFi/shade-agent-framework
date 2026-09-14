@@ -23,6 +23,7 @@
     "prepublishOnly": "npm run build",
     "publish": "npm publish --access public",
     "test": "vitest run tests/unit",
+    "test:live": "vitest run tests/live",
     "test:coverage": "vitest run --coverage tests/unit"
   },
   "dependencies": {
@@ -34,6 +35,7 @@
     "@near-js/tokens": "2.5.1",
     "@near-js/transactions": "2.5.1",
     "@near-js/types": "2.5.1",
+    "@phala/dcap-qvl": "0.6.3",
     "@phala/dstack-sdk": "0.5.8",
     "asn1.js": "5.4.1",
     "near-seed-phrase": "0.2.1"

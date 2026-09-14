@@ -70,8 +70,7 @@ const CertificateList = asn1.define("CertificateList", function (this: any) {
 
 // Build a minimal DER PCK CRL whose thisUpdate is `at`. Other fields use
 // opaque DER placeholders — the freshness check only reads thisUpdate.
-// Returns raw bytes; use `synthFreshPckCrlHex` for the verify-endpoint
-// hex shape.
+// Returns raw bytes, matching dcap-qvl's runtime shape (Array.from(Buffer)).
 export function synthFreshPckCrlBytes(at: Date = new Date()): number[] {
   const NULL_DER = Buffer.from([0x05, 0x00]);
   const encoded = CertificateList.encode(
@@ -88,12 +87,6 @@ export function synthFreshPckCrlBytes(at: Date = new Date()): number[] {
     "der",
   );
   return Array.from(encoded as Buffer);
-}
-
-// Hex-encoded form for callers that mock the verify endpoint response
-// (whose collateral fields arrive as hex strings, pre-transformCollateral).
-export function synthFreshPckCrlHex(at: Date = new Date()): string {
-  return Buffer.from(synthFreshPckCrlBytes(at)).toString("hex");
 }
 
 // JSON blob shaped like tcb_info / qe_identity for freshness purposes
@@ -102,71 +95,9 @@ export function freshTcbOrQeIdentityJson(at: Date = new Date()): string {
   return JSON.stringify({ issueDate: at.toISOString() });
 }
 
-// Creates a mock quote collateral (RawCollateral) for testing
-// Allows overriding specific fields while providing defaults for the rest.
-// Default tcb_info, qe_identity, and pck_crl pass the freshness check.
-export function createMockQuoteCollateral(overrides?: {
-  pck_crl_issuer_chain?: string;
-  root_ca_crl?: string;
-  pck_crl?: string;
-  tcb_info_issuer_chain?: string;
-  tcb_info?: string;
-  tcb_info_signature?: string;
-  qe_identity_issuer_chain?: string;
-  qe_identity?: string;
-  qe_identity_signature?: string;
-}) {
-  return {
-    pck_crl_issuer_chain: "",
-    root_ca_crl: "",
-    pck_crl: synthFreshPckCrlHex(),
-    tcb_info_issuer_chain: "",
-    tcb_info: freshTcbOrQeIdentityJson(),
-    tcb_info_signature: "",
-    qe_identity_issuer_chain: "",
-    qe_identity: freshTcbOrQeIdentityJson(),
-    qe_identity_signature: "",
-    ...overrides,
-  };
-}
-
-// Creates a mock attestation response (QuoteCollateralResponse) for testing
-export function createMockAttestationResponse(overrides?: {
-  checksum?: string;
-  quote_collateral?: ReturnType<typeof createMockQuoteCollateral>;
-}) {
-  return {
-    checksum: overrides?.checksum ?? "mock-checksum-123",
-    quote_collateral:
-      overrides?.quote_collateral ?? createMockQuoteCollateral(),
-  };
-}
-
-// Build a fresh PCK CRL as raw bytes (matches dcap-qvl's runtime shape,
-// which returns Array.from(Buffer) for binary fields). `at` controls the
-// thisUpdate timestamp so callers can test stale/future cases.
-export function synthFreshPckCrlBytes(at: Date = new Date()): number[] {
-  const NULL_DER = Buffer.from([0x05, 0x00]);
-  const encoded = CertificateList.encode(
-    {
-      tbsCertList: {
-        version: 1,
-        signature: NULL_DER,
-        issuer: NULL_DER,
-        thisUpdate: { type: "generalTime", value: at },
-      },
-      signatureAlgorithm: NULL_DER,
-      signature: { data: Buffer.from([0x00]), unused: 0 },
-    },
-    "der",
-  );
-  return Array.from(encoded as Buffer);
-}
-
 // Mock dcap-qvl getCollateral return shape. Binary fields are `number[]`
-// (matching @phala/dcap-qvl/src/collateral.js:307-318 which uses
-// `Array.from(Buffer)`). Default tcb_info / qe_identity / pck_crl pass the
-// freshness check at call time.
+// (dcap-qvl returns `Array.from(Buffer)`). Default tcb_info / qe_identity /
+// pck_crl pass the freshness check at call time.
 export function createMockDcapCollateral(overrides?: {
   pck_crl_issuer_chain?: string;
   root_ca_crl?: number[];

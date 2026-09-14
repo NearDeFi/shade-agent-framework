@@ -25,6 +25,7 @@ vi.mock("@phala/dstack-sdk", () => ({
 const mockGetCollateral = vi.fn();
 vi.mock("@phala/dcap-qvl", () => ({
   getCollateral: (...args: unknown[]) => mockGetCollateral(...args),
+  Quote: { parse: () => ({}) },
   PHALA_PCCS_URL: "https://pccs.phala.network",
   INTEL_PCS_URL: "https://api.trustedservices.intel.com",
 }));
@@ -250,6 +251,11 @@ describe("tee utils", () => {
       expect(msg).toContain("All 2 PCCS endpoints failed");
       expect(msg).toContain("primary down");
       expect(msg).toContain("fallback down");
+      // toThrowable keeps an AggregateError's per-endpoint errors reachable.
+      const errors = (result as Error & { errors?: unknown[] }).errors;
+      expect(errors).toHaveLength(2);
+      expect((errors![0] as Error).message).toBe("primary down");
+      expect((errors![1] as Error).message).toBe("fallback down");
       expect(mockGetCollateral).toHaveBeenCalledTimes(2);
     });
 

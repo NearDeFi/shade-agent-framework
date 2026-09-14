@@ -1,31 +1,43 @@
 import {
   getCollateral as dcapGetCollateral,
+  Quote,
   PHALA_PCCS_URL,
   INTEL_PCS_URL,
   type Collateral as DcapCollateral,
 } from "@phala/dcap-qvl";
 import { checkCollateralFreshness } from "./collateral-freshness";
-import { genericError, withRetry } from "./errors";
+import { defaultRetryable, genericError, withRetry } from "./errors";
 
-// Mirrors mpc's shipped cvm-deployment/user-config.toml: Phala PCCS first,
-// Intel PCS as a fallback. Replaced wholesale when the user passes
-// `pccsEndpoints` to ShadeClient.create.
+// Same ladder the MPC node ships with: Phala PCCS first, Intel PCS as the
+// fallback. Replaced wholesale when the user passes `pccsEndpoints` to
+// ShadeClient.create.
 export const DEFAULT_PCCS_ENDPOINTS: readonly string[] = [
   PHALA_PCCS_URL,
   INTEL_PCS_URL,
 ];
 
-// Per-endpoint timeout. Matches mpc's PCCS_REQUEST_TIMEOUT in
-// tee_authority.rs:225.
+// Wraps the whole per-endpoint bundle (PCK CRL, TCB info, QE identity and
+// root CRL, fetched sequentially inside dcap-qvl), the same way the MPC
+// node's PCCS_REQUEST_TIMEOUT wraps its collateral fetch.
 const PER_ENDPOINT_TIMEOUT_MS = 10_000;
 
-// Per-endpoint retry budget (1 retry → 2 total attempts). Matches mpc's
-// `get_with_backoff(..., Some(1))` invocation in tee_authority.rs:505.
+// One retry per endpoint (2 attempts), as the MPC node does.
 const PER_ENDPOINT_RETRY_DELAY_MS = 500;
 
-// Fetch from a single PCCS endpoint with a per-request timeout and 1 retry.
-// Mirrors mpc's `fetch_collateral_from` (tee_authority.rs:482-516).
-//
+// dcap-qvl reports a non-2xx response as a plain Error whose message ends
+// in ": <status>" and carries no `.status` field, so the default predicate
+// would retry deterministic 4xx failures (unknown FMSPC, missing PCK cert).
+function pccsRetryable(error: unknown): boolean {
+  const match = /: (\d{3})$/.exec((error as Error)?.message ?? "");
+  if (match) {
+    const status = Number(match[1]);
+    if (status >= 400 && status < 500) {
+      return status === 408 || status === 429;
+    }
+  }
+  return defaultRetryable(error);
+}
+
 // The timeout is a soft one: @phala/dcap-qvl does not accept an AbortSignal,
 // so the underlying fetch may complete after we've stopped waiting. From
 // this caller's perspective the result is the same — we stop blocking and
@@ -40,7 +52,7 @@ async function fetchFromOneEndpoint(
       const timeout = new Promise<never>((_, reject) => {
         timeoutId = setTimeout(() => {
           reject(
-            new Error(
+            genericError(
               `PCCS request timed out after ${PER_ENDPOINT_TIMEOUT_MS}ms`,
             ),
           );
@@ -55,18 +67,20 @@ async function fetchFromOneEndpoint(
         if (timeoutId !== undefined) clearTimeout(timeoutId);
       }
     },
-    { attempts: 2, delayMs: [PER_ENDPOINT_RETRY_DELAY_MS] },
+    {
+      attempts: 2,
+      delayMs: [PER_ENDPOINT_RETRY_DELAY_MS],
+      retryable: pccsRetryable,
+    },
   );
 }
 
 // Try each PCCS endpoint in order, returning the first endpoint's
 // collateral that passes the freshness check. On per-endpoint failure
 // (HTTP/timeout/parse) OR freshness rejection, fall through to the next
-// endpoint. If every endpoint fails, throw a single error aggregating
-// every per-endpoint failure.
-//
-// Mirrors mpc's `try_each_pccs_endpoint` (tee_authority.rs:629-680) and
-// the freshness-ladder behaviour described at tee_authority.rs:533-536.
+// endpoint. If every endpoint fails, throw an AggregateError whose
+// `errors` are the per-endpoint failures in order (toThrowable preserves
+// them, so a FreshnessError's fields stay reachable to the caller).
 export async function fetchCollateralWithFallback(
   pccsEndpoints: readonly string[],
   quoteBytes: Buffer,
@@ -75,6 +89,10 @@ export async function fetchCollateralWithFallback(
   if (pccsEndpoints.length === 0) {
     throw genericError("pccsEndpoints must be a non-empty array");
   }
+
+  // A malformed quote fails here once instead of being retried against
+  // every endpoint (dcap-qvl parses it again before its first request).
+  Quote.parse(quoteBytes);
 
   const failures: { url: string; error: unknown }[] = [];
   const total = pccsEndpoints.length;
@@ -101,8 +119,8 @@ export async function fetchCollateralWithFallback(
         `  [${idx + 1}/${total}] ${url}: ${(error as Error)?.message ?? String(error)}`,
     )
     .join("\n");
-  throw Object.assign(
-    new Error(`All ${total} PCCS endpoints failed:\n${summary}`),
-    { failures },
+  throw new AggregateError(
+    failures.map(({ error }) => error),
+    `All ${total} PCCS endpoints failed:\n${summary}`,
   );
 }
