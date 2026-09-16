@@ -199,6 +199,24 @@ describe("agent utils", () => {
       expect(removeKeysFromAccount).not.toHaveBeenCalled();
     });
 
+    it("should not check derivation mode when there are no additional keys", async () => {
+      const mockAccount = createMockAccountWithKeys([{ public_key: "key1" }]);
+
+      // The default numKeys of 1 derives no additional keys, so there is no
+      // key set whose mode could disagree with the first key's.
+      const result = await manageKeySetup(
+        mockAccount as any,
+        0,
+        undefined,
+        "test-path",
+        false,
+      );
+
+      expect(result.keysToSave).toHaveLength(0);
+      expect(addKeysToAccount).not.toHaveBeenCalled();
+      expect(removeKeysFromAccount).not.toHaveBeenCalled();
+    });
+
     it("should derive with random when dstackClient is provided (path ignored)", async () => {
       const dstackClient = createMockDstackClient();
       const mockAccount = createMockAccountWithKeys([{ public_key: "key1" }]);

@@ -94,8 +94,9 @@ export async function manageKeySetup(
 
     // Validate derivation-mode consistency before mutating chain state. If the
     // first key and additional keys disagree, the account must stay untouched
-    // so a retry can recover without orphaned keys on chain.
-    if (allDerivedWithRandom !== keysDerivedWithRandom) {
+    // so a retry can recover without orphaned keys on chain. With no additional
+    // keys there is nothing to compare — `[].every()` is vacuously true.
+    if (keys.length > 0 && allDerivedWithRandom !== keysDerivedWithRandom) {
       throw genericError(
         "First key and additional keys disagree on derivation method. Something went wrong with the key derivation.",
       );
