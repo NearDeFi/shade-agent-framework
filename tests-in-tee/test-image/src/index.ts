@@ -36,7 +36,7 @@ if (!agentContractId || !sponsorAccountId || !sponsorPrivateKey) {
 }
 
 // Create a new agent instance for each test (for test independence)
-async function createAgent() {
+async function createAgent(pccsEndpoints?: string[]) {
   const newAgent = await ShadeClient.create({
     networkId: "testnet",
     agentContractId: agentContractId,
@@ -45,6 +45,7 @@ async function createAgent() {
       privateKey: sponsorPrivateKey!,
     },
     derivationPath: sponsorPrivateKey, // Most likely to cause same key so use
+    pccsEndpoints,
   });
   // Fund the agent
   await newAgent.fund(0.5);
@@ -269,6 +270,45 @@ app.post("/test/attestation-expired", async (c) => {
 app.post("/test/successful-registration", async (c) => {
   try {
     const agent = await createAgent();
+    const result = await testSuccessfulRegistration(agent);
+    return c.json(result);
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: error.message,
+        stack: error.stack,
+      },
+      500,
+    );
+  }
+});
+
+// Same flow as successful-registration, but the collateral comes from Intel's
+// PCS alone (no PCCS `rootcacrl`, so the root CRL is fetched from the
+// certificate's distribution point) instead of the default Phala-first ladder.
+app.post("/test/registration-intel-pcs", async (c) => {
+  try {
+    const agent = await createAgent(["https://api.trustedservices.intel.com"]);
+    const result = await testSuccessfulRegistration(agent);
+    return c.json(result);
+  } catch (error: any) {
+    return c.json(
+      {
+        success: false,
+        error: error.message,
+        stack: error.stack,
+      },
+      500,
+    );
+  }
+});
+
+// Same flow again with Phala's PCCS alone, so each default endpoint is proven
+// on its own rather than hidden behind the ladder's fall-through.
+app.post("/test/registration-phala-pccs", async (c) => {
+  try {
+    const agent = await createAgent(["https://pccs.phala.network"]);
     const result = await testSuccessfulRegistration(agent);
     return c.json(result);
   } catch (error: any) {

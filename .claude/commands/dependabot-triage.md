@@ -59,7 +59,7 @@ Fetch this for every flagged PR (and any you're unsure about); skip it for pure 
   - `⛔ measurements` — docker base image (e.g. `node`): changing it moves the reproducible-build hash → approved measurements must be re-approved; attestation/registration can break.
   - `🧪 /run-e2e` — a surface CI runs only as *mocked* unit tests (or skips) but the `/run-e2e` suite exercises for real; the bump's surface decides **which suite**:
     - **`/run-e2e contract`** (sandbox integration — CI runs only `cargo test --lib`): `near-sdk` / anything under `shade-contract-template`.
-    - **`/run-e2e tee`** (real Phala CVM): `@phala/dstack-sdk` (shade-agent-js TEE path), `@phala/cloud` (CLI deploy path).
+    - **`/run-e2e tee`** (real Phala CVM): `@phala/dstack-sdk` (shade-agent-js TEE path), `@phala/dcap-qvl` (shade-agent-js PCCS collateral fetch, mocked in CI), `@phala/cloud` (CLI deploy path).
     - **`/run-e2e`** (both — the crate runs in the in-sandbox contract tests against fixtures *and* only tests-in-tee hits live collateral): `dcap-qvl` / `dstack-sdk-types` / anything under `shade-attestation`.
   - `🔧 manual` — a surface covered by **neither** CI nor `tests-in-tee`, so a **major** bump needs a hands-on local run — where a pre-1.0 `0.y` bump counts as major (the 0.x flag) (Phase 5 table): `commander` (CLI arg parsing — `cli.js` is never driven by a test), `@napi-rs/keyring` (`shade-agent-cli/src/utils/keystore.js` — untested; e2e uses its own NEAR keys), `@inquirer/*` (CLI prompts — mocked in CI, never prompted in e2e), or any **shade-agent-template** runtime dep (`ethers`, `chainsig.js`, `hono`, `@hono/node-server`, `cors` — the template has no tests, CI runs only `tsc`, and e2e deploys `test-image/`, not the template).
   - `🧹 superseded?` — an *individual* npm/cargo **patch/minor** (non-major) PR is likely a pre-grouping leftover now covered by a group PR; verify before closing.
@@ -133,6 +133,7 @@ For each CI-❌, major, `⛔`, security, `🧹`, or any **major** `🧪`/`🔧` 
 | Dep / change | Which `/run-e2e` | Why CI doesn't cover it |
 |---|---|---|
 | `@phala/dstack-sdk` (shade-agent-js) | `/run-e2e tee` | real CVM quote + key derivation (`tee.ts` is mocked in CI) |
+| `@phala/dcap-qvl` (shade-agent-js) | `/run-e2e tee` | live PCCS collateral fetch during registration (`getCollateral` is mocked in CI; `npm run test:live` in shade-agent-js is the quick local check) |
 | `@phala/cloud` (shade-agent-cli) | `/run-e2e tee` | `tests-in-tee` runs the real `phala-deploy.js` deploy (CI mocks the SDK) |
 | `near-sdk` / `shade-contract-template/**` | `/run-e2e contract` | on-chain register / owner-gating / upgrade — CI runs `cargo test --lib`, skipping the sandbox integration tests |
 | `dcap-qvl` / `dstack-sdk-types` / `shade-attestation/**` | `/run-e2e` (both) | the contract sandbox tests exercise the crate against fixtures **and** only tests-in-tee verifies against live collateral |

@@ -5,10 +5,9 @@ import { getDstackClient, internalGetAttestation } from "../../src/utils/tee";
 import {
   createMockDstackClient,
   createMockDstackTcbInfo,
-  createMockQuoteCollateral,
-  createMockAttestationResponse,
+  createMockDcapCollateral,
   freshTcbOrQeIdentityJson,
-  synthFreshPckCrlHex,
+  synthFreshPckCrlBytes,
 } from "../mocks/tee-mocks";
 import { getFakeAttestation } from "../../src/utils/attestation-transform";
 
@@ -22,13 +21,16 @@ vi.mock("@phala/dstack-sdk", () => ({
   DstackClient: vi.fn(),
 }));
 
-// Mock global fetch
-const mockFetch = vi.fn();
-globalThis.fetch = mockFetch;
+// Mock @phala/dcap-qvl — the new collateral fetch primitive.
+const mockGetCollateral = vi.fn();
+vi.mock("@phala/dcap-qvl", () => ({
+  getCollateral: (...args: unknown[]) => mockGetCollateral(...args),
+  Quote: { parse: () => ({}) },
+  PHALA_PCCS_URL: "https://pccs.phala.network",
+  INTEL_PCS_URL: "https://api.trustedservices.intel.com",
+}));
 
-// Bypass the retry layer in tee.ts for these tests — we're verifying the
-// per-attempt behaviour. The retry semantics themselves are covered in
-// with-retry.test.ts.
+// Bypass the retry layer so per-attempt behaviour is asserted directly.
 vi.mock("../../src/utils/errors", async (importOriginal) => {
   const actual =
     (await importOriginal()) as typeof import("../../src/utils/errors");
@@ -38,10 +40,15 @@ vi.mock("../../src/utils/errors", async (importOriginal) => {
   };
 });
 
+const DEFAULT_ENDPOINTS = [
+  "https://pccs.phala.network",
+  "https://api.trustedservices.intel.com",
+];
+
 describe("tee utils", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockFetch.mockClear();
+    mockGetCollateral.mockClear();
   });
 
   afterEach(() => {
@@ -103,6 +110,7 @@ describe("tee utils", () => {
         undefined,
         "agent.testnet",
         false,
+        DEFAULT_ENDPOINTS,
       );
 
       expect(result).toEqual(getFakeAttestation());
@@ -114,6 +122,7 @@ describe("tee utils", () => {
         mockClient,
         "agent.testnet",
         false,
+        DEFAULT_ENDPOINTS,
       );
 
       expect(result).toEqual(getFakeAttestation());
@@ -121,55 +130,43 @@ describe("tee utils", () => {
       expect(mockClient.getQuote).not.toHaveBeenCalled();
     });
 
-    it("should get real attestation when in TEE", async () => {
+    it("should fetch collateral from the first endpoint when it succeeds", async () => {
       const mockClient = createMockDstackClient();
-      const agentAccountId = "agent.testnet";
-
-      // Setup fetch mock
-      const mockResponse = {
-        ok: true,
-        json: vi.fn().mockResolvedValue(createMockAttestationResponse()),
-      };
-      mockFetch.mockResolvedValue(mockResponse);
+      mockGetCollateral.mockResolvedValue(createMockDcapCollateral());
+      // Implicit account id — 32 bytes of hex, as a TEE agent always has.
+      const agentAccountId = "a".repeat(64);
 
       const result = await internalGetAttestation(
         mockClient,
         agentAccountId,
         true,
+        DEFAULT_ENDPOINTS,
       );
 
       expect(mockClient.info).toHaveBeenCalled();
-      expect(mockClient.getQuote).toHaveBeenCalledWith(expect.any(Buffer));
 
-      // Verify the report data contains the agent account ID as bytes padded to 64 bytes
-      const getQuoteCall = vi.mocked(mockClient.getQuote).mock.calls[0];
-      const reportData = getQuoteCall[0] as Buffer;
+      // Report data binds the agent's account id into the quote: the account
+      // id bytes at offset 0, zero-padded to 64. The contract rebuilds this
+      // from predecessor_account_id and rejects registration if it differs.
+      const reportData = vi.mocked(mockClient.getQuote).mock
+        .calls[0][0] as Buffer;
       expect(reportData.length).toBe(64);
-      const accountIdBytes = Buffer.from(agentAccountId, "hex");
-      expect(reportData.subarray(0, accountIdBytes.length)).toEqual(
-        accountIdBytes,
+      expect(reportData.subarray(0, 32)).toEqual(
+        Buffer.from(agentAccountId, "hex"),
       );
-      // Remaining bytes should be zero
-      expect(reportData.subarray(accountIdBytes.length)).toEqual(
-        Buffer.alloc(64 - accountIdBytes.length),
+      expect(reportData.subarray(32)).toEqual(Buffer.alloc(32));
+
+      // First (and only) call hits the first endpoint in the list.
+      expect(mockGetCollateral).toHaveBeenCalledTimes(1);
+      expect(mockGetCollateral).toHaveBeenCalledWith(
+        "https://pccs.phala.network",
+        expect.any(Buffer),
       );
 
-      // Verify fetch was called with correct parameters
-      expect(mockFetch).toHaveBeenCalledWith(
-        "https://cloud-api.phala.network/api/v1/attestations/verify",
-        expect.objectContaining({
-          method: "POST",
-          body: expect.any(FormData),
-          signal: expect.any(AbortSignal),
-        }),
-      );
-
-      // Verify FormData contains the quote_hex
-      const fetchCall = mockFetch.mock.calls[0];
-      const formData = fetchCall[1].body as FormData;
-      const formDataEntries = Array.from(formData.entries());
-      expect(formDataEntries.length).toBe(1);
-      expect(formDataEntries[0][0]).toBe("hex");
+      // Quote bytes passed to getCollateral are the same bytes used in the
+      // contract-shaped result (post hex-decode).
+      const passedBytes = mockGetCollateral.mock.calls[0][1] as Buffer;
+      expect(passedBytes).toEqual(Buffer.from(result.quote));
 
       expect(result.quote).toBeDefined();
       expect(Array.isArray(result.quote)).toBe(true);
@@ -177,181 +174,115 @@ describe("tee utils", () => {
       expect(result.tcb_info).toBeDefined();
     });
 
-    it("should rethrow sanitised when fetch throws an Error", async () => {
+    it("should use a custom endpoint list when provided", async () => {
       const mockClient = createMockDstackClient();
-      mockFetch.mockRejectedValue(new Error("Network error"));
+      mockGetCollateral.mockResolvedValue(createMockDcapCollateral());
 
-      await expect(
-        internalGetAttestation(mockClient, "agent.testnet", true),
-      ).rejects.toThrow("Network error");
+      const custom = ["https://custom-pccs.example.com"];
+      await internalGetAttestation(
+        mockClient,
+        "agent.testnet",
+        true,
+        custom,
+      );
+
+      expect(mockGetCollateral).toHaveBeenCalledWith(
+        "https://custom-pccs.example.com",
+        expect.any(Buffer),
+      );
     });
 
-    it("should rethrow when fetch throws a non-Error value", async () => {
+    it("should fall through to the next endpoint when the first throws", async () => {
       const mockClient = createMockDstackClient();
-      mockFetch.mockRejectedValue("String error");
+      mockGetCollateral
+        .mockRejectedValueOnce(new Error("primary down"))
+        .mockResolvedValueOnce(createMockDcapCollateral());
 
-      await expect(
-        internalGetAttestation(mockClient, "agent.testnet", true),
-      ).rejects.toThrow(/String error|An error occurred/);
+      const result = await internalGetAttestation(
+        mockClient,
+        "agent.testnet",
+        true,
+        DEFAULT_ENDPOINTS,
+      );
+
+      expect(mockGetCollateral).toHaveBeenCalledTimes(2);
+      // First call to primary, second call to fallback — order preserved.
+      expect(mockGetCollateral.mock.calls[0][0]).toBe(
+        "https://pccs.phala.network",
+      );
+      expect(mockGetCollateral.mock.calls[1][0]).toBe(
+        "https://api.trustedservices.intel.com",
+      );
+      expect(result.collateral).toBeDefined();
     });
 
-    it("should rethrow with err.status set when fetch returns non-ok", async () => {
+    it("should fall through when the first endpoint returns stale collateral (freshness ladder)", async () => {
       const mockClient = createMockDstackClient();
-      for (const [status, statusText, body] of [
-        [404, "Not Found", "not found"],
-        [500, "Internal Server Error", "server error"],
-        [503, "Service Unavailable", ""],
-      ] as const) {
-        mockFetch.mockResolvedValue({
-          ok: false,
-          status,
-          statusText,
-          text: vi.fn().mockResolvedValue(body),
-        });
-        const settled = internalGetAttestation(
+      const longAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000); // 30 days ago
+      const stale = createMockDcapCollateral({
+        tcb_info: freshTcbOrQeIdentityJson(longAgo),
+        qe_identity: freshTcbOrQeIdentityJson(longAgo),
+        pck_crl: synthFreshPckCrlBytes(longAgo),
+      });
+      const fresh = createMockDcapCollateral();
+      mockGetCollateral
+        .mockResolvedValueOnce(stale)
+        .mockResolvedValueOnce(fresh);
+
+      const result = await internalGetAttestation(
+        mockClient,
+        "agent.testnet",
+        true,
+        DEFAULT_ENDPOINTS,
+      );
+
+      expect(mockGetCollateral).toHaveBeenCalledTimes(2);
+      // The fresh result is the one returned to the caller.
+      expect(result.collateral.tcb_info).toBe(fresh.tcb_info);
+    });
+
+    it("should throw an aggregated error when every endpoint fails", async () => {
+      const mockClient = createMockDstackClient();
+      mockGetCollateral
+        .mockRejectedValueOnce(new Error("primary down"))
+        .mockRejectedValueOnce(new Error("fallback down"));
+
+      const settled = internalGetAttestation(
+        mockClient,
+        "agent.testnet",
+        true,
+        DEFAULT_ENDPOINTS,
+      ).then(
+        () => "ok",
+        (e: unknown) => e as Error,
+      );
+      const result = await settled;
+
+      expect(result).toBeInstanceOf(Error);
+      const msg = (result as Error).message;
+      expect(msg).toContain("All 2 PCCS endpoints failed");
+      expect(msg).toContain("primary down");
+      expect(msg).toContain("fallback down");
+      // toThrowable keeps an AggregateError's per-endpoint errors reachable.
+      const errors = (result as Error & { errors?: unknown[] }).errors;
+      expect(errors).toHaveLength(2);
+      expect((errors![0] as Error).message).toBe("primary down");
+      expect((errors![1] as Error).message).toBe("fallback down");
+      expect(mockGetCollateral).toHaveBeenCalledTimes(2);
+    });
+
+    it("should rethrow sanitised when a non-Error value is thrown", async () => {
+      const mockClient = createMockDstackClient();
+      mockGetCollateral.mockRejectedValue("String error");
+
+      await expect(
+        internalGetAttestation(
           mockClient,
           "agent.testnet",
           true,
-        ).then(
-          () => "ok",
-          (e) => e as Error,
-        );
-        const result = await settled;
-        expect(result).toBeInstanceOf(Error);
-        expect((result as Error).message).toContain(
-          `Failed to fetch quote collateral from Phala (HTTP ${status} ${statusText})`,
-        );
-        if (body) {
-          expect((result as Error).message).toContain(body);
-        }
-        // The reshaped throw carries `.status` so withRetry's predicate can dispatch.
-        expect((result as Error & { status?: number }).status).toBe(status);
-        mockFetch.mockClear();
-      }
-    });
-
-    it("should set up timeout for fetch request", async () => {
-      const mockClient = createMockDstackClient();
-      const setTimeoutSpy = vi.spyOn(global, "setTimeout");
-
-      const mockResponse = {
-        ok: true,
-        json: vi.fn().mockResolvedValue(createMockAttestationResponse()),
-      };
-      mockFetch.mockResolvedValue(mockResponse);
-
-      await internalGetAttestation(mockClient, "agent.testnet", true);
-
-      // Verify setTimeout was called with 30000ms (30 seconds)
-      expect(setTimeoutSpy).toHaveBeenCalledWith(expect.any(Function), 30000);
-      setTimeoutSpy.mockRestore();
-    });
-
-    it("should execute timeout callback and abort fetch when timeout fires", async () => {
-      const mockClient = createMockDstackClient();
-      let capturedAbortSignal: AbortSignal | null = null;
-      let abortController: AbortController | null = null;
-      let abortReject: ((error: Error) => void) | null = null;
-
-      // Spy on AbortController to capture the instance
-      const originalAbortController = global.AbortController;
-      global.AbortController = class extends originalAbortController {
-        constructor() {
-          super();
-          abortController = this;
-        }
-      } as any;
-
-      // Mock fetch to capture the abort signal and reject when aborted
-      mockFetch.mockImplementation((url, options) => {
-        capturedAbortSignal = options?.signal as AbortSignal;
-        // When signal is aborted, reject with AbortError
-        return new Promise((_, reject) => {
-          abortReject = reject;
-          if (capturedAbortSignal) {
-            // Check if already aborted (synchronous check)
-            if (capturedAbortSignal.aborted) {
-              const error = new Error("The operation was aborted");
-              error.name = "AbortError";
-              reject(error);
-            } else {
-              // Listen for abort event
-              capturedAbortSignal.addEventListener(
-                "abort",
-                () => {
-                  const error = new Error("The operation was aborted");
-                  error.name = "AbortError";
-                  reject(error);
-                },
-                { once: true },
-              );
-            }
-          }
-        });
-      });
-
-      vi.useFakeTimers();
-      const promise = internalGetAttestation(mockClient, "agent.testnet", true);
-
-      // Add a catch handler immediately to prevent unhandled rejection
-      let rejectionError: Error | null = null;
-      promise.catch((error: unknown) => {
-        rejectionError = error as Error;
-      });
-
-      // Give a small delay to ensure fetch is called and signal is captured
-      await vi.advanceTimersByTimeAsync(100);
-
-      // Verify we have the abort signal before proceeding
-      expect(capturedAbortSignal).toBeDefined();
-
-      // Now fast-forward time to trigger the timeout callback (30 seconds)
-      // This will execute the arrow function: () => controller.abort()
-      vi.advanceTimersByTime(30000);
-
-      // Process all pending timers to ensure the abort callback executes
-      await vi.runOnlyPendingTimersAsync();
-
-      // Verify the abort signal was triggered by the timeout callback
-      expect((capturedAbortSignal as unknown as AbortSignal).aborted).toBe(
-        true,
-      );
-
-      // Wait a bit more to ensure the abort event listener fires and rejects
-      await vi.advanceTimersByTimeAsync(10);
-      await vi.runOnlyPendingTimersAsync();
-
-      // Verify the promise rejected — the sanitised AbortError surfaces
-      // through toThrowable.
-      await expect(promise).rejects.toThrow(
-        /The operation was aborted|aborted/,
-      );
-
-      // Also verify we caught the error in our handler
-      expect(rejectionError).toBeInstanceOf(Error);
-      expect(rejectionError).not.toBeNull();
-      const error = rejectionError as unknown as Error;
-      expect(error.message).toMatch(/aborted/);
-
-      // Restore original AbortController
-      global.AbortController = originalAbortController;
-      vi.useRealTimers();
-    });
-
-    it("should clear timeout when fetch succeeds", async () => {
-      const mockClient = createMockDstackClient();
-      const clearTimeoutSpy = vi.spyOn(global, "clearTimeout");
-
-      const mockResponse = {
-        ok: true,
-        json: vi.fn().mockResolvedValue(createMockAttestationResponse()),
-      };
-      mockFetch.mockResolvedValue(mockResponse);
-
-      await internalGetAttestation(mockClient, "agent.testnet", true);
-
-      expect(clearTimeoutSpy).toHaveBeenCalled();
-      clearTimeoutSpy.mockRestore();
+          ["https://only-endpoint.example.com"],
+        ),
+      ).rejects.toThrow(/String error|An error occurred|PCCS endpoint/);
     });
 
     it("should transform tcb_info correctly", async () => {
@@ -371,17 +302,13 @@ describe("tee utils", () => {
       (mockClient.info as ReturnType<typeof vi.fn>).mockResolvedValue({
         tcb_info: dstackTcbInfo,
       });
-
-      const mockResponse = {
-        ok: true,
-        json: vi.fn().mockResolvedValue(createMockAttestationResponse()),
-      };
-      mockFetch.mockResolvedValue(mockResponse);
+      mockGetCollateral.mockResolvedValue(createMockDcapCollateral());
 
       const result = await internalGetAttestation(
         mockClient,
         "agent.testnet",
         true,
+        DEFAULT_ENDPOINTS,
       );
 
       expect(result.tcb_info).toEqual({
@@ -398,52 +325,41 @@ describe("tee utils", () => {
       });
     });
 
-    it("should transform quote_collateral correctly", async () => {
+    it("should project dcap-qvl collateral into the contract shape (binary fields as hex strings)", async () => {
       const mockClient = createMockDstackClient();
-      // tcb_info / qe_identity / pck_crl must pass the freshness check;
-      // capture the fresh values so we can assert pass-through below.
-      const freshTcbJson = freshTcbOrQeIdentityJson();
-      const freshQeJson = freshTcbOrQeIdentityJson();
-      const freshPckCrlHex = synthFreshPckCrlHex();
-      const quoteCollateral = createMockQuoteCollateral({
-        tcb_info_issuer_chain: "chain1",
-        tcb_info: freshTcbJson,
-        tcb_info_signature: "deadbeef",
-        qe_identity_issuer_chain: "chain2",
-        qe_identity: freshQeJson,
-        qe_identity_signature: "cafebabe",
-        pck_crl_issuer_chain: "chain3",
-        root_ca_crl: "12345678",
-        pck_crl: freshPckCrlHex,
-      });
-      const customResponse = createMockAttestationResponse({
-        checksum: "custom-checksum",
-        quote_collateral: quoteCollateral,
-      });
-
-      const mockResponse = {
-        ok: true,
-        json: vi.fn().mockResolvedValue(customResponse),
-      };
-      mockFetch.mockResolvedValue(mockResponse);
+      const freshTcb = freshTcbOrQeIdentityJson();
+      const freshQe = freshTcbOrQeIdentityJson();
+      const freshPckCrl = synthFreshPckCrlBytes();
+      mockGetCollateral.mockResolvedValue(
+        createMockDcapCollateral({
+          pck_crl_issuer_chain: "chain3",
+          root_ca_crl: [0x12, 0x34, 0x56, 0x78],
+          pck_crl: freshPckCrl,
+          tcb_info_issuer_chain: "chain1",
+          tcb_info: freshTcb,
+          tcb_info_signature: [0xde, 0xad, 0xbe, 0xef],
+          qe_identity_issuer_chain: "chain2",
+          qe_identity: freshQe,
+          qe_identity_signature: [0xca, 0xfe, 0xba, 0xbe],
+        }),
+      );
 
       const result = await internalGetAttestation(
         mockClient,
         "agent.testnet",
         true,
+        DEFAULT_ENDPOINTS,
       );
 
-      expect(result.collateral).toEqual({
-        pck_crl_issuer_chain: "chain3",
-        root_ca_crl: "12345678", // hex string (contract format)
-        pck_crl: freshPckCrlHex, // hex string (contract format)
-        tcb_info_issuer_chain: "chain1",
-        tcb_info: freshTcbJson,
-        tcb_info_signature: "deadbeef", // hex string (contract format)
-        qe_identity_issuer_chain: "chain2",
-        qe_identity: freshQeJson,
-        qe_identity_signature: "cafebabe", // hex string (contract format)
-      });
+      expect(result.collateral.pck_crl_issuer_chain).toBe("chain3");
+      expect(result.collateral.root_ca_crl).toBe("12345678");
+      expect(result.collateral.pck_crl).toBe(Buffer.from(freshPckCrl).toString("hex"));
+      expect(result.collateral.tcb_info_issuer_chain).toBe("chain1");
+      expect(result.collateral.tcb_info).toBe(freshTcb);
+      expect(result.collateral.tcb_info_signature).toBe("deadbeef");
+      expect(result.collateral.qe_identity_issuer_chain).toBe("chain2");
+      expect(result.collateral.qe_identity).toBe(freshQe);
+      expect(result.collateral.qe_identity_signature).toBe("cafebabe");
     });
   });
 });

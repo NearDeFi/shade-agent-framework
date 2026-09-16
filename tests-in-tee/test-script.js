@@ -1445,6 +1445,46 @@ async function test8(appUrl) {
   }
 }
 
+// Test 9: Verify that two agent instances generate different private keys
+async function test9(appUrl) {
+  const correctMeasurements = getCorrectMeasurements();
+  const correctPpids = await getCorrectPpids();
+
+  await runTest(
+    appUrl,
+    "unique-keys",
+    async () => {
+      await approveMeasurements(correctMeasurements);
+      await approvePpids(correctPpids);
+    },
+    async (result) => {
+      // Verify all keys are unique
+      if (!result.allKeysUnique) {
+        throw new Error(
+          "Expected all keys to be unique, but duplicates were found",
+        );
+      }
+
+      // Verify each agent has 50 keys (the TEE returns counts, never the keys)
+      if (result.agent1KeyCount !== 50) {
+        throw new Error(
+          `Agent 1 should have 50 keys, got ${result.agent1KeyCount ?? 0}`,
+        );
+      }
+
+      if (result.agent2KeyCount !== 50) {
+        throw new Error(
+          `Agent 2 should have 50 keys, got ${result.agent2KeyCount ?? 0}`,
+        );
+      }
+
+      // Cleanup: Remove measurements and PPIDs
+      await removeMeasurements(correctMeasurements);
+      await removePpids(correctPpids);
+    },
+  );
+}
+
 // Test 10: Attestation expiration - set expiration to 10s; TEE registers, waits 12s, then request_signature fails with ExpiredAttestation
 async function test10(appUrl) {
   const correctMeasurements = getCorrectMeasurements();
@@ -1551,40 +1591,70 @@ async function test11(appUrl) {
   );
 }
 
-// Test 9: Verify that two agent instances generate different private keys
-async function test9(appUrl) {
+// Test 12: Registration with collateral fetched from Intel PCS only
+async function test12(appUrl) {
   const correctMeasurements = getCorrectMeasurements();
   const correctPpids = await getCorrectPpids();
 
   await runTest(
     appUrl,
-    "unique-keys",
+    "registration-intel-pcs",
     async () => {
       await approveMeasurements(correctMeasurements);
       await approvePpids(correctPpids);
     },
     async (result) => {
-      // Verify all keys are unique
-      if (!result.allKeysUnique) {
+      if (result.registrationError) {
         throw new Error(
-          "Expected all keys to be unique, but duplicates were found",
+          `Registration via Intel PCS should have succeeded, got error: ${result.registrationError}`,
+        );
+      }
+      if (result.callError) {
+        throw new Error(
+          `Call should have succeeded, got error: ${result.callError}`,
         );
       }
 
-      // Verify each agent has 50 keys (the TEE returns counts, never the keys)
-      if (result.agent1KeyCount !== 50) {
+      const registered = await isAgentRegistered(result.agentAccountId);
+      if (!registered) {
+        throw new Error("Agent should be registered but is not");
+      }
+
+      await removeMeasurements(correctMeasurements);
+      await removePpids(correctPpids);
+    },
+  );
+}
+
+// Test 13: Registration with collateral fetched from Phala's PCCS only
+async function test13(appUrl) {
+  const correctMeasurements = getCorrectMeasurements();
+  const correctPpids = await getCorrectPpids();
+
+  await runTest(
+    appUrl,
+    "registration-phala-pccs",
+    async () => {
+      await approveMeasurements(correctMeasurements);
+      await approvePpids(correctPpids);
+    },
+    async (result) => {
+      if (result.registrationError) {
         throw new Error(
-          `Agent 1 should have 50 keys, got ${result.agent1KeyCount ?? 0}`,
+          `Registration via Phala PCCS should have succeeded, got error: ${result.registrationError}`,
+        );
+      }
+      if (result.callError) {
+        throw new Error(
+          `Call should have succeeded, got error: ${result.callError}`,
         );
       }
 
-      if (result.agent2KeyCount !== 50) {
-        throw new Error(
-          `Agent 2 should have 50 keys, got ${result.agent2KeyCount ?? 0}`,
-        );
+      const registered = await isAgentRegistered(result.agentAccountId);
+      if (!registered) {
+        throw new Error("Agent should be registered but is not");
       }
 
-      // Cleanup: Remove measurements and PPIDs
       await removeMeasurements(correctMeasurements);
       await removePpids(correctPpids);
     },
@@ -1663,6 +1733,8 @@ async function main() {
         name: "Test 11: Full operations with errors + leak detection",
         fn: test11,
       },
+      { name: "Test 12: Registration via Intel PCS collateral", fn: test12 },
+      { name: "Test 13: Registration via Phala PCCS collateral", fn: test13 },
     ];
 
     for (let i = 0; i < tests.length; i++) {

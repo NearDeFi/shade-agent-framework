@@ -718,6 +718,7 @@ describe("ShadeClient", () => {
         undefined,
         testAccountId,
         false,
+        undefined,
       );
       expect(result).toEqual(attestation);
     });
@@ -738,8 +739,30 @@ describe("ShadeClient", () => {
         mockDstackClient,
         testAccountId,
         true,
+        undefined,
       );
       expect(result).toEqual(attestation);
+    });
+
+    it("should forward the configured pccsEndpoints", async () => {
+      setupClientMocks({
+        dstackClient: mockDstackClient,
+        derivedWithRandom: true,
+      });
+      vi.mocked(internalGetAttestation).mockResolvedValue(
+        createMockContractAttestation(),
+      );
+      const pccsEndpoints = ["https://pccs.example.com"];
+
+      const client = await ShadeClient.create({ pccsEndpoints });
+      await client.getAttestation();
+
+      expect(internalGetAttestation).toHaveBeenCalledWith(
+        mockDstackClient,
+        testAccountId,
+        true,
+        pccsEndpoints,
+      );
     });
 
     it("should sanitize error when attestation fetch fails", async () => {

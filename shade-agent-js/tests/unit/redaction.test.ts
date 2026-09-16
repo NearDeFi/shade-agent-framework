@@ -21,12 +21,16 @@ import {
 import { internalGetAttestation } from "../../src/utils/tee";
 import {
   transformQuote,
-  transformCollateral,
   transformTcbInfo,
   attestationForContract,
 } from "../../src/utils/attestation-transform";
 import { createMockAccount, createMockProvider } from "../mocks";
-import { createMockDstackClient } from "../mocks/tee-mocks";
+import {
+  createMockDstackClient,
+  createMockDcapCollateral,
+  freshTcbOrQeIdentityJson,
+  synthFreshPckCrlBytes,
+} from "../mocks/tee-mocks";
 import { generateTestKey } from "../test-utils";
 
 // Wrap toThrowable in a spy that still calls through to the real impl, and
@@ -55,8 +59,15 @@ vi.mock("@near-js/accounts", async () => {
   };
 });
 
-const mockFetch = vi.fn();
-globalThis.fetch = mockFetch;
+const mockGetCollateral = vi.fn();
+vi.mock("@phala/dcap-qvl", () => ({
+  getCollateral: (...args: unknown[]) => mockGetCollateral(...args),
+  Quote: { parse: () => ({}) },
+  PHALA_PCCS_URL: "https://pccs.phala.network",
+  INTEL_PCS_URL: "https://api.trustedservices.intel.com",
+}));
+
+const REDACTION_ENDPOINTS = ["https://pccs.phala.network"];
 
 beforeEach(() => {
   vi.mocked(errorsModule.toThrowable).mockClear();
@@ -118,7 +129,7 @@ describe("redaction: each wrapped function routes errors through toThrowable", (
 
     it("createAccountObject", async () => {
       const { Account } = await import("@near-js/accounts");
-      vi.mocked(Account).mockImplementationOnce(() => {
+      vi.mocked(Account).mockImplementationOnce(function () {
         throw new Error("ctor fail");
       });
       await expectThrows(() =>
@@ -135,7 +146,12 @@ describe("redaction: each wrapped function routes errors through toThrowable", (
         new Error("info fail"),
       );
       await expectThrows(() =>
-        internalGetAttestation(client, "agent.testnet", true),
+        internalGetAttestation(
+          client,
+          "agent.testnet",
+          true,
+          REDACTION_ENDPOINTS,
+        ),
       );
       expect(errorsModule.toThrowable).toHaveBeenCalled();
     });
@@ -146,43 +162,49 @@ describe("redaction: each wrapped function routes errors through toThrowable", (
         new Error("quote fail"),
       );
       await expectThrows(() =>
-        internalGetAttestation(client, "agent.testnet", true),
+        internalGetAttestation(
+          client,
+          "agent.testnet",
+          true,
+          REDACTION_ENDPOINTS,
+        ),
       );
       expect(errorsModule.toThrowable).toHaveBeenCalled();
     });
 
-    it("internalGetAttestation — fetch throws", async () => {
+    it("internalGetAttestation — getCollateral throws", async () => {
       const client = createMockDstackClient();
-      mockFetch.mockRejectedValue(new Error("fetch fail"));
+      mockGetCollateral.mockRejectedValue(new Error("pccs fail"));
       await expectThrows(() =>
-        internalGetAttestation(client, "agent.testnet", true),
+        internalGetAttestation(
+          client,
+          "agent.testnet",
+          true,
+          REDACTION_ENDPOINTS,
+        ),
       );
       expect(errorsModule.toThrowable).toHaveBeenCalled();
     });
 
     it("internalGetAttestation — malformed collateral fails freshness", async () => {
       const client = createMockDstackClient();
-      // Use a fetch response whose tcb_info JSON is malformed — that
-      // routes through checkCollateralFreshness → FreshnessError →
-      // toThrowable in tee.ts's outer catch.
-      mockFetch.mockResolvedValue({
-        ok: true,
-        json: vi.fn().mockResolvedValue({
-          quote_collateral: {
-            pck_crl_issuer_chain: "",
-            root_ca_crl: "",
-            pck_crl: "",
-            tcb_info_issuer_chain: "",
-            tcb_info: "{not valid json",
-            tcb_info_signature: "",
-            qe_identity_issuer_chain: "",
-            qe_identity: "",
-            qe_identity_signature: "",
-          },
+      // Single endpoint returning stale collateral → no fallbacks left →
+      // aggregated error → outer catch in tee.ts → toThrowable.
+      const longAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+      mockGetCollateral.mockResolvedValue(
+        createMockDcapCollateral({
+          tcb_info: freshTcbOrQeIdentityJson(longAgo),
+          qe_identity: freshTcbOrQeIdentityJson(longAgo),
+          pck_crl: synthFreshPckCrlBytes(longAgo),
         }),
-      });
+      );
       await expectThrows(() =>
-        internalGetAttestation(client, "agent.testnet", true),
+        internalGetAttestation(
+          client,
+          "agent.testnet",
+          true,
+          REDACTION_ENDPOINTS,
+        ),
       );
       expect(errorsModule.toThrowable).toHaveBeenCalled();
     });
@@ -194,17 +216,6 @@ describe("redaction: each wrapped function routes errors through toThrowable", (
         throw new Error("buffer fail");
       });
       await expectThrows(() => transformQuote("0xdeadbeef"));
-      expect(errorsModule.toThrowable).toHaveBeenCalled();
-      spy.mockRestore();
-    });
-
-    it("transformCollateral", async () => {
-      const spy = vi.spyOn(Buffer, "from").mockImplementation(() => {
-        throw new Error("buffer fail");
-      });
-      await expectThrows(() =>
-        transformCollateral({ root_ca_crl: "deadbeef" }),
-      );
       expect(errorsModule.toThrowable).toHaveBeenCalled();
       spy.mockRestore();
     });

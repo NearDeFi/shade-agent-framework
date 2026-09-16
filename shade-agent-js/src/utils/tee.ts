@@ -2,34 +2,13 @@ import { existsSync } from "fs";
 import { DstackClient } from "@phala/dstack-sdk";
 import {
   transformQuote,
-  transformCollateral,
   transformTcbInfo,
   getFakeAttestation,
   attestationForContract,
   type DstackAttestationForContract,
 } from "./attestation-transform";
 import { toThrowable, withRetry } from "./errors";
-import { checkCollateralFreshness } from "./collateral-freshness";
-
-// DstackAttestation structure matching the contract interface
-export interface DstackAttestation {
-  quote: number[]; // Vec<u8> - quote as bytes array
-  collateral: Collateral;
-  tcb_info: TcbInfo;
-}
-
-// Collateral structure matching the contract interface
-export interface Collateral {
-  pck_crl_issuer_chain: string;
-  root_ca_crl: number[]; // Vec<u8>
-  pck_crl: number[]; // Vec<u8>
-  tcb_info_issuer_chain: string;
-  tcb_info: string;
-  tcb_info_signature: number[]; // Vec<u8>
-  qe_identity_issuer_chain: string;
-  qe_identity: string;
-  qe_identity_signature: number[]; // Vec<u8>
-}
+import { fetchCollateralWithFallback } from "./collateral";
 
 // TcbInfo structure matching the contract interface
 export interface TcbInfo {
@@ -51,21 +30,6 @@ export interface EventLog {
   digest: string;
   event: string;
   event_payload: string;
-}
-
-interface QuoteCollateralResponse {
-  checksum?: string;
-  quote_collateral: {
-    pck_crl_issuer_chain?: string;
-    root_ca_crl?: string;
-    pck_crl?: string;
-    tcb_info_issuer_chain?: string;
-    tcb_info?: string;
-    tcb_info_signature?: string;
-    qe_identity_issuer_chain?: string;
-    qe_identity?: string;
-    qe_identity_signature?: string;
-  };
 }
 
 // Detects if the application is running in a TEE
@@ -96,6 +60,7 @@ export async function internalGetAttestation(
   dstackClient: DstackClient | undefined,
   agentAccountId: string,
   keysDerivedWithRandom: boolean,
+  pccsEndpoints: readonly string[],
 ): Promise<DstackAttestationForContract> {
   if (!dstackClient || !keysDerivedWithRandom) {
     // No TEE, or any key was path-derived (local-mode only).
@@ -125,56 +90,17 @@ export async function internalGetAttestation(
     // Transform quote from hex string to bytes array.
     const quote = transformQuote(quote_hex);
 
-    // Get quote collateral from Phala endpoint.
-    const formData = new FormData();
-    formData.append("hex", quote_hex.replace(/^0x/, ""));
-    const collateralUrl =
-      "https://cloud-api.phala.network/api/v1/attestations/verify";
-
-    const collateral = await withRetry(async () => {
-      // Per-attempt timeout to prevent hanging indefinitely.
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000);
-      try {
-        const response = await fetch(collateralUrl, {
-          method: "POST",
-          body: formData,
-          signal: controller.signal,
-        });
-
-        if (!response.ok) {
-          const body = (await response.text().catch(() => "")).slice(0, 500);
-          throw Object.assign(
-            new Error(
-              `Failed to fetch quote collateral from Phala (HTTP ${response.status} ${response.statusText})${body ? `: ${body}` : ""}`,
-            ),
-            { status: response.status },
-          );
-        }
-
-        const resHelper = (await response.json()) as QuoteCollateralResponse;
-        return transformCollateral(resHelper.quote_collateral);
-      } finally {
-        clearTimeout(timeoutId);
-      }
-    });
-
-    // Reject stale or implausibly-future collateral before the contract
-    // ever sees it (7-day max age, 5-min future grace on the three
-    // Intel-signed timestamps in the bundle).
-    checkCollateralFreshness(collateral, new Date());
+    // Collateral comes from the configured PCCS ladder (see collateral.ts).
+    const collateral = await fetchCollateralWithFallback(
+      pccsEndpoints,
+      Buffer.from(quote),
+      new Date(),
+    );
 
     // Transform tcb_info from dstack response to contract interface structure.
     const tcb_info = transformTcbInfo(dstackTcbInfo);
 
-    // Convert to contract format.
-    const attestation: DstackAttestation = {
-      quote,
-      collateral,
-      tcb_info,
-    };
-
-    return attestationForContract(attestation);
+    return attestationForContract({ quote, collateral, tcb_info });
   } catch (error) {
     throw toThrowable(error);
   }

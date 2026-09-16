@@ -5,7 +5,7 @@ import {
   MAX_COLLATERAL_AGE_MS,
   FUTURE_TIMESTAMP_GRACE_MS,
 } from "../../src/utils/collateral-freshness";
-import type { Collateral } from "../../src/utils/tee";
+import type { Collateral } from "@phala/dcap-qvl";
 import {
   synthFreshPckCrlBytes,
   freshTcbOrQeIdentityJson,
@@ -165,6 +165,30 @@ describe("checkCollateralFreshness", () => {
     const fresh = new Date(NOW.getTime() - 60 * 60 * 1000);
     const collateral = makeCollateral(fresh, fresh, fresh);
     collateral.pck_crl = [0xde, 0xad, 0xbe, 0xef];
+    const settled = (() => {
+      try {
+        checkCollateralFreshness(collateral, NOW);
+        return null;
+      } catch (e) {
+        return e as FreshnessError;
+      }
+    })();
+    expect(settled).toBeInstanceOf(FreshnessError);
+    expect(settled!.field).toBe("pck_crl");
+    expect(settled!.kind).toBe("crl-parse");
+  });
+
+  it("accepts pck_crl as a hex string (dcap-qvl's declared alternative shape)", () => {
+    const fresh = new Date(NOW.getTime() - 60 * 60 * 1000);
+    const collateral = makeCollateral(fresh, fresh, fresh);
+    collateral.pck_crl = Buffer.from(collateral.pck_crl as number[]).toString("hex");
+    expect(() => checkCollateralFreshness(collateral, NOW)).not.toThrow();
+  });
+
+  it("throws crl-parse when a string pck_crl is not hex-encoded DER", () => {
+    const fresh = new Date(NOW.getTime() - 60 * 60 * 1000);
+    const collateral = makeCollateral(fresh, fresh, fresh);
+    collateral.pck_crl = "zz";
     const settled = (() => {
       try {
         checkCollateralFreshness(collateral, NOW);

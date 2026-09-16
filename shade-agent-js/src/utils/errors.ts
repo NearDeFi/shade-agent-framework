@@ -498,7 +498,7 @@ export function genericError(message: string): Error {
 // ===========================================================================
 // SECTION 5 — RETRY
 // ===========================================================================
-// Helper for external non-NEAR calls (dstack, Phala HTTP). NEAR RPC has
+// Helper for external non-NEAR calls (dstack, PCCS HTTP). NEAR RPC has
 // its own retry inside JsonRpcProvider, so this is not used for NEAR.
 
 /**

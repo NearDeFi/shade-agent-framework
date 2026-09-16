@@ -29,18 +29,29 @@ is asserting that the message is a constant string they wrote, with no
 interpolated input from secret material. Don't pass dynamic content
 through `genericError` unless you can prove it's safe.
 
+Typed `Error` subclasses with constant-shape messages (`FreshnessError`,
+the PCCS ladder's `AggregateError`) are the one accepted variant: they
+exist so callers can dispatch on fields, and they only ever escape through
+a `toThrowable` boundary (`internalGetAttestation`'s outer catch), which
+also preserves an `AggregateError`'s `errors`.
+
 ## Retries
 
 - **No retries on NEAR RPC** — `JsonRpcProvider` already retries 3× with
   2 s backoff at the transport layer.
-- **External non-NEAR calls** (Phala collateral fetch, dstack
-  `info`/`getQuote`/`getKey`) use `withRetry(fn, { attempts: 3 })`
-  with default backoff `[250, 500, 1000]` ms.
+- **External non-NEAR calls** (dstack `info`/`getQuote`/`getKey`) use
+  `withRetry(fn, { attempts: 3 })` with default backoff `[250, 500, 1000]`
+  ms. The PCCS collateral fetch (`utils/collateral.ts`, via
+  `@phala/dcap-qvl`) uses `{ attempts: 2, delayMs: [500] }` per endpoint
+  and then falls through to the next endpoint in `pccsEndpoints`. dcap-qvl
+  throws plain `Error`s ending in `: <status>` with no `.status` field, so
+  that call passes its own `retryable` that reads the status out of the
+  message.
 - `withRetry`'s default `retryable` predicate is "retry everything
   except a denylist": JS programmer errors (`TypeError`, `RangeError`,
   …) and HTTP 4xx except 408/429. Pass `{ retryable }` per call to
   override. `withRetry` is only used for non-NEAR external calls
-  (dstack, Phala HTTP) — NEAR RPC has its own retry inside
+  (dstack, PCCS HTTP) — NEAR RPC has its own retry inside
   `JsonRpcProvider`, so we deliberately don't try to recognise NEAR-
   specific deterministic error types here.
 
@@ -65,7 +76,7 @@ secret must never reach a throw or log surface.
 `ShadeConfig`, `Measurements`, `FullMeasurements`,
 `DstackAttestationForContract`; and the error utilities `sanitize`,
 `toThrowable`, `addSensitive`. Everything else — `withRetry`,
-`genericError`, `safeParse*`, the dstack/Phala/NEAR helpers — is
+`genericError`, `safeParse*`, the dstack/PCCS/NEAR helpers — is
 internal. Adding, renaming, or removing an export is a public-API change:
 update `docs/reference/api.md` (and check `shade-agent-template`) per the
 repo-wide rules.

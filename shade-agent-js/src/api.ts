@@ -71,6 +71,12 @@ export interface ShadeConfig {
   numKeys?: number;
   /** Derivation path for deterministic key generation for local testing (needs to be a randomly unique string)*/
   derivationPath?: string;
+  /** Ordered list of PCCS endpoint URLs used to fetch TDX attestation collateral.
+   *  Each entry is tried in order; the first to return fresh collateral wins, the rest act as fallbacks.
+   *  Defaults to `["https://pccs.phala.network", "https://api.trustedservices.intel.com"]` (Phala PCCS, Intel PCS).
+   *  When provided, fully replaces the defaults — include them explicitly if you want a fallback chain.
+   *  An empty array is rejected at construction time. */
+  pccsEndpoints?: string[];
 }
 
 export class ShadeClient {
@@ -183,6 +189,7 @@ export class ShadeClient {
         this.dstackClient,
         this.agentAccountId,
         this.keysDerivedWithRandom,
+        this.config.pccsEndpoints!,
       );
 
       let depositYocto: bigint;
@@ -322,6 +329,7 @@ export class ShadeClient {
         this.dstackClient,
         this.agentAccountId,
         this.keysDerivedWithRandom,
+        this.config.pccsEndpoints!,
       );
     } catch (error) {
       throw toThrowable(error);

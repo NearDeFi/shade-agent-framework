@@ -1,5 +1,5 @@
 import asn1 from "asn1.js";
-import type { Collateral } from "./tee";
+import type { Collateral } from "@phala/dcap-qvl";
 
 // Reject collateral whose Intel-signed timestamps are older than this.
 // Intel re-signs the three pieces we check (tcb_info.issueDate,
@@ -111,11 +111,14 @@ function parseIssueDateFromJson(
 }
 
 // Parse the PCK CRL DER bytes and pull out thisUpdate. PCK CRL is a
-// standard X.509 v2 CertificateList; we mirror the schema dcap-qvl uses
-// in @phala/dcap-qvl/src/utils.js (TBSCertList SEQUENCE { version?,
-// signature, issuer, thisUpdate, ... }), narrowed to just thisUpdate.
-function parsePckCrlThisUpdate(pckCrlBytes: number[]): Date {
-  if (!pckCrlBytes || pckCrlBytes.length === 0) {
+// standard X.509 v2 CertificateList. @phala/dcap-qvl types `pck_crl` as
+// `number[] | string`; the string path treats the input as hex.
+function parsePckCrlThisUpdate(pckCrl: number[] | string): Date {
+  const buf =
+    typeof pckCrl === "string"
+      ? Buffer.from(pckCrl, "hex")
+      : Buffer.from(pckCrl);
+  if (buf.length === 0) {
     throw new FreshnessError("PCK CRL is empty", {
       field: "pck_crl",
       kind: "crl-parse",
@@ -123,7 +126,7 @@ function parsePckCrlThisUpdate(pckCrlBytes: number[]): Date {
   }
   let decoded: { tbsCertList?: { thisUpdate?: { value?: number } } };
   try {
-    decoded = CertificateList.decode(Buffer.from(pckCrlBytes), "der");
+    decoded = CertificateList.decode(buf, "der");
   } catch {
     throw new FreshnessError("Failed to decode PCK CRL as DER X.509 v2 CRL", {
       field: "pck_crl",
@@ -181,10 +184,6 @@ function checkWithinWindow(
 // implausibly in the future. Checks tcb_info.issueDate,
 // qe_identity.issueDate, and PCK CRL thisUpdate in that order; the first
 // failure throws.
-// Every throw site below constructs a FreshnessError directly with a
-// constant-shape message, so there is no untrusted-input echo that would
-// require sanitisation here. Callers (internalGetAttestation in tee.ts)
-// already wrap their own outer catch in `toThrowable`.
 export function checkCollateralFreshness(
   collateral: Collateral,
   now: Date,
