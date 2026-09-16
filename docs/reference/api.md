@@ -131,7 +131,7 @@ All fields are optional. Omit the argument entirely (`register()`) or pass an em
 
 **TEE vs local (attestation):**
 
-- **TEE:** Registers the agent with a real attestation. Its Intel collateral is fetched from the `pccsEndpoints` ladder, so the TEE needs egress to those hosts (by default `pccs.phala.network`, `api.trustedservices.intel.com` and `certificates.trustedservices.intel.com`).
+- **TEE:** Registers the agent with a real attestation.
 - **Local:** Registers the agent with a mock attestation.
 
 Requires `agentContractId` in config.
@@ -179,7 +179,7 @@ const attestation = await agent.getAttestation();
 ```
 
 **TEE vs local:** 
-- TEE: Returns a real attestation, fetching its collateral the same way as [Register Agent](#register-agent) (same `pccsEndpoints` ladder and egress hosts).
+- TEE: Returns a real attestation. 
 - Local: Returns a mock attestation. 
 
 ---
