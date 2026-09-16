@@ -133,16 +133,28 @@ describe("tee utils", () => {
     it("should fetch collateral from the first endpoint when it succeeds", async () => {
       const mockClient = createMockDstackClient();
       mockGetCollateral.mockResolvedValue(createMockDcapCollateral());
+      // Implicit account id — 32 bytes of hex, as a TEE agent always has.
+      const agentAccountId = "a".repeat(64);
 
       const result = await internalGetAttestation(
         mockClient,
-        "agent.testnet",
+        agentAccountId,
         true,
         DEFAULT_ENDPOINTS,
       );
 
       expect(mockClient.info).toHaveBeenCalled();
-      expect(mockClient.getQuote).toHaveBeenCalledWith(expect.any(Buffer));
+
+      // Report data binds the agent's account id into the quote: the account
+      // id bytes at offset 0, zero-padded to 64. The contract rebuilds this
+      // from predecessor_account_id and rejects registration if it differs.
+      const reportData = vi.mocked(mockClient.getQuote).mock
+        .calls[0][0] as Buffer;
+      expect(reportData.length).toBe(64);
+      expect(reportData.subarray(0, 32)).toEqual(
+        Buffer.from(agentAccountId, "hex"),
+      );
+      expect(reportData.subarray(32)).toEqual(Buffer.alloc(32));
 
       // First (and only) call hits the first endpoint in the list.
       expect(mockGetCollateral).toHaveBeenCalledTimes(1);
@@ -154,7 +166,7 @@ describe("tee utils", () => {
       // Quote bytes passed to getCollateral are the same bytes used in the
       // contract-shaped result (post hex-decode).
       const passedBytes = mockGetCollateral.mock.calls[0][1] as Buffer;
-      expect(Buffer.isBuffer(passedBytes)).toBe(true);
+      expect(passedBytes).toEqual(Buffer.from(result.quote));
 
       expect(result.quote).toBeDefined();
       expect(Array.isArray(result.quote)).toBe(true);
