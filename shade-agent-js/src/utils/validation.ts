@@ -46,11 +46,11 @@ export async function validateShadeConfig(config: ShadeConfig): Promise<void> {
   }
 
   // Validate pccsEndpoints: default to Phala PCCS → Intel PCS fallback ladder
-  // when undefined; reject explicit empty arrays (mirrors mpc's NonEmptyVec);
-  // reject malformed / non-http(s) URLs. Collateral GETs are unauthenticated
-  // and the client appends the certification paths itself, so credentials,
-  // query or fragment in a base URL are always a mistake (and credentials
-  // would otherwise surface in error messages).
+  // when undefined; reject explicit empty arrays; reject malformed /
+  // non-http(s) URLs. Collateral GETs are unauthenticated and the client
+  // appends the certification paths itself, so credentials, query or
+  // fragment in a base URL are always a mistake (and credentials would
+  // otherwise surface in error messages).
   if (config.pccsEndpoints === undefined) {
     config.pccsEndpoints = [...DEFAULT_PCCS_ENDPOINTS];
   } else {

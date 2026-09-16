@@ -8,20 +8,18 @@ import {
 import { checkCollateralFreshness } from "./collateral-freshness";
 import { defaultRetryable, genericError, withRetry } from "./errors";
 
-// Same ladder the MPC node ships with: Phala PCCS first, Intel PCS as the
-// fallback. Replaced wholesale when the user passes `pccsEndpoints` to
-// ShadeClient.create.
+// Default ladder: Phala PCCS first, Intel PCS as the fallback. Replaced
+// wholesale when the user passes `pccsEndpoints` to ShadeClient.create.
 export const DEFAULT_PCCS_ENDPOINTS: readonly string[] = [
   PHALA_PCCS_URL,
   INTEL_PCS_URL,
 ];
 
 // Wraps the whole per-endpoint bundle (PCK CRL, TCB info, QE identity and
-// root CRL, fetched sequentially inside dcap-qvl), the same way the MPC
-// node's PCCS_REQUEST_TIMEOUT wraps its collateral fetch.
+// root CRL, fetched sequentially inside dcap-qvl).
 const PER_ENDPOINT_TIMEOUT_MS = 10_000;
 
-// One retry per endpoint (2 attempts), as the MPC node does.
+// One retry per endpoint (2 attempts).
 const PER_ENDPOINT_RETRY_DELAY_MS = 500;
 
 // dcap-qvl reports a non-2xx response as a plain Error whose message ends

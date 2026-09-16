@@ -165,7 +165,7 @@ describe("validateShadeConfig", () => {
       ]);
     });
 
-    it("should reject an empty array (mirrors mpc's NonEmptyVec invariant)", async () => {
+    it("should reject an empty array", async () => {
       const config: ShadeConfig = {
         networkId: "testnet",
         pccsEndpoints: [],
