@@ -1445,6 +1445,46 @@ async function test8(appUrl) {
   }
 }
 
+// Test 9: Verify that two agent instances generate different private keys
+async function test9(appUrl) {
+  const correctMeasurements = getCorrectMeasurements();
+  const correctPpids = await getCorrectPpids();
+
+  await runTest(
+    appUrl,
+    "unique-keys",
+    async () => {
+      await approveMeasurements(correctMeasurements);
+      await approvePpids(correctPpids);
+    },
+    async (result) => {
+      // Verify all keys are unique
+      if (!result.allKeysUnique) {
+        throw new Error(
+          "Expected all keys to be unique, but duplicates were found",
+        );
+      }
+
+      // Verify each agent has 50 keys (the TEE returns counts, never the keys)
+      if (result.agent1KeyCount !== 50) {
+        throw new Error(
+          `Agent 1 should have 50 keys, got ${result.agent1KeyCount ?? 0}`,
+        );
+      }
+
+      if (result.agent2KeyCount !== 50) {
+        throw new Error(
+          `Agent 2 should have 50 keys, got ${result.agent2KeyCount ?? 0}`,
+        );
+      }
+
+      // Cleanup: Remove measurements and PPIDs
+      await removeMeasurements(correctMeasurements);
+      await removePpids(correctPpids);
+    },
+  );
+}
+
 // Test 10: Attestation expiration - set expiration to 10s; TEE registers, waits 12s, then request_signature fails with ExpiredAttestation
 async function test10(appUrl) {
   const correctMeasurements = getCorrectMeasurements();
@@ -1615,46 +1655,6 @@ async function test13(appUrl) {
         throw new Error("Agent should be registered but is not");
       }
 
-      await removeMeasurements(correctMeasurements);
-      await removePpids(correctPpids);
-    },
-  );
-}
-
-// Test 9: Verify that two agent instances generate different private keys
-async function test9(appUrl) {
-  const correctMeasurements = getCorrectMeasurements();
-  const correctPpids = await getCorrectPpids();
-
-  await runTest(
-    appUrl,
-    "unique-keys",
-    async () => {
-      await approveMeasurements(correctMeasurements);
-      await approvePpids(correctPpids);
-    },
-    async (result) => {
-      // Verify all keys are unique
-      if (!result.allKeysUnique) {
-        throw new Error(
-          "Expected all keys to be unique, but duplicates were found",
-        );
-      }
-
-      // Verify each agent has 50 keys (the TEE returns counts, never the keys)
-      if (result.agent1KeyCount !== 50) {
-        throw new Error(
-          `Agent 1 should have 50 keys, got ${result.agent1KeyCount ?? 0}`,
-        );
-      }
-
-      if (result.agent2KeyCount !== 50) {
-        throw new Error(
-          `Agent 2 should have 50 keys, got ${result.agent2KeyCount ?? 0}`,
-        );
-      }
-
-      // Cleanup: Remove measurements and PPIDs
       await removeMeasurements(correctMeasurements);
       await removePpids(correctPpids);
     },
