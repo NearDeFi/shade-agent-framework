@@ -221,8 +221,8 @@ describe("ShadeClient", () => {
   });
 
   describe("register", () => {
-    /** Default storage stake used by `register()` when no custom `deposit` (0.005 NEAR yocto). */
-    const defaultRegisterDepositYocto = "5000000000000000000000";
+    /** Default storage stake used by `register()` when no custom `deposit` (0.00486 NEAR yocto). */
+    const defaultRegisterDepositYocto = "4860000000000000000000";
     const customDepositYocto = "7777777777777777777777";
 
     async function createRegisterClient() {
@@ -239,7 +239,7 @@ describe("ShadeClient", () => {
       return { client, attestation };
     }
 
-    it("auto: no params — get_agent null uses default storage deposit (0.005 NEAR yocto)", async () => {
+    it("auto: no params — get_agent null uses default storage deposit (0.00486 NEAR yocto)", async () => {
       const { client, attestation } = await createRegisterClient();
       (mockProvider.callFunction as ReturnType<typeof vi.fn>).mockResolvedValueOnce(
         null,
