@@ -50,7 +50,7 @@ Fetch this for every flagged PR (and any you're unsure about); skip it for pure 
 - **Grouped?** — **grouped** if the title names a group ("the patch group", "in the minor group", "… across 1 directory"); else **individual**.
 - **Bump type** — patch / minor / major. Individual → parse `from A.B.C to D.E.F`. Grouped → the group name (patch / minor).
   - **0.x rule (dominates the group name):** for a pre-1.0 dep, a `0.A.x → 0.B.x` bump (the minor/`y` position moves) is breaking-risk — **classify it as `major`**, not minor. A pre-1.0 `0.A.x → 0.A.z` (only the patch/`z` moves) stays **patch**.
-  - This escalation applies **inside a group**: if a `patch`/`minor` group contains any dep doing a `0.y` bump, the group's effective bump is **`major`** — label the Bump cell `major (0.x)`, name the offending dep, and take the major action (Phase 4 rule 6), not the minor/patch one. (e.g. a "minor group" containing `@phala/cloud 0.2.9 → 0.3.0` → **major**.)
+  - This escalation applies **inside a group**: if a `patch`/`minor` group contains any dep doing a `0.y` bump, the group's effective bump is **`major`** — label the Bump cell `major (0.x)`, name the offending dep, and take the major action (Phase 4 rule 4 or 5), not the minor/patch one. (e.g. a "minor group" containing `@phala/cloud 0.2.9 → 0.3.0` → **major**.)
 - **Scope** — **dev** if the title is `chore(deps-dev)…`, else **runtime** (this repo's Dependabot titles do carry the `chore(deps)` / `chore(deps-dev)` prefix). If a title ever lacks it, fall back to the manifest at the PR head — npm: bumped packages in `devDependencies` vs `dependencies` — and label **mixed** when a group spans both.
 - **Security?** — `security` label or a GHSA-/CVE- advisory block in the body.
 - **CI** — ✅ / ❌ / ⏳ / – from `statusCheckRollup`.
@@ -61,6 +61,7 @@ Fetch this for every flagged PR (and any you're unsure about); skip it for pure 
     - **`/run-e2e contract`** (sandbox integration — CI runs only `cargo test --lib`): `near-sdk` / anything under `shade-contract-template`.
     - **`/run-e2e tee`** (real Phala CVM): `@phala/dstack-sdk` (shade-agent-js TEE path), `@phala/dcap-qvl` (shade-agent-js PCCS collateral fetch, mocked in CI), `@phala/cloud` (CLI deploy path).
     - **`/run-e2e`** (both — the crate runs in the in-sandbox contract tests against fixtures *and* only tests-in-tee hits live collateral): `dcap-qvl` / `dstack-sdk-types` / anything under `shade-attestation`.
+    - **`/run-e2e tee`** also covers any dep in `tests-in-tee/` or `tests-in-tee/test-image/` — they have no CI job at all, so the e2e suite is their only test.
   - `🔧 manual` — a surface covered by **neither** CI nor `tests-in-tee`, so a **major** bump needs a hands-on local run — where a pre-1.0 `0.y` bump counts as major (the 0.x flag) (Phase 5 table): `commander` (CLI arg parsing — `cli.js` is never driven by a test), `@napi-rs/keyring` (`shade-agent-cli/src/utils/keystore.js` — untested; e2e uses its own NEAR keys), `@inquirer/*` (CLI prompts — mocked in CI, never prompted in e2e), or any **shade-agent-template** runtime dep (`ethers`, `chainsig.js`, `hono`, `@hono/node-server`, `cors` — the template has no tests, CI runs only `tsc`, and e2e deploys `test-image/`, not the template).
   - `🧹 superseded?` — an *individual* npm/cargo **patch/minor** (non-major) PR is likely a pre-grouping leftover now covered by a group PR; verify before closing.
 
@@ -88,14 +89,17 @@ Then state, per failing PR: *which job failed → the actual error → likely ca
 
 1. **CI ❌** → `❌ Don't merge — see diagnosis below`
 2. **CI ⏳** → `⏳ Wait for CI`
-3. **security = yes** (CI ✅) → `🔴 Merge ASAP (security fix)` — but if also `⛔ measurements`, it still needs `/run-e2e tee` + measurement re-approval first (rule 4).
-4. **`⛔ measurements`** → `⛔ Don't routine-merge — needs measurement re-approval; /run-e2e tee on the PR first`
-5. **`🧹 superseded?`** → `🧹 Close (superseded by group) — verify first`
-6. **major** (incl. a pre-1.0 `0.y` bump, and any group escalated to major by the 0.x rule in Phase 2) → `🟠 Review migration; merge with the change or @dependabot ignore this major version`
-7. **minor group / minor** (CI ✅) → `🟡 Skim changelog, then merge`
-8. **patch group / patch**, or any **dev-scope** group (CI ✅) → `✅ Safe to merge`
+3. **`⛔ measurements`** → `⛔ Don't routine-merge — needs measurement re-approval; /run-e2e tee on the PR first`. If it's also a security fix, prefix `🔴 Security fix · ` so the urgency isn't lost — `/run-e2e tee` + re-approval still come first.
+4. **major + security** → `🔴 Security fix, major — review migration, then merge ASAP`. A security fix never gets the `@dependabot ignore` option — ignoring it leaves the vulnerability open. If the migration can't land yet, clear the vulnerability another way: a patched release on the current major if one exists, or the override / replace options in Phase 8.
+5. **major** (incl. a pre-1.0 `0.y` bump, and any group escalated to major by the 0.x rule in Phase 2) → `🟠 Review migration; merge with the change or @dependabot ignore this major version`
+6. **security = yes** (CI ✅) → `🔴 Merge ASAP (security fix)`
+7. **`🧹 superseded?`** → `🧹 Close (superseded by group) — verify first`
+8. **minor group / minor** (CI ✅) → `🟡 Skim changelog, then merge`
+9. **patch group / patch**, or any **dev-scope** group (CI ✅) → `✅ Safe to merge`
 
-Append the specific command for any **major** `🧪 /run-e2e` PR — `· 🧪 /run-e2e contract`, `· 🧪 /run-e2e tee`, or `· 🧪 /run-e2e` (both) per the Phase 2 surface map; a PR spanning surfaces that need different suites takes the **union** (needs contract *and* tee → `/run-e2e`). Append `· 🔧 manual run first` for any **major** `🔧 manual` PR. **Major here includes a pre-1.0 `0.y` bump** (`0.A.x → 0.B.x`, the 0.x flag); a patch or a `≥1.0` minor does **not** get a run recommendation — CI covers it, trust `ci-passed`. (`⛔ measurements` is exempt: it always needs `/run-e2e tee` + re-approval — see rule 4.)
+A security fix is urgent, but it doesn't skip the checks a major bump needs: rules 3–5 sit above the plain security rule so a `⛔` or major security bump still gets its re-approval, migration review, and verification.
+
+Put the verification in the table's **Verify** column (Phase 5): the specific suite for any **major** `🧪 /run-e2e` PR — `🧪 /run-e2e contract`, `🧪 /run-e2e tee`, or `🧪 /run-e2e` (both) per the Phase 2 surface map; a PR spanning surfaces that need different suites takes the **union** (needs contract *and* tee → `/run-e2e`). Put `🔧 manual` for any **major** `🔧 manual` PR. Both apply whichever rule matched — a `⛔` or security major gets them too. **Major here includes a pre-1.0 `0.y` bump** (`0.A.x → 0.B.x`, the 0.x flag); a patch or a `≥1.0` minor does **not** get a run recommendation — CI covers it, trust `ci-passed`. (`⛔ measurements` is exempt: it always needs `/run-e2e tee` + re-approval — see rule 3.)
 
 ## Phase 5 — Scan A output (PRs)
 
@@ -107,10 +111,18 @@ One markdown table, sorted safest-first:
 ```
 ## Open Dependabot PRs — {REPO}  (N open)
 
-| PR | Eco | Package(s) | Grouped | Bump | Scope | CI | Sec | Suggested action |
-|----|-----|------------|---------|------|-------|----|----|------------------|
+| PR | Eco | Package(s) | Grouped | Bump | Scope | CI | Sec | Verify | Suggested action |
+|----|-----|------------|---------|------|-------|----|----|--------|------------------|
 ```
 Keep package lists short ("headline +N more"). Nothing before the table but a one-line header.
+
+Fill **Verify** for **every** row, so the table alone says what must pass before a merge:
+- `CI` — `ci-passed` covers it: a patch, a `≥1.0` minor, or a surface CI actually tests.
+- `none (no CI job)` — a patch/minor in `tests-in-tee/` or `tests-in-tee/test-image/`: every `ci-passed` package job is skipped, so nothing ran. It's test-harness only, so it's mergeable; a break shows on the next `/run-e2e`.
+- `🧪 /run-e2e contract` / `🧪 /run-e2e tee` / `🧪 /run-e2e` — a major on an e2e surface (Phase 4).
+- `🔧 manual` — a major on a manual surface; its guidance block carries the Run-it commands.
+- `⛔ /run-e2e tee + re-approve` — a `⛔ measurements` PR.
+- A CI ❌ or held PR gets the check it needs once unblocked (e.g. `CI after fix`); a PR to close or ignore gets `—`.
 
 ### Enhanced guidance (only for non-routine PRs — skip pure `✅ Safe to merge`)
 For each CI-❌, major, `⛔`, security, `🧹`, or any **major** `🧪`/`🔧` PR (a pre-1.0 `0.y` bump counts as major), a short block — a patch or `≥1.0` minor `🧪`/`🔧` PR is routine, skip it:
@@ -123,7 +135,7 @@ For each CI-❌, major, `⛔`, security, `🧹`, or any **major** `🧪`/`🔧` 
 >   - **always start**: `gh pr checkout <n> --repo {REPO}` → `cd <package-dir>` → `npm ci` (Rust: `cargo build`).
 >   - **shade-agent-cli → say what *settings/commands* to run**: the exact subcommand + flags/config/env to set. e.g. `commander` → `node src/cli.js --help` then the subcommand whose options changed, with its flags, checking parse + exit code; `@napi-rs/keyring` → a full auth round-trip `node src/cli.js auth login` (store) → a read-back command → `auth logout` (delete), confirming the OS-keychain entry appears and is removed; `@inquirer/*` → run a command that actually prompts (`auth login`, a destructive-redeploy confirm, `whitelist`) and answer each prompt.
 >   - **shade-agent-template → say what *actions* to take**: `npm run dev`, then the path to exercise. e.g. `ethers`/`chainsig.js` → drive the chain-signature / EVM flow end-to-end; `hono`/`@hono/node-server`/`cors` → `curl` the agent's routes and confirm responses + CORS headers.
-> - **Decision**: merge / close / `@dependabot ignore this major version` / `/run-e2e` (the matching suite; `tee` + measurement re-approval for `⛔`) — **and honor any code-owner comment** (e.g. a code owner said "blocked till rust > 1.86" → the decision is *hold*, regardless of CI). A non-code-owner comment is surfaced as context, never an override.
+> - **Decision**: merge / close / `@dependabot ignore this major version` (never for a security fix — see Phase 4 rule 4) / `/run-e2e` (the matching suite; `tee` + measurement re-approval for `⛔`) — **and honor any code-owner comment** (e.g. a code owner said "blocked till rust > 1.86" → the decision is *hold*, regardless of CI). A non-code-owner comment is surfaced as context, never an override.
 
 ### Verification by coverage tier (only for flagged PRs)
 `ci-passed` runs per-package **build + mocked unit tests on ubuntu**. Treat anything it covers as done — an ubuntu pass stands in for other platforms, so never ask for a local re-run of what CI already runs. Route only the gaps:
@@ -138,6 +150,7 @@ For each CI-❌, major, `⛔`, security, `🧹`, or any **major** `🧪`/`🔧` 
 | `near-sdk` / `shade-contract-template/**` | `/run-e2e contract` | on-chain register / owner-gating / upgrade — CI runs `cargo test --lib`, skipping the sandbox integration tests |
 | `dcap-qvl` / `dstack-sdk-types` / `shade-attestation/**` | `/run-e2e` (both) | the contract sandbox tests exercise the crate against fixtures **and** only tests-in-tee verifies against live collateral |
 | docker base image (`node`, `test-image.Dockerfile`) `⛔` | `/run-e2e tee` | new image → new measurement; **also re-approve measurements** |
+| `tests-in-tee/**` / `tests-in-tee/test-image/**` deps | `/run-e2e tee` | no CI job — `ci-passed` skips every package job, so only the e2e suite builds and runs them |
 
 **🔧 Run it by hand (covered by NEITHER CI nor tests-in-tee).** A **major** bump here (incl. a pre-1.0 `0.y` bump) has no automated gate; a patch or `≥1.0` minor is covered — trust CI. `gh pr checkout <n> --repo {REPO}` first.
 
@@ -150,8 +163,8 @@ For each CI-❌, major, `⛔`, security, `🧹`, or any **major** `🧪`/`🔧` 
 | `shade-agent-template` — web layer | `hono`, `@hono/node-server`, `cors` | `cd shade-agent-template && npm ci && npm run dev`, then `curl` the agent's routes and confirm responses + CORS headers |
 
 ### Summary
-- Counts by action bucket.
-- **Merge order**: safe patch/dev groups → minor groups (after a skim) → majors one at a time → `🔧` majors after a manual run → `⛔`/`🧪` majors after the matching `/run-e2e` (`contract`, `tee`, or both) + any measurement re-approval.
+- Counts by action bucket, and by **Verify** value.
+- **Merge order**: security fixes first (a security major only after its migration review and any `🧪`/`🔧` run) → safe patch/dev groups → minor groups (after a skim) → majors one at a time → `🔧` majors after a manual run → `⛔`/`🧪` majors after the matching `/run-e2e` (`contract`, `tee`, or both) + any measurement re-approval.
 - Flags legend — only for flags that appeared.
 
 ## Phase 6 — Gather security alerts (Scan B)
